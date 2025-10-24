@@ -3,14 +3,14 @@ Option Explicit
 
 ' =================== KONFIG ===================
 Private Const ARK_PLAN As String = "Planlegger"
-Private Const FØRSTE_DATAKOL As Long = 2    ' B = 2
+Private Const FÃ˜RSTE_DATAKOL As Long = 2    ' B = 2
 Private Const datoRad As Long = 15          ' rad med datoer (ekte datoer)
-Private Const FØRSTE_PERSONRAD As Long = 16
+Private Const FÃ˜RSTE_PERSONRAD As Long = 16
 ' Standard grid: tynn, automatisk farge
 Private Const GRID_WEIGHT As Long = xlHairline   ' bruk xlThin for sterkere ruter
 ' =============================================
 
-' RYDD: fjerner alt i valgt spenn, tegner rutenett på nytt, sletter tomme under-rader
+' RYDD: fjerner alt i valgt spenn, tegner rutenett pÃ¥ nytt, sletter tomme under-rader
 Public Sub RyddBlokkForPerson()
     Dim ws As Worksheet
     Dim personCell As Range
@@ -25,25 +25,25 @@ Public Sub RyddBlokkForPerson()
     ' Velg person (hovedrad)
     On Error Resume Next
     Set personCell = Application.InputBox( _
-        prompt:="Klikk personens HOVEDRAD i kolonne A (rad " & FØRSTE_PERSONRAD & "+).", _
+        prompt:="Klikk personens HOVEDRAD i kolonne A (rad " & FÃ˜RSTE_PERSONRAD & "+).", _
         Title:="Velg person", Type:=8)
     On Error GoTo 0
     If personCell Is Nothing Then Exit Sub
-    If personCell.Column <> 1 Or personCell.Row < FØRSTE_PERSONRAD Then
-        MsgBox "Velg i kol A fra rad " & FØRSTE_PERSONRAD & ".", vbExclamation: Exit Sub
+    If personCell.Column <> 1 Or personCell.Row < FÃ˜RSTE_PERSONRAD Then
+        MsgBox "Velg i kol A fra rad " & FÃ˜RSTE_PERSONRAD & ".", vbExclamation: Exit Sub
     End If
     
     ' Datoer
-    If Not HentDato("Startdato (dd.mm.åååå) som skal ryddes:", startDato) Then Exit Sub
-    If Not HentDato("Sluttdato (dd.mm.åååå):", sluttDato) Then Exit Sub
+    If Not HentDato("Startdato (dd.mm.Ã¥Ã¥Ã¥Ã¥) som skal ryddes:", startDato) Then Exit Sub
+    If Not HentDato("Sluttdato (dd.mm.Ã¥Ã¥Ã¥Ã¥):", sluttDato) Then Exit Sub
     If sluttDato < startDato Then
         MsgBox "Sluttdato < Startdato.", vbExclamation
         Exit Sub
     End If
     
     ' Kolonner for dato-spenn
-    startCol = FinnKolonneForDato_Rad13(ws, startDato, FØRSTE_DATAKOL, datoRad)
-    sluttCol = FinnKolonneForDato_Rad13(ws, sluttDato, FØRSTE_DATAKOL, datoRad)
+    startCol = FinnKolonneForDato_Rad13(ws, startDato, FÃ˜RSTE_DATAKOL, datoRad)
+    sluttCol = FinnKolonneForDato_Rad13(ws, sluttDato, FÃ˜RSTE_DATAKOL, datoRad)
     If startCol = 0 Or sluttCol = 0 Then
         MsgBox "Fant ikke datoene i rad " & datoRad & ".", vbCritical: Exit Sub
     End If
@@ -60,11 +60,11 @@ Public Sub RyddBlokkForPerson()
     
     Application.ScreenUpdating = False
     
-    ' 1) Rydd valgt spenn på hele blokken
+    ' 1) Rydd valgt spenn pÃ¥ hele blokken
     For r = blockStart To blockEnd
         Set rng = ws.Range(ws.Cells(r, startCol), ws.Cells(r, sluttCol))
         
-        ' Tøm
+        ' TÃ¸m
         rng.ClearContents
         rng.Interior.ColorIndex = xlColorIndexNone
         rng.Borders.LineStyle = xlLineStyleNone
@@ -77,7 +77,7 @@ Public Sub RyddBlokkForPerson()
         ws.Cells(r, startCol).ClearComments
         On Error GoTo 0
         
-        ' Tegn rutenett på nytt (tynne inndelingslinjer)
+        ' Tegn rutenett pÃ¥ nytt (tynne inndelingslinjer)
         With rng.Borders
             .LineStyle = xlContinuous
             .ColorIndex = xlColorIndexAutomatic
@@ -85,7 +85,7 @@ Public Sub RyddBlokkForPerson()
         End With
     Next r
     
-    ' 2) Gjenopprett overordnet formatering på under-rader fra hovedraden
+    ' 2) Gjenopprett overordnet formatering pÃ¥ under-rader fra hovedraden
     If blockEnd > blockStart Then
         ws.Rows(blockStart).Copy
         ws.Range(ws.Rows(blockStart + 1), ws.Rows(blockEnd)).PasteSpecial xlPasteFormats
@@ -94,12 +94,12 @@ Public Sub RyddBlokkForPerson()
     
     ' 3) Slett tomme under-rader (aldri hovedraden)
     If blockEnd > blockStart Then
-        SlettTommeUnderRader ws, blockStart, blockEnd, FØRSTE_DATAKOL, lastCol
+        SlettTommeUnderRader ws, blockStart, blockEnd, FÃ˜RSTE_DATAKOL, lastCol
     End If
     
     Application.ScreenUpdating = True
     
-    MsgBox "Ryddet " & Format(startDato, "dd.mm.yyyy") & "–" & _
+    MsgBox "Ryddet " & Format(startDato, "dd.mm.yyyy") & "Â–" & _
            Format(sluttDato, "dd.mm.yyyy") & " for personblokken, og rutenett er gjenopprettet.", vbInformation
 End Sub
 

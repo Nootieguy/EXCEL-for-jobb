@@ -2,7 +2,7 @@ Attribute VB_Name = "ArkAktivitetsOversikt"
 
 ' ========================================================================
 ' WORKSHEET EVENT: AKTIVITETSOVERSIKT
-' Håndterer automatisk synkronisering til Planlegger når bruker endrer data
+' HÃ¥ndterer automatisk synkronisering til Planlegger nÃ¥r bruker endrer data
 ' ========================================================================
 
 Private Const TBL_START_ROW As Long = 10
@@ -13,12 +13,12 @@ Private Const COL_OPP_SLUTT As Long = 5
 Private Const COL_FORSINKET As Long = 6
 Private Const COL_KOMMENTAR As Long = 10
 
-' Lagre gammel person-verdi når bruker klikker i Person-kolonnen
+' Lagre gammel person-verdi nÃ¥r bruker klikker i Person-kolonnen
 Private gammelPersonVerdi As String
 Private gammelPersonRad As Long
 
 ' =====================================================================
-' EVENT: Når bruker klikker i en celle (før endring)
+' EVENT: NÃ¥r bruker klikker i en celle (fÃ¸r endring)
 ' =====================================================================
 Private Sub Worksheet_SelectionChange(ByVal Target As Range)
     On Error Resume Next
@@ -37,7 +37,7 @@ Private Sub Worksheet_SelectionChange(ByVal Target As Range)
 End Sub
 
 ' =====================================================================
-' EVENT: Når bruker endrer en celle
+' EVENT: NÃ¥r bruker endrer en celle
 ' =====================================================================
 Private Sub Worksheet_Change(ByVal Target As Range)
     On Error GoTo Slutt
@@ -45,26 +45,26 @@ Private Sub Worksheet_Change(ByVal Target As Range)
     If Target Is Nothing Then Exit Sub
     If Target.Row < TBL_START_ROW Then Exit Sub
     
-    ' Disable events for å unngå loop
+    ' Disable events for Ã¥ unngÃ¥ loop
     Application.EnableEvents = False
     
     Dim c As Range
     
-    ' Gå gjennom hver endret celle
+    ' GÃ¥ gjennom hver endret celle
     For Each c In Target.Cells
         If c.Row >= TBL_START_ROW Then
             Select Case c.Column
                 Case COL_PERSON
                     ' Person endret - flytt aktivitet til ny person
-                    Call HåndterPersonEndring(c.Row)
+                    Call HÃ¥ndterPersonEndring(c.Row)
                     
                 Case COL_KODE
                     ' Kode endret - valider og oppdater beskrivelse
-                    Call HåndterKodeEndring(c.Row)
+                    Call HÃ¥ndterKodeEndring(c.Row)
                     
                 Case COL_OPP_START, COL_OPP_SLUTT
                     ' Dato endret - valider
-                    Call HåndterDatoEndring(c.Row)
+                    Call HÃ¥ndterDatoEndring(c.Row)
             End Select
         End If
     Next c
@@ -74,9 +74,9 @@ Slutt:
 End Sub
 
 ' =====================================================================
-' Håndter person-endring
+' HÃ¥ndter person-endring
 ' =====================================================================
-Private Sub HåndterPersonEndring(ByVal rad As Long)
+Private Sub HÃ¥ndterPersonEndring(ByVal rad As Long)
     Dim nyPerson As String, kode As String
     Dim startDato As Date, sluttDato As Date, kommentar As String
     
@@ -84,7 +84,7 @@ Private Sub HåndterPersonEndring(ByVal rad As Long)
     nyPerson = Trim$(Me.Cells(rad, COL_PERSON).Value)
     kode = Trim$(Me.Cells(rad, COL_KODE).Value)
     
-    ' Valider at vi har nødvendig data
+    ' Valider at vi har nÃ¸dvendig data
     If Len(nyPerson) = 0 Or Len(kode) = 0 Then Exit Sub
     If Len(gammelPersonVerdi) = 0 Then Exit Sub
     If gammelPersonRad <> rad Then Exit Sub
@@ -112,9 +112,9 @@ Private Sub HåndterPersonEndring(ByVal rad As Long)
 End Sub
 
 ' =====================================================================
-' Håndter kode-endring
+' HÃ¥ndter kode-endring
 ' =====================================================================
-Private Sub HåndterKodeEndring(ByVal rad As Long)
+Private Sub HÃ¥ndterKodeEndring(ByVal rad As Long)
     Dim nyKode As String, beskrivelse As String, farge As Long
     Dim wsTyp As Worksheet
     Dim funnet As Boolean
@@ -136,7 +136,7 @@ Private Sub HåndterKodeEndring(ByVal rad As Long)
     
     If Not funnet Then
         MsgBox "Aktivitetskode '" & nyKode & "' finnes ikke i AKTIVITETSTYPER - OVERSIKT!" & vbCrLf & vbCrLf & _
-               "Legg til koden først, eller velg en eksisterende kode.", vbExclamation, "Ugyldig kode"
+               "Legg til koden fÃ¸rst, eller velg en eksisterende kode.", vbExclamation, "Ugyldig kode"
         Me.Cells(rad, COL_KODE).Value = ""
     Else
         ' Oppdater beskrivelsen automatisk
@@ -145,9 +145,9 @@ Private Sub HåndterKodeEndring(ByVal rad As Long)
 End Sub
 
 ' =====================================================================
-' Håndter dato-endring
+' HÃ¥ndter dato-endring
 ' =====================================================================
-Private Sub HåndterDatoEndring(ByVal rad As Long)
+Private Sub HÃ¥ndterDatoEndring(ByVal rad As Long)
     Dim startDato As Date, sluttDato As Date
     
     On Error Resume Next
@@ -159,7 +159,7 @@ Private Sub HåndterDatoEndring(ByVal rad As Long)
     
     ' Valider at startdato ikke er etter sluttdato
     If startDato > sluttDato Then
-        MsgBox "Startdato kan ikke være etter sluttdato!", vbExclamation, "Ugyldig dato"
+        MsgBox "Startdato kan ikke vÃ¦re etter sluttdato!", vbExclamation, "Ugyldig dato"
         Me.Cells(rad, COL_OPP_START).Value = sluttDato
     End If
 End Sub
