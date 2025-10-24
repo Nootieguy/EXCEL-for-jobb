@@ -1,4 +1,3 @@
-Attribute VB_Name = "modDagensOutline"
 ' ===== modul: modDagensDatoBlå =====
 Option Explicit
 

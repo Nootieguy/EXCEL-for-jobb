@@ -1,4 +1,3 @@
-Attribute VB_Name = "FjernMarkert"
 Option Explicit
 
 ' =================== KONFIG ===================
