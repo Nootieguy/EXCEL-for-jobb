@@ -140,7 +140,7 @@ Private Sub Worksheet_Change(ByVal Target As Range)
     ' Behandle hver rad kun ÉN gang
     Dim radNr As Variant
     For Each radNr In splittRader.Keys
-        Call HåndterAktivitetSplitForRad(CLng(radNr), førsteDatoKol, datoRad)
+        Call HåndterAlleAktiviteterMedSplitIRad(CLng(radNr), førsteDatoKol, datoRad)
     Next radNr
 
 Slutt:
@@ -201,8 +201,204 @@ Private Sub BehandleSlettetCelle(ByVal cel As Range, ByVal førsteDatoKol As Lon
 End Sub
 
 ' ============================================================================
+' SPLIT-HÅNDTERING: Finn og håndter ALLE aktivitetsblokker med splits i raden
+' ============================================================================
+Private Sub HåndterAlleAktiviteterMedSplitIRad(ByVal rad As Long, ByVal førsteDatoKol As Long, _
+                                                ByVal datoRad As Long)
+    Dim lastCol As Long
+    Dim c As Long
+    Dim aktivitetsBlokker As Object
+    Set aktivitetsBlokker = CreateObject("Scripting.Dictionary")
+
+    lastCol = Me.Cells(datoRad, Me.Columns.Count).End(xlToLeft).Column
+
+    ' STEG 1: Identifiser hver unike aktivitetsblokk i raden
+    ' En blokk = sammenhengende celler med SAMME farge
+    Dim blokNr As Long
+    blokNr = 0
+
+    Dim inBlokk As Boolean
+    Dim blokkStart As Long, blokkSlutt As Long
+    Dim blokkFarge As Long
+
+    inBlokk = False
+
+    For c = førsteDatoKol To lastCol
+        If HarAktivitetsfarge(Me.Cells(rad, c)) Then
+            Dim celleFarge As Long
+            celleFarge = Me.Cells(rad, c).Interior.Color
+
+            If Not inBlokk Then
+                ' Start ny blokk
+                inBlokk = True
+                blokkStart = c
+                blokkFarge = celleFarge
+            ElseIf FargeAvstand(celleFarge, blokkFarge) > 10 Then
+                ' Farge endret - avslutt forrige blokk og start ny
+                blokNr = blokNr + 1
+                aktivitetsBlokker.Add blokNr, Array(blokkStart, c - 1, blokkFarge)
+
+                blokkStart = c
+                blokkFarge = celleFarge
+            End If
+            blokkSlutt = c
+        Else
+            ' Hvit celle
+            If inBlokk Then
+                ' Avslutt blokken
+                blokNr = blokNr + 1
+                aktivitetsBlokker.Add blokNr, Array(blokkStart, blokkSlutt, blokkFarge)
+                inBlokk = False
+            End If
+        End If
+    Next c
+
+    ' Håndter siste blokk hvis vi fortsatt er i en
+    If inBlokk Then
+        blokNr = blokNr + 1
+        aktivitetsBlokker.Add blokNr, Array(blokkStart, blokkSlutt, blokkFarge)
+    End If
+
+    ' STEG 2: For hver blokk, sjekk om den har split og håndter den
+    Dim k As Variant
+    For Each k In aktivitetsBlokker.Keys
+        Dim blokkInfo As Variant
+        blokkInfo = aktivitetsBlokker(k)
+
+        Dim bStart As Long, bSlutt As Long, bFarge As Long
+        bStart = blokkInfo(0)
+        bSlutt = blokkInfo(1)
+        bFarge = blokkInfo(2)
+
+        ' Sjekk om denne blokken har hvite celler (split)
+        Dim harSplit As Boolean
+        harSplit = False
+
+        For c = bStart To bSlutt
+            If Not HarAktivitetsfarge(Me.Cells(rad, c)) Then
+                harSplit = True
+                Exit For
+            End If
+        Next c
+
+        ' Hvis blokken har split, håndter den
+        If harSplit Then
+            Call HåndterEnkeltAktivitetSplit(rad, bStart, bSlutt, bFarge, førsteDatoKol, datoRad)
+        End If
+    Next k
+End Sub
+
+' ============================================================================
+' SPLIT-HÅNDTERING: Håndter split for EN spesifikk aktivitetsblokk
+' ============================================================================
+Private Sub HåndterEnkeltAktivitetSplit(ByVal rad As Long, ByVal blokkStart As Long, _
+                                         ByVal blokkSlutt As Long, ByVal aktivFarge As Long, _
+                                         ByVal førsteDatoKol As Long, ByVal datoRad As Long)
+    Dim aktivKode As String, aktivBeskr As String
+    Dim c As Long
+    Dim lastCol As Long
+
+    lastCol = Me.Cells(datoRad, Me.Columns.Count).End(xlToLeft).Column
+
+    ' STEG 1: Finn tekst FRA DENNE BLOKKEN
+    Dim førsteCelleMedTekst As Range
+    Set førsteCelleMedTekst = Nothing
+
+    For c = blokkStart To blokkSlutt
+        If HarAktivitetsfarge(Me.Cells(rad, c)) Then
+            If Len(Trim$(Me.Cells(rad, c).Value)) > 0 Then
+                Set førsteCelleMedTekst = Me.Cells(rad, c)
+                Exit For
+            End If
+        End If
+    Next c
+
+    ' STEG 2: Hent aktivitetskode og beskrivelse
+    Dim fullTekst As String
+
+    If Not førsteCelleMedTekst Is Nothing Then
+        ' Bruk teksten fra cellen (kan være kommentar eller standard beskrivelse)
+        fullTekst = Trim$(førsteCelleMedTekst.Value)
+
+        ' Parse ut kode og beskrivelse
+        Dim dashPos As Long
+        dashPos = InStr(fullTekst, "–")
+        If dashPos = 0 Then dashPos = InStr(fullTekst, "-")
+
+        If dashPos > 0 Then
+            aktivKode = Trim$(Left$(fullTekst, dashPos - 1))
+            aktivBeskr = Trim$(Mid$(fullTekst, dashPos + 1))
+        Else
+            aktivKode = fullTekst
+            aktivBeskr = ""
+        End If
+    Else
+        ' Slå opp standard fra AKTIVITETSTYPER
+        aktivKode = SlåOppAktivitetFraFarge(aktivFarge, aktivBeskr)
+    End If
+
+    If Len(aktivKode) = 0 Then Exit Sub
+
+    If DEBUG_MODE Then
+        Debug.Print String(80, "=")
+        Debug.Print "SPLIT FOR BLOKK " & blokkStart & "-" & blokkSlutt & " [" & Now & "]"
+        Debug.Print "  → Aktivitet: " & aktivKode & " - " & aktivBeskr
+    End If
+
+    ' STEG 3: Nullstill alignment på DENNE blokken
+    For c = blokkStart To blokkSlutt
+        Me.Cells(rad, c).HorizontalAlignment = xlGeneral
+    Next c
+
+    ' STEG 4: Skann blokken og identifiser segmenter
+    Dim inSegment As Boolean
+    Dim segmentStart As Long, segmentEnd As Long
+    Dim segmentNr As Integer
+
+    segmentNr = 0
+    inSegment = False
+
+    For c = blokkStart To blokkSlutt
+        If FargeAvstand(Me.Cells(rad, c).Interior.Color, aktivFarge) <= 10 Then
+            If Not inSegment Then
+                inSegment = True
+                segmentStart = c
+                segmentNr = segmentNr + 1
+            End If
+            segmentEnd = c
+        Else
+            If inSegment Then
+                Call FormaterSegment(rad, segmentStart, segmentEnd, aktivFarge, aktivKode, _
+                                     aktivBeskr, segmentNr)
+                inSegment = False
+            End If
+        End If
+    Next c
+
+    If inSegment Then
+        Call FormaterSegment(rad, segmentStart, segmentEnd, aktivFarge, aktivKode, _
+                             aktivBeskr, segmentNr)
+    End If
+
+    ' STEG 5: Nullstill hvite celler i blokken
+    For c = blokkStart To blokkSlutt
+        If Not HarAktivitetsfarge(Me.Cells(rad, c)) Then
+            With Me.Cells(rad, c)
+                .Value = ""
+                .Font.Bold = False
+            End With
+        End If
+    Next c
+
+    If DEBUG_MODE Then
+        Debug.Print "  ✓ Blokk håndtert!"
+        Debug.Print String(80, "=")
+    End If
+End Sub
+
+' ============================================================================
 ' SPLIT-HÅNDTERING: Re-formaterer aktivitet som er splittet (HELE RADEN)
-' Kan kalles både internt (fra Worksheet_Change) og eksternt (fra FjernMarkert)
+' Kan kalles eksternt (fra FjernMarkert) - bruker gammel logikk
 ' ============================================================================
 Public Sub HåndterAktivitetSplitForRad(ByVal rad As Long, ByVal førsteDatoKol As Long, _
                                          ByVal datoRad As Long)
