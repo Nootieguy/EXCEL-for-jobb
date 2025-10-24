@@ -20,6 +20,8 @@
 '
 '   Split-håndtering (forbedret):
 '   - Splittede aktiviteter viser aktivitetsnavn i ALLE segmenter
+'   - BEHOLDER kommentarer: Hvis aktivitet har custom beskrivelse (kommentar),
+'     vises denne i alle segmenter i stedet for standard beskrivelse
 '   - Hvert segment får riktig formatering (alignment, font, farge)
 '   - Tekst "blør" ikke over hvite celler
 '   - Fungerer med både Delete og "Fjern markert område"
@@ -209,20 +211,51 @@ Public Sub HåndterAktivitetSplitForRad(ByVal rad As Long, ByVal førsteDatoKol 
     Dim c As Long
     Dim lastCol As Long
 
-    ' STEG 1: Finn aktivitetsfargen (skann raden for første aktivitetsfarge)
+    ' STEG 1: Finn første celle med aktivitetsfarge OG tekst (for å få kommentar)
     lastCol = Me.Cells(datoRad, Me.Columns.Count).End(xlToLeft).Column
+
+    Dim førsteCelleMedTekst As Range
+    Set førsteCelleMedTekst = Nothing
 
     For c = førsteDatoKol To lastCol
         If HarAktivitetsfarge(Me.Cells(rad, c)) Then
-            aktivFarge = Me.Cells(rad, c).Interior.Color
-            Exit For
+            If aktivFarge = 0 Then aktivFarge = Me.Cells(rad, c).Interior.Color
+
+            ' Hvis denne cellen har tekst, bruk den
+            If Len(Trim$(Me.Cells(rad, c).Value)) > 0 Then
+                Set førsteCelleMedTekst = Me.Cells(rad, c)
+                Exit For
+            End If
         End If
     Next c
 
     If aktivFarge = 0 Then Exit Sub  ' Ingen aktivitetsfarge funnet i raden
 
-    ' STEG 2: Slå opp aktivitetskode
-    aktivKode = SlåOppAktivitetFraFarge(aktivFarge, aktivBeskr)
+    ' STEG 2: Hent aktivitetskode og beskrivelse
+    Dim fullTekst As String
+
+    If Not førsteCelleMedTekst Is Nothing Then
+        ' Bruk teksten fra cellen (kan være kommentar eller standard beskrivelse)
+        fullTekst = Trim$(førsteCelleMedTekst.Value)
+
+        ' Parse ut kode og beskrivelse (format: "KODE – Beskrivelse")
+        Dim dashPos As Long
+        dashPos = InStr(fullTekst, "–")
+        If dashPos = 0 Then dashPos = InStr(fullTekst, "-")  ' Prøv også vanlig bindestrek
+
+        If dashPos > 0 Then
+            aktivKode = Trim$(Left$(fullTekst, dashPos - 1))
+            aktivBeskr = Trim$(Mid$(fullTekst, dashPos + 1))
+        Else
+            ' Ingen separator funnet, bruk hele teksten som kode
+            aktivKode = fullTekst
+            aktivBeskr = ""
+        End If
+    Else
+        ' Ingen celle med tekst funnet, slå opp standard fra AKTIVITETSTYPER
+        aktivKode = SlåOppAktivitetFraFarge(aktivFarge, aktivBeskr)
+    End If
+
     If Len(aktivKode) = 0 Then Exit Sub
 
     If DEBUG_MODE Then
