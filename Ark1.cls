@@ -91,6 +91,11 @@ Private Sub Worksheet_Change(ByVal Target As Range)
     Dim splittRader As Object
     Set splittRader = CreateObject("Scripting.Dictionary")
 
+    ' Dictionary for å lagre celler som skal ha farge fjernet
+    ' Key = rad, Value = Collection av kolonnenummer
+    Dim cellerÅFjerne As Object
+    Set cellerÅFjerne = CreateObject("Scripting.Dictionary")
+
     For Each c In relevantEndring.Cells
         ' Sjekk om cellen er tom
         If Len(Trim$(c.Value)) = 0 Then
@@ -101,13 +106,20 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                     ' FØRSTE CELLE: Restaurer navnet (beholder fargen)
                     Call BehandleSlettetCelle(c, førsteDatoKol, datoRad)
                 Else
-                    ' IKKE første celle: Fjern fargen (Delete = Clear All)
+                    ' IKKE første celle: Marker for fjerning (Delete = Clear All)
                     If DEBUG_MODE Then
-                        Debug.Print "Fjerner farge fra celle " & c.Address & " (Delete = Clear All)"
+                        Debug.Print "Markerer celle for fjerning: " & c.Address
                     End If
 
-                    c.Interior.ColorIndex = xlColorIndexNone
-                    c.Font.Bold = False
+                    ' Lagre denne cellen for senere fjerning
+                    Dim radKey As String
+                    radKey = CStr(c.Row)
+                    If Not cellerÅFjerne.Exists(radKey) Then
+                        Dim nyCol As Object
+                        Set nyCol = CreateObject("Scripting.Dictionary")
+                        cellerÅFjerne.Add radKey, nyCol
+                    End If
+                    cellerÅFjerne(radKey).Add c.Column, c.Column
 
                     ' Marker raden for split-håndtering
                     If Not splittRader.Exists(c.Row) Then
@@ -140,7 +152,7 @@ Private Sub Worksheet_Change(ByVal Target As Range)
     ' Behandle hver rad kun ÉN gang
     Dim radNr As Variant
     For Each radNr In splittRader.Keys
-        Call HåndterAlleAktiviteterMedSplitIRad(CLng(radNr), førsteDatoKol, datoRad)
+        Call HåndterAlleAktiviteterMedSplitIRad(CLng(radNr), førsteDatoKol, datoRad, cellerÅFjerne)
     Next radNr
 
 Slutt:
@@ -204,7 +216,7 @@ End Sub
 ' SPLIT-HÅNDTERING: Finn og håndter ALLE aktivitetsblokker med splits i raden
 ' ============================================================================
 Private Sub HåndterAlleAktiviteterMedSplitIRad(ByVal rad As Long, ByVal førsteDatoKol As Long, _
-                                                ByVal datoRad As Long)
+                                                ByVal datoRad As Long, ByVal cellerÅFjerne As Object)
     Dim lastCol As Long
     Dim c As Long
     Dim aktivitetsBlokker As Object
@@ -270,10 +282,11 @@ Private Sub HåndterAlleAktiviteterMedSplitIRad(ByVal rad As Long, ByVal første
         bSlutt = blokkInfo(1)
         bFarge = blokkInfo(2)
 
-        ' Sjekk om denne blokken har hvite celler (split)
+        ' Sjekk om denne blokken har hvite celler (split) ELLER celler markert for fjerning
         Dim harSplit As Boolean
         harSplit = False
 
+        ' Først sjekk hvite celler
         For c = bStart To bSlutt
             If Not HarAktivitetsfarge(Me.Cells(rad, c)) Then
                 harSplit = True
@@ -281,9 +294,25 @@ Private Sub HåndterAlleAktiviteterMedSplitIRad(ByVal rad As Long, ByVal første
             End If
         Next c
 
+        ' Deretter sjekk om noen celler er markert for fjerning
+        If Not harSplit Then
+            Dim radKeyCheck As String
+            radKeyCheck = CStr(rad)
+            If cellerÅFjerne.Exists(radKeyCheck) Then
+                Dim colDict As Object
+                Set colDict = cellerÅFjerne(radKeyCheck)
+                For c = bStart To bSlutt
+                    If colDict.Exists(c) Then
+                        harSplit = True
+                        Exit For
+                    End If
+                Next c
+            End If
+        End If
+
         ' Hvis blokken har split, håndter den
         If harSplit Then
-            Call HåndterEnkeltAktivitetSplit(rad, bStart, bSlutt, bFarge, førsteDatoKol, datoRad)
+            Call HåndterEnkeltAktivitetSplit(rad, bStart, bSlutt, bFarge, førsteDatoKol, datoRad, cellerÅFjerne)
         End If
     Next k
 End Sub
@@ -293,12 +322,31 @@ End Sub
 ' ============================================================================
 Private Sub HåndterEnkeltAktivitetSplit(ByVal rad As Long, ByVal blokkStart As Long, _
                                          ByVal blokkSlutt As Long, ByVal aktivFarge As Long, _
-                                         ByVal førsteDatoKol As Long, ByVal datoRad As Long)
+                                         ByVal førsteDatoKol As Long, ByVal datoRad As Long, _
+                                         ByVal cellerÅFjerne As Object)
     Dim aktivKode As String, aktivBeskr As String
     Dim c As Long
     Dim lastCol As Long
 
     lastCol = Me.Cells(datoRad, Me.Columns.Count).End(xlToLeft).Column
+
+    ' STEG 0: Fjern farger fra markerte celler FØRST
+    Dim radKeyFjern As String
+    radKeyFjern = CStr(rad)
+    If cellerÅFjerne.Exists(radKeyFjern) Then
+        Dim colDictFjern As Object
+        Set colDictFjern = cellerÅFjerne(radKeyFjern)
+
+        For c = blokkStart To blokkSlutt
+            If colDictFjern.Exists(c) Then
+                If DEBUG_MODE Then
+                    Debug.Print "  → Fjerner farge fra celle kolonne " & c
+                End If
+                Me.Cells(rad, c).Interior.ColorIndex = xlColorIndexNone
+                Me.Cells(rad, c).Font.Bold = False
+            End If
+        Next c
+    End If
 
     ' STEG 1: Finn tekst FRA DENNE BLOKKEN
     Dim førsteCelleMedTekst As Range
