@@ -4,12 +4,18 @@
 ' FORMÅL:
 '   - Markerer dagens dato når arket aktiveres
 '   - Beskytter aktivitetsnavn mot utilsiktet sletting
+'   - Gjør Delete-tasten til "Clear All" (fjerner både tekst og farge)
 '
 ' FUNKSJONALITET:
 '   Auto-restaurering av aktivitetsnavn:
 '   - Hvis bruker sletter FØRSTE celle i aktivitet → auto-restaurer navnet
-'   - Hvis bruker sletter MIDT i aktivitet → tillat det (for gaps/splits)
+'   - Hvis bruker sletter MIDT i aktivitet → fjerner farge (lager split)
 '   - Fungerer med Delete, Cut, og markerte områder
+'
+'   Delete-oppførsel (forbedret):
+'   - Delete fjerner automatisk BÅDE tekst OG farge
+'   - Oppfører seg som "Fjern markert område" (Clear All)
+'   - Lager automatisk splits når du sletter midt i aktivitet
 '
 ' DETEKSJON AV FØRSTE CELLE:
 '   En celle er første celle hvis:
@@ -73,35 +79,34 @@ Private Sub Worksheet_Change(ByVal Target As Range)
 
     ' STEG 6: Behandle hver endret celle
     Dim c As Range
-    For Each c In relevantEndring.Cells
-        Call BehandleSlettetCelle(c, førsteDatoKol, datoRad)
-    Next c
-
-    ' STEG 6B: Håndter splits (når hvite celler lages midt i aktivitet)
-    ' Samle unike rader som må sjekkes for splits
     Dim splittRader As Object
     Set splittRader = CreateObject("Scripting.Dictionary")
 
     For Each c In relevantEndring.Cells
-        ' Sjekk om dette kan være en split
-        If Len(Trim$(c.Value)) = 0 And Not HarAktivitetsfarge(c) Then
-            ' Sjekk om den har aktivitetsfarge til venstre eller høyre
-            Dim harSplit As Boolean
-            harSplit = False
+        ' Hvis cellen er tom og har aktivitetsfarge
+        If Len(Trim$(c.Value)) = 0 And HarAktivitetsfarge(c) Then
+            ' Sjekk om dette er første celle i aktivitetsblokken
+            If ErFørsteCelleIBlokk(c, førsteDatoKol) Then
+                ' FØRSTE CELLE: Restaurer navnet (beholder fargen)
+                Call BehandleSlettetCelle(c, førsteDatoKol, datoRad)
+            Else
+                ' IKKE første celle: Fjern fargen (Delete skal oppføre seg som Clear All)
+                If DEBUG_MODE Then
+                    Debug.Print "Fjerner farge fra celle " & c.Address & " (Delete = Clear All)"
+                End If
 
-            If c.Column > førsteDatoKol Then
-                If HarAktivitetsfarge(c.Offset(0, -1)) Then harSplit = True
-            End If
-            If c.Column < Me.Columns.Count And Not harSplit Then
-                If HarAktivitetsfarge(c.Offset(0, 1)) Then harSplit = True
-            End If
+                c.Interior.ColorIndex = xlColorIndexNone
+                c.Font.Bold = False
 
-            If harSplit And Not splittRader.Exists(c.Row) Then
-                splittRader.Add c.Row, c.Row
+                ' Marker raden for split-håndtering
+                If Not splittRader.Exists(c.Row) Then
+                    splittRader.Add c.Row, c.Row
+                End If
             End If
         End If
     Next c
 
+    ' STEG 6B: Håndter splits (når hvite celler lages midt i aktivitet)
     ' Behandle hver rad kun ÉN gang
     Dim radNr As Variant
     For Each radNr In splittRader.Keys
