@@ -110,29 +110,31 @@ Public Sub FjernAktivitetPåMarkering()
     Next radNr
 
     ' STEG 3: Nå rydd opp cellene som ikke ble håndtert av split-logikken
-    For Each area In sel.Areas
-        Set rng = Intersect(area, ws.Range(ws.Cells(FØRSTE_PERSONRAD, FØRSTE_DATAKOL), _
-                                           ws.Cells(ws.Rows.Count, lastDatoCol)))
-        If Not rng Is Nothing Then
-            For r = rng.Row To rng.Row + rng.Rows.Count - 1
-                hovedRad = FinnHovedRad(ws, r)
+    ' Bare rydd celler som er i cellerÅFjerne OG fortsatt har farge
+    For Each radKey In cellerÅFjerne.Keys
+        Dim radNum As Long
+        radNum = CLng(radKey)
+        hovedRad = FinnHovedRad(ws, radNum)
 
-                For c = rng.Column To rng.Column + rng.Columns.Count - 1
-                    If c >= FØRSTE_DATAKOL And c <= lastDatoCol Then
-                        ' Kun rydd hvis cellen fortsatt har farge (split-logikken fjernet ikke den)
-                        If ws.Cells(r, c).Interior.ColorIndex <> xlColorIndexNone Then
-                            RyddCelleTilHvitMedGrid ws, r, c
-                        End If
-                    End If
-                Next c
+        Dim colDictFinal As Object
+        Set colDictFinal = cellerÅFjerne(radKey)
 
-                ' Trekk toppkant som én sammenhengende linje over hele raden
-                TrekkToppkantHeleRaden ws, r, FØRSTE_DATAKOL, lastDatoCol
+        Dim colFinal As Variant
+        For Each colFinal In colDictFinal.Keys
+            Dim cFinal As Long
+            cFinal = CLng(colFinal)
 
-                If FJERN_TOMME_UNDERRADER Then SlettTomUnderRadHvisAktuell ws, r, hovedRad
-            Next r
-        End If
-    Next area
+            ' Kun rydd hvis cellen fortsatt har farge (split-logikken fjernet ikke den)
+            If ws.Cells(radNum, cFinal).Interior.ColorIndex <> xlColorIndexNone Then
+                RyddCelleTilHvitMedGrid ws, radNum, cFinal
+            End If
+        Next colFinal
+
+        ' Trekk toppkant som én sammenhengende linje over hele raden
+        TrekkToppkantHeleRaden ws, radNum, FØRSTE_DATAKOL, lastDatoCol
+
+        If FJERN_TOMME_UNDERRADER Then SlettTomUnderRadHvisAktuell ws, radNum, hovedRad
+    Next radKey
 
     ' Etter rydding: komprimer hver berørt personblokk
     Dim k As Variant

@@ -123,8 +123,28 @@ Private Sub Worksheet_Change(ByVal Target As Range)
 
                     ' Ikke marker for split - det er ingen aktivitet å splitte
                 ElseIf ErFørsteCelleIBlokk(c, førsteDatoKol) Then
-                    ' FØRSTE CELLE: Restaurer navnet (beholder fargen)
-                    Call BehandleSlettetCelle(c, førsteDatoKol, datoRad)
+                    ' FØRSTE CELLE: Sjekk om HELE aktiviteten blir slettet
+                    ' Hvis ja, ikke restaurer (la brukeren slette alt)
+                    Dim heleAktivitetenSlettes As Boolean
+                    heleAktivitetenSlettes = SjekkOmHeleAktivitetenSlettes(c, førsteDatoKol, cellerÅFjerne)
+
+                    If heleAktivitetenSlettes Then
+                        ' HELE aktiviteten slettes - bare marker for fjerning
+                        If DEBUG_MODE Then
+                            Debug.Print "Hele aktiviteten slettes - ikke restaurer: " & c.Address
+                        End If
+
+                        radKey = CStr(c.Row)
+                        If Not cellerÅFjerne.Exists(radKey) Then
+                            Dim nyCol3 As Object
+                            Set nyCol3 = CreateObject("Scripting.Dictionary")
+                            cellerÅFjerne.Add radKey, nyCol3
+                        End If
+                        cellerÅFjerne(radKey).Add c.Column, c.Column
+                    Else
+                        ' Bare første celle slettes - restaurer navnet (beskytt aktivitet)
+                        Call BehandleSlettetCelle(c, førsteDatoKol, datoRad)
+                    End If
                 Else
                     ' IKKE første celle: Marker for fjerning (Delete = Clear All)
                     If DEBUG_MODE Then
@@ -192,11 +212,59 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                     Debug.Print "Rydder opp celle som ikke ble håndtert: " & celCleanup.Address
                 End If
 
+                ' Rydd helt som FjernMarkert gjør
                 celCleanup.ClearComments
-                celCleanup.Interior.ColorIndex = xlColorIndexNone
+                celCleanup.ClearContents
                 celCleanup.Font.Bold = False
+                celCleanup.Font.ColorIndex = xlColorIndexAutomatic
                 celCleanup.HorizontalAlignment = xlGeneral
+                celCleanup.VerticalAlignment = xlCenter
                 celCleanup.WrapText = False
+
+                ' Sett bakgrunn til ren hvit
+                With celCleanup.Interior
+                    .Pattern = xlSolid
+                    .TintAndShade = 0
+                    .Color = RGB(255, 255, 255)
+                    .PatternTintAndShade = 0
+                End With
+
+                ' Slå av diagonale kanter
+                celCleanup.Borders(xlDiagonalDown).LineStyle = xlLineStyleNone
+                celCleanup.Borders(xlDiagonalUp).LineStyle = xlLineStyleNone
+
+                ' Nullstill alle kanter først
+                celCleanup.Borders(xlEdgeLeft).LineStyle = xlLineStyleNone
+                celCleanup.Borders(xlEdgeRight).LineStyle = xlLineStyleNone
+                celCleanup.Borders(xlEdgeTop).LineStyle = xlLineStyleNone
+                celCleanup.Borders(xlEdgeBottom).LineStyle = xlLineStyleNone
+                celCleanup.Borders(xlInsideVertical).LineStyle = xlLineStyleNone
+                celCleanup.Borders(xlInsideHorizontal).LineStyle = xlLineStyleNone
+
+                ' Sett standard rutenett (tynne kanter)
+                With celCleanup.Borders(xlEdgeLeft)
+                    .LineStyle = xlContinuous
+                    .Weight = xlThin
+                    .Color = RGB(0, 0, 0)
+                End With
+
+                With celCleanup.Borders(xlEdgeRight)
+                    .LineStyle = xlContinuous
+                    .Weight = xlThin
+                    .Color = RGB(0, 0, 0)
+                End With
+
+                With celCleanup.Borders(xlEdgeTop)
+                    .LineStyle = xlContinuous
+                    .Weight = xlThin
+                    .Color = RGB(0, 0, 0)
+                End With
+
+                With celCleanup.Borders(xlEdgeBottom)
+                    .LineStyle = xlContinuous
+                    .Weight = xlThin
+                    .Color = RGB(0, 0, 0)
+                End With
             End If
         Next colCleanup
     Next radKeyCleanup
@@ -741,6 +809,52 @@ Private Function ErFørsteCelleIBlokk(ByVal cel As Range, ByVal førsteDatoKol A
         ' Venstre har samme farge → vi er IKKE første celle
         ErFørsteCelleIBlokk = False
     End If
+End Function
+
+' ============================================================================
+' SJEKK: Blir hele aktiviteten slettet (alle celler i blokken)?
+' ============================================================================
+Private Function SjekkOmHeleAktivitetenSlettes(ByVal førsteCelle As Range, _
+                                                ByVal førsteDatoKol As Long, _
+                                                ByVal cellerÅFjerne As Object) As Boolean
+    Dim aktivFarge As Long
+    Dim radKey As String
+    Dim c As Long
+
+    aktivFarge = førsteCelle.Interior.Color
+    radKey = CStr(førsteCelle.Row)
+    SjekkOmHeleAktivitetenSlettes = True  ' Anta at hele aktiviteten slettes
+
+    ' Skann fra førsteCelle og utover til høyre
+    For c = førsteCelle.Column To Me.Columns.Count
+        Dim cel As Range
+        Set cel = Me.Cells(førsteCelle.Row, c)
+
+        ' Sjekk om cellen er del av aktiviteten
+        If HarAktivitetsfarge(cel) And FargeAvstand(cel.Interior.Color, aktivFarge) <= 10 Then
+            ' Dette er del av aktiviteten - sjekk om den er markert for sletting
+            Dim erMarkert As Boolean
+            erMarkert = False
+
+            If cellerÅFjerne.Exists(radKey) Then
+                If cellerÅFjerne(radKey).Exists(c) Then
+                    erMarkert = True
+                End If
+            End If
+
+            ' Hvis denne cellen IKKE er markert for sletting, hele aktiviteten slettes IKKE
+            If Not erMarkert Then
+                SjekkOmHeleAktivitetenSlettes = False
+                Exit Function
+            End If
+        ElseIf Not HarAktivitetsfarge(cel) Then
+            ' Hvit celle - aktiviteten er slutt
+            Exit For
+        Else
+            ' Annen farge - aktiviteten er slutt
+            Exit For
+        End If
+    Next c
 End Function
 
 ' ============================================================================
