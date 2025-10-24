@@ -78,9 +78,35 @@ Private Sub Worksheet_Change(ByVal Target As Range)
     Next c
 
     ' STEG 6B: Håndter splits (når hvite celler lages midt i aktivitet)
+    ' Samle unike rader som må sjekkes for splits
+    Dim splittRader As Object
+    Set splittRader = CreateObject("Scripting.Dictionary")
+
     For Each c In relevantEndring.Cells
-        Call DetekterOgHåndterSplit(c, førsteDatoKol, datoRad)
+        ' Sjekk om dette kan være en split
+        If Len(Trim$(c.Value)) = 0 And Not HarAktivitetsfarge(c) Then
+            ' Sjekk om den har aktivitetsfarge til venstre eller høyre
+            Dim harSplit As Boolean
+            harSplit = False
+
+            If c.Column > førsteDatoKol Then
+                If HarAktivitetsfarge(c.Offset(0, -1)) Then harSplit = True
+            End If
+            If c.Column < Me.Columns.Count And Not harSplit Then
+                If HarAktivitetsfarge(c.Offset(0, 1)) Then harSplit = True
+            End If
+
+            If harSplit And Not splittRader.Exists(c.Row) Then
+                splittRader.Add c.Row, c.Row
+            End If
+        End If
     Next c
+
+    ' Behandle hver rad kun ÉN gang
+    Dim radNr As Variant
+    For Each radNr In splittRader.Keys
+        Call HåndterAktivitetSplitForRad(CLng(radNr), førsteDatoKol, datoRad)
+    Next radNr
 
 Slutt:
     ' STEG 7: Re-enable events og fjern beskyttelsesflagg
@@ -140,82 +166,37 @@ Private Sub BehandleSlettetCelle(ByVal cel As Range, ByVal førsteDatoKol As Lon
 End Sub
 
 ' ============================================================================
-' SPLIT-DETEKSJON: Sjekk om slettet celle har skapt en split
+' SPLIT-HÅNDTERING: Re-formaterer aktivitet som er splittet (HELE RADEN)
 ' ============================================================================
-Private Sub DetekterOgHåndterSplit(ByVal cel As Range, ByVal førsteDatoKol As Long, _
-                                    ByVal datoRad As Long)
-    ' KRITERIE 1: Cellen må være tom og hvit (etter sletting)
-    If Len(Trim$(cel.Value)) > 0 Then Exit Sub
-    If HarAktivitetsfarge(cel) Then Exit Sub  ' Har fortsatt aktivitetsfarge = ikke split
-
-    ' KRITERIE 2: Må ha aktivitetsfarge til venstre ELLER høyre (split-indikator)
-    Dim harAktivVenstre As Boolean, harAktivHøyre As Boolean
-    Dim venstreCelle As Range, høyreCelle As Range
-
-    ' Sjekk venstre
-    If cel.Column > førsteDatoKol Then
-        Set venstreCelle = cel.Offset(0, -1)
-        harAktivVenstre = HarAktivitetsfarge(venstreCelle)
-    End If
-
-    ' Sjekk høyre
-    If cel.Column < Me.Columns.Count Then
-        Set høyreCelle = cel.Offset(0, 1)
-        harAktivHøyre = HarAktivitetsfarge(høyreCelle)
-    End If
-
-    ' Hvis ingen aktivitetsfarge rundt → ikke en split
-    If Not harAktivVenstre And Not harAktivHøyre Then Exit Sub
-
-    ' Dette er en split! Håndter den
-    If DEBUG_MODE Then
-        Debug.Print String(80, "=")
-        Debug.Print "SPLIT DETEKTERT [" & Now & "]"
-        Debug.Print "Celle: " & cel.Address & " (rad " & cel.Row & ", kol " & cel.Column & ")"
-    End If
-
-    Call HåndterAktivitetSplit(cel, førsteDatoKol, datoRad)
-
-    If DEBUG_MODE Then
-        Debug.Print "  ✓ Split håndtert!"
-        Debug.Print String(80, "=")
-    End If
-End Sub
-
-' ============================================================================
-' SPLIT-HÅNDTERING: Re-formaterer aktivitet som er splittet
-' ============================================================================
-Private Sub HåndterAktivitetSplit(ByVal hvitCelle As Range, ByVal førsteDatoKol As Long, _
-                                   ByVal datoRad As Long)
-    Dim rad As Long
+Private Sub HåndterAktivitetSplitForRad(ByVal rad As Long, ByVal førsteDatoKol As Long, _
+                                         ByVal datoRad As Long)
     Dim aktivFarge As Long
     Dim aktivKode As String, aktivBeskr As String
+    Dim c As Long
+    Dim lastCol As Long
 
-    rad = hvitCelle.Row
+    ' STEG 1: Finn aktivitetsfargen (skann raden for første aktivitetsfarge)
+    lastCol = Me.Cells(datoRad, Me.Columns.Count).End(xlToLeft).Column
 
-    ' STEG 1: Finn aktivitetsfargen (fra venstre eller høyre nabo)
-    If hvitCelle.Column > førsteDatoKol And HarAktivitetsfarge(hvitCelle.Offset(0, -1)) Then
-        aktivFarge = hvitCelle.Offset(0, -1).Interior.Color
-    ElseIf hvitCelle.Column < Me.Columns.Count And HarAktivitetsfarge(hvitCelle.Offset(0, 1)) Then
-        aktivFarge = hvitCelle.Offset(0, 1).Interior.Color
-    Else
-        Exit Sub  ' Ingen aktivitetsfarge funnet
-    End If
+    For c = førsteDatoKol To lastCol
+        If HarAktivitetsfarge(Me.Cells(rad, c)) Then
+            aktivFarge = Me.Cells(rad, c).Interior.Color
+            Exit For
+        End If
+    Next c
+
+    If aktivFarge = 0 Then Exit Sub  ' Ingen aktivitetsfarge funnet i raden
 
     ' STEG 2: Slå opp aktivitetskode
     aktivKode = SlåOppAktivitetFraFarge(aktivFarge, aktivBeskr)
     If Len(aktivKode) = 0 Then Exit Sub
 
     If DEBUG_MODE Then
+        Debug.Print String(80, "=")
+        Debug.Print "SPLIT HÅNDTERING FOR RAD " & rad & " [" & Now & "]"
         Debug.Print "  → Aktivitet: " & aktivKode & " - " & aktivBeskr
         Debug.Print "  → Aktivfarge: " & aktivFarge
     End If
-
-    ' STEG 3: Finn siste kolonne
-    Dim lastCol As Long
-    lastCol = Me.Cells(datoRad, Me.Columns.Count).End(xlToLeft).Column
-
-    Dim c As Long
 
     ' STEG 3A: FØRST - Nullstill alignment på ALLE celler i raden
     ' Dette fjerner den gamle xlCenterAcrossSelection som "blør" over
@@ -279,6 +260,11 @@ Private Sub HåndterAktivitetSplit(ByVal hvitCelle As Range, ByVal førsteDatoKo
             End With
         End If
     Next c
+
+    If DEBUG_MODE Then
+        Debug.Print "  ✓ Rad " & rad & " håndtert!"
+        Debug.Print String(80, "=")
+    End If
 End Sub
 
 ' ============================================================================
