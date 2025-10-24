@@ -200,8 +200,9 @@ End Sub
 
 ' ============================================================================
 ' SPLIT-HÅNDTERING: Re-formaterer aktivitet som er splittet (HELE RADEN)
+' Kan kalles både internt (fra Worksheet_Change) og eksternt (fra FjernMarkert)
 ' ============================================================================
-Private Sub HåndterAktivitetSplitForRad(ByVal rad As Long, ByVal førsteDatoKol As Long, _
+Public Sub HåndterAktivitetSplitForRad(ByVal rad As Long, ByVal førsteDatoKol As Long, _
                                          ByVal datoRad As Long)
     Dim aktivFarge As Long
     Dim aktivKode As String, aktivBeskr As String
@@ -358,8 +359,9 @@ End Sub
 
 ' ============================================================================
 ' SJEKK: Har cellen aktivitetsfarge? (ikke hvit/grå)
+' Kan kalles både internt og eksternt (fra FjernMarkert)
 ' ============================================================================
-Private Function HarAktivitetsfarge(ByVal cel As Range) As Boolean
+Public Function HarAktivitetsfarge(ByVal cel As Range) As Boolean
     Dim col As Long
 
     ' Sjekk om cellen har farge

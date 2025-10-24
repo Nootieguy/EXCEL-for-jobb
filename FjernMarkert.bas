@@ -53,8 +53,11 @@ Public Sub FjernAktivitetPåMarkering()
     End If
 
     Set berørteHovedrader = CreateObject("Scripting.Dictionary")
+    Dim splittRader As Object
+    Set splittRader = CreateObject("Scripting.Dictionary")
 
     Application.ScreenUpdating = False
+    Application.EnableEvents = False  ' Disable events for å unngå rekursjon
     lastDatoCol = SisteDatoKolonne(ws, datoRad)
     If lastDatoCol < FØRSTE_DATAKOL Then lastDatoCol = FØRSTE_DATAKOL
 
@@ -65,6 +68,12 @@ Public Sub FjernAktivitetPåMarkering()
             For r = rng.Row To rng.Row + rng.Rows.Count - 1
                 hovedRad = FinnHovedRad(ws, r)
                 If hovedRad >= FØRSTE_PERSONRAD Then berørteHovedrader(CStr(hovedRad)) = True
+
+                ' Marker raden for split-sjekk (hvis den har aktiviteter)
+                If RadHarAktivitet(ws, r) Then
+                    If Not splittRader.Exists(r) Then splittRader.Add r, r
+                End If
+
                 For c = rng.Column To rng.Column + rng.Columns.Count - 1
                     If c >= FØRSTE_DATAKOL And c <= lastDatoCol Then
                         RyddCelleTilHvitMedGrid ws, r, c
@@ -79,6 +88,18 @@ Public Sub FjernAktivitetPåMarkering()
         End If
     Next area
 
+    ' VIKTIG: Håndter splits ETTER at alle celler er ryddet
+    Dim arkPlan As Object
+    Set arkPlan = ws  ' ws er allerede Planlegger-arket
+    Dim radNr As Variant
+    For Each radNr In splittRader.Keys
+        ' Sjekk om raden fortsatt har split (hvite celler mellom fargede)
+        If SjekkOmRadHarSplit(ws, CLng(radNr), FØRSTE_DATAKOL, lastDatoCol) Then
+            ' Kall split-håndteringen fra Ark1.cls
+            arkPlan.HåndterAktivitetSplitForRad CLng(radNr), FØRSTE_DATAKOL, datoRad
+        End If
+    Next radNr
+
     ' Etter rydding: komprimer hver berørt personblokk
     Dim k As Variant
     For Each k In berørteHovedrader.Keys
@@ -88,6 +109,7 @@ Public Sub FjernAktivitetPåMarkering()
     ' Sikre at alle person-skillelinjer er på plass
     GjenopprettPersonSkiller ws
 
+    Application.EnableEvents = True  ' Re-enable events
     Application.ScreenUpdating = True
 End Sub
 
@@ -317,4 +339,52 @@ Private Sub GjenopprettPersonSkiller(ws As Worksheet)
         End If
     Next r
 End Sub
+
+' ----------- Split-deteksjon -----------
+
+' Sjekk om en rad har split (hvite celler mellom fargede celler)
+Private Function SjekkOmRadHarSplit(ws As Worksheet, ByVal r As Long, _
+                                     ByVal startCol As Long, ByVal endCol As Long) As Boolean
+    Dim c As Long
+    Dim harSettFarge As Boolean
+    Dim harSettHvit As Boolean
+
+    harSettFarge = False
+    harSettHvit = False
+
+    ' Skann raden fra venstre til høyre
+    For c = startCol To endCol
+        Dim cel As Range
+        Set cel = ws.Cells(r, c)
+
+        ' Sjekk om cellen har aktivitetsfarge
+        Dim harAktivFarge As Boolean
+        harAktivFarge = False
+
+        ' Bruk samme logikk som HarAktivitetsfarge fra Ark1.cls
+        If cel.Interior.ColorIndex <> xlColorIndexNone Then
+            Dim celCol As Long
+            celCol = cel.Interior.Color
+            If celCol <> RGB(255, 255, 255) And celCol <> RGB(242, 242, 242) And celCol <> RGB(250, 250, 250) Then
+                harAktivFarge = True
+            End If
+        End If
+
+        If harAktivFarge Then
+            ' Hvis vi har sett hvit før → dette er en split!
+            If harSettHvit Then
+                SjekkOmRadHarSplit = True
+                Exit Function
+            End If
+            harSettFarge = True
+        Else
+            ' Hvit celle
+            If harSettFarge Then
+                harSettHvit = True
+            End If
+        End If
+    Next c
+
+    SjekkOmRadHarSplit = False
+End Function
 
