@@ -5,17 +5,24 @@
 '   - Markerer dagens dato når arket aktiveres
 '   - Beskytter aktivitetsnavn mot utilsiktet sletting
 '   - Gjør Delete-tasten til "Clear All" (fjerner både tekst og farge)
+'   - Håndterer splits når du sletter midt i aktivitet
 '
 ' FUNKSJONALITET:
 '   Auto-restaurering av aktivitetsnavn:
 '   - Hvis bruker sletter FØRSTE celle i aktivitet → auto-restaurer navnet
 '   - Hvis bruker sletter MIDT i aktivitet → fjerner farge (lager split)
-'   - Fungerer med Delete, Cut, og markerte områder
+'   - Fungerer med Delete, "Fjern markert område", Cut, og markerte områder
 '
 '   Delete-oppførsel (forbedret):
 '   - Delete fjerner automatisk BÅDE tekst OG farge
 '   - Oppfører seg som "Fjern markert område" (Clear All)
 '   - Lager automatisk splits når du sletter midt i aktivitet
+'
+'   Split-håndtering (forbedret):
+'   - Splittede aktiviteter viser aktivitetsnavn i ALLE segmenter
+'   - Hvert segment får riktig formatering (alignment, font, farge)
+'   - Tekst "blør" ikke over hvite celler
+'   - Fungerer med både Delete og "Fjern markert område"
 '
 ' DETEKSJON AV FØRSTE CELLE:
 '   En celle er første celle hvis:
@@ -83,23 +90,44 @@ Private Sub Worksheet_Change(ByVal Target As Range)
     Set splittRader = CreateObject("Scripting.Dictionary")
 
     For Each c In relevantEndring.Cells
-        ' Hvis cellen er tom og har aktivitetsfarge
-        If Len(Trim$(c.Value)) = 0 And HarAktivitetsfarge(c) Then
-            ' Sjekk om dette er første celle i aktivitetsblokken
-            If ErFørsteCelleIBlokk(c, førsteDatoKol) Then
-                ' FØRSTE CELLE: Restaurer navnet (beholder fargen)
-                Call BehandleSlettetCelle(c, førsteDatoKol, datoRad)
+        ' Sjekk om cellen er tom
+        If Len(Trim$(c.Value)) = 0 Then
+            If HarAktivitetsfarge(c) Then
+                ' TILFELLE 1: Tom celle med aktivitetsfarge (Delete ble brukt)
+                ' Sjekk om dette er første celle i aktivitetsblokken
+                If ErFørsteCelleIBlokk(c, førsteDatoKol) Then
+                    ' FØRSTE CELLE: Restaurer navnet (beholder fargen)
+                    Call BehandleSlettetCelle(c, førsteDatoKol, datoRad)
+                Else
+                    ' IKKE første celle: Fjern fargen (Delete = Clear All)
+                    If DEBUG_MODE Then
+                        Debug.Print "Fjerner farge fra celle " & c.Address & " (Delete = Clear All)"
+                    End If
+
+                    c.Interior.ColorIndex = xlColorIndexNone
+                    c.Font.Bold = False
+
+                    ' Marker raden for split-håndtering
+                    If Not splittRader.Exists(c.Row) Then
+                        splittRader.Add c.Row, c.Row
+                    End If
+                End If
             Else
-                ' IKKE første celle: Fjern fargen (Delete skal oppføre seg som Clear All)
-                If DEBUG_MODE Then
-                    Debug.Print "Fjerner farge fra celle " & c.Address & " (Delete = Clear All)"
+                ' TILFELLE 2: Tom hvit celle (Fjern markert område ble brukt)
+                ' Sjekk om den har aktivitetsfarge til venstre eller høyre (split)
+                Dim harAktivVenstre As Boolean, harAktivHøyre As Boolean
+                harAktivVenstre = False
+                harAktivHøyre = False
+
+                If c.Column > førsteDatoKol Then
+                    If HarAktivitetsfarge(c.Offset(0, -1)) Then harAktivVenstre = True
+                End If
+                If c.Column < Me.Columns.Count Then
+                    If HarAktivitetsfarge(c.Offset(0, 1)) Then harAktivHøyre = True
                 End If
 
-                c.Interior.ColorIndex = xlColorIndexNone
-                c.Font.Bold = False
-
-                ' Marker raden for split-håndtering
-                If Not splittRader.Exists(c.Row) Then
+                ' Hvis det er en split, marker raden for håndtering
+                If (harAktivVenstre Or harAktivHøyre) And Not splittRader.Exists(c.Row) Then
                     splittRader.Add c.Row, c.Row
                 End If
             End If
@@ -296,11 +324,19 @@ Private Sub FormaterSegment(ByVal rad As Long, ByVal startCol As Long, ByVal end
         visTekst = visTekst & " – " & aktivBeskr
     End If
 
-    ' VIKTIG: Sjekk om første celle i segment mangler tekst
-    If Len(Trim$(førsteCelle.Value)) = 0 Then
-        førsteCelle.Value = visTekst
-        If DEBUG_MODE Then Debug.Print "    → Tekst restaurert i segment " & segmentNr
-    End If
+    ' VIKTIG: Sett tekst i ALLE celler i segmentet først (for å tømme gamle verdier)
+    Dim col As Long
+    For col = startCol To endCol
+        If col = startCol Then
+            ' FØRSTE celle: Sett aktivitetsnavn
+            Me.Cells(rad, col).Value = visTekst
+        Else
+            ' ANDRE celler: Tøm (kun første celle skal ha tekst)
+            Me.Cells(rad, col).Value = ""
+        End If
+    Next col
+
+    If DEBUG_MODE Then Debug.Print "    → Aktivitetsnavn satt i segment " & segmentNr
 
     ' Sett alignment KUN over dette segmentet
     With rng
