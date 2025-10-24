@@ -56,11 +56,16 @@ Public Sub FjernAktivitetPåMarkering()
     Dim splittRader As Object
     Set splittRader = CreateObject("Scripting.Dictionary")
 
+    ' Dictionary for å spore hvilke celler som skal fjernes (rad -> kolonner)
+    Dim cellerÅFjerne As Object
+    Set cellerÅFjerne = CreateObject("Scripting.Dictionary")
+
     Application.ScreenUpdating = False
     Application.EnableEvents = False  ' Disable events for å unngå rekursjon
     lastDatoCol = SisteDatoKolonne(ws, datoRad)
     If lastDatoCol < FØRSTE_DATAKOL Then lastDatoCol = FØRSTE_DATAKOL
 
+    ' STEG 1: Identifiser hvilke celler som skal fjernes OG hvilke rader som har splits
     For Each area In sel.Areas
         Set rng = Intersect(area, ws.Range(ws.Cells(FØRSTE_PERSONRAD, FØRSTE_DATAKOL), _
                                            ws.Cells(ws.Rows.Count, lastDatoCol)))
@@ -74,9 +79,50 @@ Public Sub FjernAktivitetPåMarkering()
                     If Not splittRader.Exists(r) Then splittRader.Add r, r
                 End If
 
+                ' Lagre hvilke celler som skal fjernes
+                Dim radKey As String
+                radKey = CStr(r)
                 For c = rng.Column To rng.Column + rng.Columns.Count - 1
                     If c >= FØRSTE_DATAKOL And c <= lastDatoCol Then
-                        RyddCelleTilHvitMedGrid ws, r, c
+                        If Not cellerÅFjerne.Exists(radKey) Then
+                            Dim nyCol As Object
+                            Set nyCol = CreateObject("Scripting.Dictionary")
+                            cellerÅFjerne.Add radKey, nyCol
+                        End If
+                        cellerÅFjerne(radKey).Add c, c
+                    End If
+                Next c
+            Next r
+        End If
+    Next area
+
+    ' STEG 2: Håndter splits FØR vi fjerner cellene (så vi kan se fargene)
+    Dim arkPlan As Object
+    Set arkPlan = ws  ' ws er allerede Planlegger-arket
+    Dim radNr As Variant
+
+    For Each radNr In splittRader.Keys
+        ' Sjekk om raden vil ha split etter fjerning
+        If SjekkOmRadVilHaSplit(ws, CLng(radNr), FØRSTE_DATAKOL, lastDatoCol, cellerÅFjerne) Then
+            ' Kall split-håndteringen MED liste over celler som skal fjernes
+            arkPlan.HåndterAlleAktiviteterMedSplitIRad CLng(radNr), FØRSTE_DATAKOL, datoRad, cellerÅFjerne
+        End If
+    Next radNr
+
+    ' STEG 3: Nå rydd opp cellene som ikke ble håndtert av split-logikken
+    For Each area In sel.Areas
+        Set rng = Intersect(area, ws.Range(ws.Cells(FØRSTE_PERSONRAD, FØRSTE_DATAKOL), _
+                                           ws.Cells(ws.Rows.Count, lastDatoCol)))
+        If Not rng Is Nothing Then
+            For r = rng.Row To rng.Row + rng.Rows.Count - 1
+                hovedRad = FinnHovedRad(ws, r)
+
+                For c = rng.Column To rng.Column + rng.Columns.Count - 1
+                    If c >= FØRSTE_DATAKOL And c <= lastDatoCol Then
+                        ' Kun rydd hvis cellen fortsatt har farge (split-logikken fjernet ikke den)
+                        If ws.Cells(r, c).Interior.ColorIndex <> xlColorIndexNone Then
+                            RyddCelleTilHvitMedGrid ws, r, c
+                        End If
                     End If
                 Next c
 
@@ -87,23 +133,6 @@ Public Sub FjernAktivitetPåMarkering()
             Next r
         End If
     Next area
-
-    ' VIKTIG: Håndter splits ETTER at alle celler er ryddet
-    Dim arkPlan As Object
-    Set arkPlan = ws  ' ws er allerede Planlegger-arket
-    Dim radNr As Variant
-
-    ' Tom Dictionary for cellerÅFjerne (FjernMarkert har allerede fjernet cellene)
-    Dim tomDict As Object
-    Set tomDict = CreateObject("Scripting.Dictionary")
-
-    For Each radNr In splittRader.Keys
-        ' Sjekk om raden fortsatt har split (hvite celler mellom fargede)
-        If SjekkOmRadHarSplit(ws, CLng(radNr), FØRSTE_DATAKOL, lastDatoCol) Then
-            ' Kall den nye forbedrede split-håndteringen fra Ark1.cls
-            arkPlan.HåndterAlleAktiviteterMedSplitIRad CLng(radNr), FØRSTE_DATAKOL, datoRad, tomDict
-        End If
-    Next radNr
 
     ' Etter rydding: komprimer hver berørt personblokk
     Dim k As Variant
@@ -347,49 +376,65 @@ End Sub
 
 ' ----------- Split-deteksjon -----------
 
-' Sjekk om en rad har split (hvite celler mellom fargede celler)
-Private Function SjekkOmRadHarSplit(ws As Worksheet, ByVal r As Long, _
-                                     ByVal startCol As Long, ByVal endCol As Long) As Boolean
+' Sjekk om en rad VIL ha split etter at celler fjernes
+Private Function SjekkOmRadVilHaSplit(ws As Worksheet, ByVal r As Long, _
+                                       ByVal startCol As Long, ByVal endCol As Long, _
+                                       ByVal cellerÅFjerne As Object) As Boolean
     Dim c As Long
     Dim harSettFarge As Boolean
     Dim harSettHvit As Boolean
+    Dim radKey As String
 
     harSettFarge = False
     harSettHvit = False
+    radKey = CStr(r)
 
     ' Skann raden fra venstre til høyre
     For c = startCol To endCol
         Dim cel As Range
         Set cel = ws.Cells(r, c)
 
-        ' Sjekk om cellen har aktivitetsfarge
+        ' Sjekk om denne cellen skal fjernes
+        Dim skalFjernes As Boolean
+        skalFjernes = False
+        If cellerÅFjerne.Exists(radKey) Then
+            Dim colDict As Object
+            Set colDict = cellerÅFjerne(radKey)
+            If colDict.Exists(c) Then
+                skalFjernes = True
+            End If
+        End If
+
+        ' Sjekk om cellen har aktivitetsfarge (og ikke skal fjernes)
         Dim harAktivFarge As Boolean
         harAktivFarge = False
 
-        ' Bruk samme logikk som HarAktivitetsfarge fra Ark1.cls
-        If cel.Interior.ColorIndex <> xlColorIndexNone Then
-            Dim celCol As Long
-            celCol = cel.Interior.Color
-            If celCol <> RGB(255, 255, 255) And celCol <> RGB(242, 242, 242) And celCol <> RGB(250, 250, 250) Then
-                harAktivFarge = True
+        If Not skalFjernes Then
+            ' Bruk samme logikk som HarAktivitetsfarge fra Ark1.cls
+            If cel.Interior.ColorIndex <> xlColorIndexNone Then
+                Dim celCol As Long
+                celCol = cel.Interior.Color
+                If celCol <> RGB(255, 255, 255) And celCol <> RGB(242, 242, 242) And celCol <> RGB(250, 250, 250) Then
+                    harAktivFarge = True
+                End If
             End If
         End If
 
         If harAktivFarge Then
-            ' Hvis vi har sett hvit før → dette er en split!
+            ' Hvis vi har sett hvit/fjernet før → dette er en split!
             If harSettHvit Then
-                SjekkOmRadHarSplit = True
+                SjekkOmRadVilHaSplit = True
                 Exit Function
             End If
             harSettFarge = True
         Else
-            ' Hvit celle
+            ' Hvit celle eller skal fjernes
             If harSettFarge Then
                 harSettHvit = True
             End If
         End If
     Next c
 
-    SjekkOmRadHarSplit = False
+    SjekkOmRadVilHaSplit = False
 End Function
 

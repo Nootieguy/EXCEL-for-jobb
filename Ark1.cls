@@ -101,14 +101,14 @@ Private Sub Worksheet_Change(ByVal Target As Range)
         If Len(Trim$(c.Value)) = 0 Then
             If HarAktivitetsfarge(c) Then
                 ' TILFELLE 1: Tom celle med aktivitetsfarge (Delete ble brukt)
-                ' Sjekk om dette er første celle i aktivitetsblokken
-                If ErFørsteCelleIBlokk(c, førsteDatoKol) Then
-                    ' FØRSTE CELLE: Restaurer navnet (beholder fargen)
-                    Call BehandleSlettetCelle(c, førsteDatoKol, datoRad)
-                Else
-                    ' IKKE første celle: Marker for fjerning (Delete = Clear All)
+                ' Sjekk om dette er en standalone celle (ingen naboer med samme farge)
+                Dim erStandalone As Boolean
+                erStandalone = ErStandaloneCelle(c, førsteDatoKol)
+
+                If erStandalone Then
+                    ' STANDALONE CELLE: Fjern helt (ingen aktivitet rundt)
                     If DEBUG_MODE Then
-                        Debug.Print "Markerer celle for fjerning: " & c.Address
+                        Debug.Print "Standalone celle - fjerner: " & c.Address
                     End If
 
                     ' Lagre denne cellen for senere fjerning
@@ -118,6 +118,25 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                         Dim nyCol As Object
                         Set nyCol = CreateObject("Scripting.Dictionary")
                         cellerÅFjerne.Add radKey, nyCol
+                    End If
+                    cellerÅFjerne(radKey).Add c.Column, c.Column
+
+                    ' Ikke marker for split - det er ingen aktivitet å splitte
+                ElseIf ErFørsteCelleIBlokk(c, førsteDatoKol) Then
+                    ' FØRSTE CELLE: Restaurer navnet (beholder fargen)
+                    Call BehandleSlettetCelle(c, førsteDatoKol, datoRad)
+                Else
+                    ' IKKE første celle: Marker for fjerning (Delete = Clear All)
+                    If DEBUG_MODE Then
+                        Debug.Print "Markerer celle for fjerning: " & c.Address
+                    End If
+
+                    ' Lagre denne cellen for senere fjerning
+                    radKey = CStr(c.Row)
+                    If Not cellerÅFjerne.Exists(radKey) Then
+                        Dim nyCol2 As Object
+                        Set nyCol2 = CreateObject("Scripting.Dictionary")
+                        cellerÅFjerne.Add radKey, nyCol2
                     End If
                     cellerÅFjerne(radKey).Add c.Column, c.Column
 
@@ -689,6 +708,59 @@ Private Function ErFørsteCelleIBlokk(ByVal cel As Range, ByVal førsteDatoKol A
         ' Venstre har samme farge → vi er IKKE første celle
         ErFørsteCelleIBlokk = False
     End If
+End Function
+
+' ============================================================================
+' SJEKK: Er cellen en standalone celle (ingen naboer med samme farge)?
+' ============================================================================
+Private Function ErStandaloneCelle(ByVal cel As Range, ByVal førsteDatoKol As Long) As Boolean
+    Dim celFarge As Long
+    Dim venstreCelle As Range, høyreCelle As Range
+
+    celFarge = cel.Interior.Color
+    ErStandaloneCelle = False  ' Default: ikke standalone
+
+    ' Sjekk om vi er i første kolonne - kan ikke være standalone hvis vi ikke kan sjekke venstre
+    If cel.Column <= førsteDatoKol Then
+        ' Sjekk bare høyre
+        If cel.Column < Me.Columns.Count Then
+            Set høyreCelle = cel.Offset(0, 1)
+            If HarAktivitetsfarge(høyreCelle) And FargeAvstand(høyreCelle.Interior.Color, celFarge) <= 10 Then
+                ' Har nabo til høyre med samme farge → ikke standalone
+                Exit Function
+            End If
+        End If
+        ' Ingen nabo til høyre → standalone
+        ErStandaloneCelle = True
+        Exit Function
+    End If
+
+    ' Sjekk venstre nabo
+    Set venstreCelle = cel.Offset(0, -1)
+    Dim harVenstreNabo As Boolean
+    harVenstreNabo = False
+
+    If HarAktivitetsfarge(venstreCelle) Then
+        If FargeAvstand(venstreCelle.Interior.Color, celFarge) <= 10 Then
+            harVenstreNabo = True
+        End If
+    End If
+
+    ' Sjekk høyre nabo
+    Dim harHøyreNabo As Boolean
+    harHøyreNabo = False
+
+    If cel.Column < Me.Columns.Count Then
+        Set høyreCelle = cel.Offset(0, 1)
+        If HarAktivitetsfarge(høyreCelle) Then
+            If FargeAvstand(høyreCelle.Interior.Color, celFarge) <= 10 Then
+                harHøyreNabo = True
+            End If
+        End If
+    End If
+
+    ' Standalone = ingen naboer med samme farge
+    ErStandaloneCelle = (Not harVenstreNabo And Not harHøyreNabo)
 End Function
 
 ' ============================================================================
