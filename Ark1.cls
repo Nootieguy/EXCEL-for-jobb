@@ -77,6 +77,11 @@ Private Sub Worksheet_Change(ByVal Target As Range)
         Call BehandleSlettetCelle(c, førsteDatoKol, datoRad)
     Next c
 
+    ' STEG 6B: Håndter splits (når hvite celler lages midt i aktivitet)
+    For Each c In relevantEndring.Cells
+        Call DetekterOgHåndterSplit(c, førsteDatoKol, datoRad)
+    Next c
+
 Slutt:
     ' STEG 7: Re-enable events og fjern beskyttelsesflagg
     Application.EnableEvents = True
@@ -132,6 +137,185 @@ Private Sub BehandleSlettetCelle(ByVal cel As Range, ByVal førsteDatoKol As Lon
         Debug.Print "  ✓ Navn restaurert!"
         Debug.Print String(80, "=")
     End If
+End Sub
+
+' ============================================================================
+' SPLIT-DETEKSJON: Sjekk om slettet celle har skapt en split
+' ============================================================================
+Private Sub DetekterOgHåndterSplit(ByVal cel As Range, ByVal førsteDatoKol As Long, _
+                                    ByVal datoRad As Long)
+    ' KRITERIE 1: Cellen må være tom og hvit (etter sletting)
+    If Len(Trim$(cel.Value)) > 0 Then Exit Sub
+    If HarAktivitetsfarge(cel) Then Exit Sub  ' Har fortsatt aktivitetsfarge = ikke split
+
+    ' KRITERIE 2: Må ha aktivitetsfarge til venstre ELLER høyre (split-indikator)
+    Dim harAktivVenstre As Boolean, harAktivHøyre As Boolean
+    Dim venstreCelle As Range, høyreCelle As Range
+
+    ' Sjekk venstre
+    If cel.Column > førsteDatoKol Then
+        Set venstreCelle = cel.Offset(0, -1)
+        harAktivVenstre = HarAktivitetsfarge(venstreCelle)
+    End If
+
+    ' Sjekk høyre
+    If cel.Column < Me.Columns.Count Then
+        Set høyreCelle = cel.Offset(0, 1)
+        harAktivHøyre = HarAktivitetsfarge(høyreCelle)
+    End If
+
+    ' Hvis ingen aktivitetsfarge rundt → ikke en split
+    If Not harAktivVenstre And Not harAktivHøyre Then Exit Sub
+
+    ' Dette er en split! Håndter den
+    If DEBUG_MODE Then
+        Debug.Print String(80, "=")
+        Debug.Print "SPLIT DETEKTERT [" & Now & "]"
+        Debug.Print "Celle: " & cel.Address & " (rad " & cel.Row & ", kol " & cel.Column & ")"
+    End If
+
+    Call HåndterAktivitetSplit(cel, førsteDatoKol, datoRad)
+
+    If DEBUG_MODE Then
+        Debug.Print "  ✓ Split håndtert!"
+        Debug.Print String(80, "=")
+    End If
+End Sub
+
+' ============================================================================
+' SPLIT-HÅNDTERING: Re-formaterer aktivitet som er splittet
+' ============================================================================
+Private Sub HåndterAktivitetSplit(ByVal hvitCelle As Range, ByVal førsteDatoKol As Long, _
+                                   ByVal datoRad As Long)
+    Dim rad As Long
+    Dim aktivFarge As Long
+    Dim aktivKode As String, aktivBeskr As String
+
+    rad = hvitCelle.Row
+
+    ' STEG 1: Finn aktivitetsfargen (fra venstre eller høyre nabo)
+    If hvitCelle.Column > førsteDatoKol And HarAktivitetsfarge(hvitCelle.Offset(0, -1)) Then
+        aktivFarge = hvitCelle.Offset(0, -1).Interior.Color
+    ElseIf hvitCelle.Column < Me.Columns.Count And HarAktivitetsfarge(hvitCelle.Offset(0, 1)) Then
+        aktivFarge = hvitCelle.Offset(0, 1).Interior.Color
+    Else
+        Exit Sub  ' Ingen aktivitetsfarge funnet
+    End If
+
+    ' STEG 2: Slå opp aktivitetskode
+    aktivKode = SlåOppAktivitetFraFarge(aktivFarge, aktivBeskr)
+    If Len(aktivKode) = 0 Then Exit Sub
+
+    If DEBUG_MODE Then
+        Debug.Print "  → Aktivitet: " & aktivKode & " - " & aktivBeskr
+        Debug.Print "  → Aktivfarge: " & aktivFarge
+    End If
+
+    ' STEG 3: Skann hele raden og identifiser alle segmenter
+    Dim lastCol As Long
+    lastCol = Me.Cells(datoRad, Me.Columns.Count).End(xlToLeft).Column
+
+    Dim c As Long
+    Dim inSegment As Boolean
+    Dim segmentStart As Long, segmentEnd As Long
+    Dim segmentNr As Integer
+
+    segmentNr = 0
+    inSegment = False
+
+    For c = førsteDatoKol To lastCol
+        Dim celFarge As Long
+        celFarge = Me.Cells(rad, c).Interior.Color
+
+        ' Sjekk om denne cellen er del av aktiviteten
+        If FargeAvstand(celFarge, aktivFarge) <= 10 Then
+            ' Dette er del av aktiviteten
+            If Not inSegment Then
+                ' Start nytt segment
+                inSegment = True
+                segmentStart = c
+                segmentNr = segmentNr + 1
+
+                If DEBUG_MODE Then
+                    Debug.Print "  → Segment " & segmentNr & " starter i kolonne " & segmentStart
+                End If
+            End If
+            segmentEnd = c
+        Else
+            ' Dette er IKKE del av aktiviteten (hvit eller annen farge)
+            If inSegment Then
+                ' Avslutt segment
+                Call FormaterSegment(rad, segmentStart, segmentEnd, aktivFarge, aktivKode, _
+                                     aktivBeskr, segmentNr)
+                inSegment = False
+            End If
+        End If
+    Next c
+
+    ' Håndter siste segment hvis vi fortsatt er i et
+    If inSegment Then
+        Call FormaterSegment(rad, segmentStart, segmentEnd, aktivFarge, aktivKode, _
+                             aktivBeskr, segmentNr)
+    End If
+
+    ' STEG 4: Nullstill alle hvite celler (fjern alignment som "blør")
+    For c = førsteDatoKol To lastCol
+        If Not HarAktivitetsfarge(Me.Cells(rad, c)) Then
+            With Me.Cells(rad, c)
+                .Value = ""  ' Sikre ingen tekst
+                .HorizontalAlignment = xlGeneral  ' Fjern xlCenterAcrossSelection
+                .Font.Bold = False
+            End With
+        End If
+    Next c
+End Sub
+
+' ============================================================================
+' FORMATER SEGMENT: Formaterer et enkelt segment av en splittet aktivitet
+' ============================================================================
+Private Sub FormaterSegment(ByVal rad As Long, ByVal startCol As Long, ByVal endCol As Long, _
+                             ByVal aktivFarge As Long, ByVal aktivKode As String, _
+                             ByVal aktivBeskr As String, ByVal segmentNr As Integer)
+    Dim rng As Range
+    Dim førsteCelle As Range
+    Dim visTekst As String
+
+    Set rng = Me.Range(Me.Cells(rad, startCol), Me.Cells(rad, endCol))
+    Set førsteCelle = Me.Cells(rad, startCol)
+
+    If DEBUG_MODE Then
+        Debug.Print "  → Formaterer segment " & segmentNr & ": " & _
+                    Me.Cells(1, startCol).Address & "-" & Me.Cells(1, endCol).Address
+    End If
+
+    ' Lag visningstekst
+    visTekst = aktivKode
+    If Len(aktivBeskr) > 0 Then
+        visTekst = visTekst & " – " & aktivBeskr
+    End If
+
+    ' VIKTIG: Sjekk om første celle i segment mangler tekst
+    If Len(Trim$(førsteCelle.Value)) = 0 Then
+        førsteCelle.Value = visTekst
+        If DEBUG_MODE Then Debug.Print "    → Tekst restaurert i segment " & segmentNr
+    End If
+
+    ' Sett alignment KUN over dette segmentet
+    With rng
+        .HorizontalAlignment = xlCenterAcrossSelection
+        .VerticalAlignment = xlCenter
+        .WrapText = True
+    End With
+
+    ' Sett font-formatering
+    With førsteCelle.Font
+        .Bold = True
+        If ErLysFarge(aktivFarge) Then
+            .Color = RGB(0, 0, 0)  ' Sort på lys bakgrunn
+        Else
+            .Color = RGB(255, 255, 255)  ' Hvit på mørk bakgrunn
+        End If
+    End With
 End Sub
 
 ' ============================================================================
