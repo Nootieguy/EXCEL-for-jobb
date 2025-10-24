@@ -211,11 +211,23 @@ Private Sub HåndterAktivitetSplit(ByVal hvitCelle As Range, ByVal førsteDatoKo
         Debug.Print "  → Aktivfarge: " & aktivFarge
     End If
 
-    ' STEG 3: Skann hele raden og identifiser alle segmenter
+    ' STEG 3: Finn siste kolonne
     Dim lastCol As Long
     lastCol = Me.Cells(datoRad, Me.Columns.Count).End(xlToLeft).Column
 
     Dim c As Long
+
+    ' STEG 3A: FØRST - Nullstill alignment på ALLE celler i raden
+    ' Dette fjerner den gamle xlCenterAcrossSelection som "blør" over
+    If DEBUG_MODE Then Debug.Print "  → Nullstiller alignment på hele raden først..."
+
+    For c = førsteDatoKol To lastCol
+        With Me.Cells(rad, c)
+            .HorizontalAlignment = xlGeneral  ' Fjern all alignment først
+        End With
+    Next c
+
+    ' STEG 4: Skann hele raden og identifiser alle segmenter
     Dim inSegment As Boolean
     Dim segmentStart As Long, segmentEnd As Long
     Dim segmentNr As Integer
@@ -244,7 +256,7 @@ Private Sub HåndterAktivitetSplit(ByVal hvitCelle As Range, ByVal førsteDatoKo
         Else
             ' Dette er IKKE del av aktiviteten (hvit eller annen farge)
             If inSegment Then
-                ' Avslutt segment
+                ' Avslutt segment og formater det
                 Call FormaterSegment(rad, segmentStart, segmentEnd, aktivFarge, aktivKode, _
                                      aktivBeskr, segmentNr)
                 inSegment = False
@@ -258,12 +270,11 @@ Private Sub HåndterAktivitetSplit(ByVal hvitCelle As Range, ByVal førsteDatoKo
                              aktivBeskr, segmentNr)
     End If
 
-    ' STEG 4: Nullstill alle hvite celler (fjern alignment som "blør")
+    ' STEG 5: Nullstill hvite celler fullstendig (sikre ingen tekst eller formatering)
     For c = førsteDatoKol To lastCol
         If Not HarAktivitetsfarge(Me.Cells(rad, c)) Then
             With Me.Cells(rad, c)
                 .Value = ""  ' Sikre ingen tekst
-                .HorizontalAlignment = xlGeneral  ' Fjern xlCenterAcrossSelection
                 .Font.Bold = False
             End With
         End If
