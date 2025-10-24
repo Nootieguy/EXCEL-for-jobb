@@ -92,11 +92,16 @@ Public Sub FjernAktivitetPåMarkering()
     Dim arkPlan As Object
     Set arkPlan = ws  ' ws er allerede Planlegger-arket
     Dim radNr As Variant
+
+    ' Tom Dictionary for cellerÅFjerne (FjernMarkert har allerede fjernet cellene)
+    Dim tomDict As Object
+    Set tomDict = CreateObject("Scripting.Dictionary")
+
     For Each radNr In splittRader.Keys
         ' Sjekk om raden fortsatt har split (hvite celler mellom fargede)
         If SjekkOmRadHarSplit(ws, CLng(radNr), FØRSTE_DATAKOL, lastDatoCol) Then
-            ' Kall split-håndteringen fra Ark1.cls
-            arkPlan.HåndterAktivitetSplitForRad CLng(radNr), FØRSTE_DATAKOL, datoRad
+            ' Kall den nye forbedrede split-håndteringen fra Ark1.cls
+            arkPlan.HåndterAlleAktiviteterMedSplitIRad CLng(radNr), FØRSTE_DATAKOL, datoRad, tomDict
         End If
     Next radNr
 

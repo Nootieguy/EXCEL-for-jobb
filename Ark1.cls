@@ -214,8 +214,9 @@ End Sub
 
 ' ============================================================================
 ' SPLIT-HÅNDTERING: Finn og håndter ALLE aktivitetsblokker med splits i raden
+' Kan kalles både internt (fra Worksheet_Change) og eksternt (fra FjernMarkert)
 ' ============================================================================
-Private Sub HåndterAlleAktiviteterMedSplitIRad(ByVal rad As Long, ByVal førsteDatoKol As Long, _
+Public Sub HåndterAlleAktiviteterMedSplitIRad(ByVal rad As Long, ByVal førsteDatoKol As Long, _
                                                 ByVal datoRad As Long, ByVal cellerÅFjerne As Object)
     Dim lastCol As Long
     Dim c As Long
