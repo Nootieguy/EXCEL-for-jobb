@@ -60,6 +60,11 @@ Public Sub FjernAktivitetPåMarkering()
     Dim cellerÅFjerne As Object
     Set cellerÅFjerne = CreateObject("Scripting.Dictionary")
 
+    ' Lagre undo-snapshot før endringer
+    On Error Resume Next
+    LagUndoSnapshot sel
+    On Error GoTo 0
+
     Application.ScreenUpdating = False
     Application.EnableEvents = False  ' Disable events for å unngå rekursjon
     lastDatoCol = SisteDatoKolonne(ws, datoRad)

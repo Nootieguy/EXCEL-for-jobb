@@ -163,5 +163,79 @@ Feil:
     MsgBox "Ugyldig dato: " & s, vbExclamation
 End Function
 
+' =================== FIX RUTENETT ===================
+' Reparerer rutenett i hele dato-området
+' Nyttig etter at borders har blitt ødelagt av aktivitetsoperasjoner
+' =====================================================
+Public Sub FixRutenett()
+    Dim ws As Worksheet
+    Dim lastCol As Long, lastRow As Long
+    Dim r As Long, c As Long
+    Dim cel As Range
+
+    Set ws = ThisWorkbook.Worksheets(ARK_PLAN)
+
+    ' Finn området som skal fixes
+    lastCol = ws.Cells(datoRad, ws.Columns.Count).End(xlToLeft).Column
+    lastRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
+
+    Application.ScreenUpdating = False
+
+    ' Gå gjennom alle celler i dato-området
+    For r = FØRSTE_PERSONRAD To lastRow
+        For c = FØRSTE_DATAKOL To lastCol
+            Set cel = ws.Cells(r, c)
+
+            ' Bare fix hvite celler (ikke aktivitets-celler)
+            If Not HarAktivitetsfarge(cel) Then
+                ' Sett standard grid borders
+                With cel.Borders(xlEdgeLeft)
+                    .LineStyle = xlContinuous
+                    .Weight = xlThin
+                    .Color = RGB(0, 0, 0)
+                End With
+
+                With cel.Borders(xlEdgeRight)
+                    .LineStyle = xlContinuous
+                    .Weight = xlThin
+                    .Color = RGB(0, 0, 0)
+                End With
+
+                With cel.Borders(xlEdgeTop)
+                    .LineStyle = xlContinuous
+                    .Weight = xlThin
+                    .Color = RGB(0, 0, 0)
+                End With
+
+                With cel.Borders(xlEdgeBottom)
+                    .LineStyle = xlContinuous
+                    .Weight = xlThin
+                    .Color = RGB(0, 0, 0)
+                End With
+            End If
+        Next c
+    Next r
+
+    Application.ScreenUpdating = True
+
+    MsgBox "Rutenett er reparert!", vbInformation
+End Sub
+
+' Sjekk om celle har aktivitetsfarge (ikke hvit/grå)
+Private Function HarAktivitetsfarge(ByVal cel As Range) As Boolean
+    Dim col As Long
+
+    If cel.Interior.ColorIndex = xlColorIndexNone Then Exit Function
+
+    col = cel.Interior.Color
+
+    ' Sjekk om fargen er hvit eller lys grå
+    If col = RGB(255, 255, 255) Then Exit Function
+    If col = RGB(242, 242, 242) Then Exit Function
+    If col = RGB(250, 250, 250) Then Exit Function
+
+    HarAktivitetsfarge = True
+End Function
+
 
 

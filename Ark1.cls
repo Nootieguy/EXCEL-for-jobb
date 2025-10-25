@@ -82,7 +82,12 @@ Private Sub Worksheet_Change(ByVal Target As Range)
 
     If relevantEndring Is Nothing Then Exit Sub
 
-    ' STEG 5: Sett beskyttelsesflagg og disable events
+    ' STEG 5: Lagre undo-snapshot før endringer
+    On Error Resume Next
+    LagUndoSnapshot relevantEndring
+    On Error GoTo Slutt
+
+    ' STEG 6: Sett beskyttelsesflagg og disable events
     behandlerEndring = True
     Application.EnableEvents = False
 
