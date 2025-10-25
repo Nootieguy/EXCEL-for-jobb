@@ -100,6 +100,11 @@ Public Sub LeggInnAktivitet()
         Exit Sub
     End If
 
+    ' Lagre undo-snapshot før endringer
+    On Error Resume Next
+    LagUndoSnapshot wsPlan.Range(wsPlan.Cells(målRad, startCol), wsPlan.Cells(målRad, sluttCol))
+    On Error GoTo 0
+
     kommentar = InputBox("Kommentar (valgfritt  vises i blokken):", "Kommentar")
     If Len(Trim$(kommentar)) > 0 Then
         visTekst = kode & "  " & Trim$(kommentar)
@@ -156,6 +161,11 @@ Public Sub LeggInnAktivitetPåMarkering()
     End If
 
     Set farger = HentAktivitetsFarger(wsTyp)
+
+    ' Lagre undo-snapshot før endringer
+    On Error Resume Next
+    LagUndoSnapshot sel
+    On Error GoTo 0
 
     Application.ScreenUpdating = False
     lastDatoCol = SisteDatoKolonne(wsPlan, datoRad)

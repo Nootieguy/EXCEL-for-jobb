@@ -56,7 +56,12 @@ Public Sub RyddBlokkForPerson()
     
     ' Finn personblokken
     FinnPersonBlokk ws, personCell.Row, blockStart, blockEnd
-    
+
+    ' Lagre undo-snapshot før endringer
+    On Error Resume Next
+    LagUndoSnapshot ws.Range(ws.Cells(blockStart, startCol), ws.Cells(blockEnd, sluttCol))
+    On Error GoTo 0
+
     Application.ScreenUpdating = False
     
     ' 1) Rydd valgt spenn på hele blokken

@@ -292,6 +292,11 @@ Public Sub Uvalgte_TildelRad(ByVal r As Long)
     Dim visTekst As String
     visTekst = kode & IIf(Len(komm) > 0, "  " & komm, IIf(Len(beskrivelse) > 0, "  " & beskrivelse, ""))
 
+    ' Lagre undo-snapshot før endringer
+    On Error Resume Next
+    LagUndoSnapshot wsP.Range(wsP.Cells(målRad, sCol), wsP.Cells(målRad, eCol))
+    On Error GoTo 0
+
     ApplyBlockFormatting_Safe wsP, målRad, sCol, eCol, f, visTekst
 
     RyddRadIUvalgte wsU, r
