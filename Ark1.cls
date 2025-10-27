@@ -467,9 +467,59 @@ Private Sub HåndterEnkeltAktivitetSplit(ByVal rad As Long, ByVal blokkStart As 
                 If DEBUG_MODE Then
                     Debug.Print "  → Fjerner farge fra celle kolonne " & c
                 End If
-                Me.Cells(rad, c).ClearComments  ' Fjern kommentarer
-                Me.Cells(rad, c).Interior.ColorIndex = xlColorIndexNone
-                Me.Cells(rad, c).Font.Bold = False
+
+                Dim celFjern As Range
+                Set celFjern = Me.Cells(rad, c)
+
+                ' Rydd celle fullstendig
+                celFjern.ClearComments
+                celFjern.ClearContents
+                celFjern.Interior.ColorIndex = xlColorIndexNone
+                celFjern.Font.Bold = False
+                celFjern.Font.ColorIndex = xlColorIndexAutomatic
+                celFjern.HorizontalAlignment = xlGeneral
+                celFjern.VerticalAlignment = xlCenter
+                celFjern.WrapText = False
+
+                ' Sett hvit bakgrunn
+                With celFjern.Interior
+                    .Pattern = xlSolid
+                    .TintAndShade = 0
+                    .Color = RGB(255, 255, 255)
+                    .PatternTintAndShade = 0
+                End With
+
+                ' Nullstill alle borders først
+                celFjern.Borders(xlDiagonalDown).LineStyle = xlLineStyleNone
+                celFjern.Borders(xlDiagonalUp).LineStyle = xlLineStyleNone
+                celFjern.Borders(xlEdgeLeft).LineStyle = xlLineStyleNone
+                celFjern.Borders(xlEdgeRight).LineStyle = xlLineStyleNone
+                celFjern.Borders(xlEdgeTop).LineStyle = xlLineStyleNone
+                celFjern.Borders(xlEdgeBottom).LineStyle = xlLineStyleNone
+                celFjern.Borders(xlInsideVertical).LineStyle = xlLineStyleNone
+                celFjern.Borders(xlInsideHorizontal).LineStyle = xlLineStyleNone
+
+                ' Sett standard rutenett
+                With celFjern.Borders(xlEdgeLeft)
+                    .LineStyle = xlContinuous
+                    .Weight = xlThin
+                    .Color = RGB(0, 0, 0)
+                End With
+                With celFjern.Borders(xlEdgeRight)
+                    .LineStyle = xlContinuous
+                    .Weight = xlThin
+                    .Color = RGB(0, 0, 0)
+                End With
+                With celFjern.Borders(xlEdgeTop)
+                    .LineStyle = xlContinuous
+                    .Weight = xlThin
+                    .Color = RGB(0, 0, 0)
+                End With
+                With celFjern.Borders(xlEdgeBottom)
+                    .LineStyle = xlContinuous
+                    .Weight = xlThin
+                    .Color = RGB(0, 0, 0)
+                End With
             End If
         Next c
     End If

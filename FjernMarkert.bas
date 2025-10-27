@@ -85,7 +85,7 @@ Public Sub FjernAktivitetPåMarkering()
                 End If
 
                 ' Lagre hvilke celler som skal fjernes
-                Dim radKey As String
+                Dim radKey As Variant  ' Må være Variant for For Each loop
                 radKey = CStr(r)
                 For c = rng.Column To rng.Column + rng.Columns.Count - 1
                     If c >= FØRSTE_DATAKOL And c <= lastDatoCol Then
@@ -390,7 +390,7 @@ Private Function SjekkOmRadVilHaSplit(ws As Worksheet, ByVal r As Long, _
     Dim c As Long
     Dim harSettFarge As Boolean
     Dim harSettHvit As Boolean
-    Dim radKey As String
+    Dim radKey As Variant  ' Variant for konsistens med Dictionary.Keys
 
     harSettFarge = False
     harSettHvit = False
