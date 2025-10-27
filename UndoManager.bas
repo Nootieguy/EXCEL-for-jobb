@@ -182,19 +182,157 @@ Public Sub Undo(ByVal ws As Worksheet)
     ' Clear stack after undo
     undoStackSize = 0
 
-    MsgBox "Undo utført!", vbInformation
+    On Error GoTo 0
+End Sub
+
+' Gjenopprett siste lagrede tilstand (STILLE - ingen melding)
+Private Sub UndoSilent(ByVal ws As Worksheet)
+    If undoStackSize = 0 Then Exit Sub
+
+    On Error Resume Next
+
+    Dim i As Long
+    Dim cel As Range
+
+    Application.ScreenUpdating = False
+    Application.EnableEvents = False
+
+    For i = 1 To undoStackSize
+        Set cel = ws.Range(undoStack(i).Address)
+
+        ' Restore value/formula
+        If Len(undoStack(i).Formula) > 0 Then
+            cel.Formula = undoStack(i).Formula
+        Else
+            cel.Value = undoStack(i).Value
+        End If
+
+        ' Restore interior
+        If undoStack(i).InteriorColorIndex = xlColorIndexNone Then
+            cel.Interior.ColorIndex = xlColorIndexNone
+        Else
+            cel.Interior.Color = undoStack(i).InteriorColor
+        End If
+
+        ' Restore font
+        cel.Font.Bold = undoStack(i).FontBold
+        cel.Font.Color = undoStack(i).FontColor
+
+        ' Restore alignment
+        cel.HorizontalAlignment = undoStack(i).HorizontalAlignment
+        cel.VerticalAlignment = undoStack(i).VerticalAlignment
+        cel.WrapText = undoStack(i).WrapText
+
+        ' Restore comment
+        cel.ClearComments
+        If undoStack(i).HasComment Then
+            cel.AddComment undoStack(i).CommentText
+        End If
+
+        ' Restore borders
+        With cel.Borders(xlEdgeLeft)
+            .LineStyle = undoStack(i).BorderLeftStyle
+            .Weight = undoStack(i).BorderLeftWeight
+            .Color = undoStack(i).BorderLeftColor
+        End With
+
+        With cel.Borders(xlEdgeRight)
+            .LineStyle = undoStack(i).BorderRightStyle
+            .Weight = undoStack(i).BorderRightWeight
+            .Color = undoStack(i).BorderRightColor
+        End With
+
+        With cel.Borders(xlEdgeTop)
+            .LineStyle = undoStack(i).BorderTopStyle
+            .Weight = undoStack(i).BorderTopWeight
+            .Color = undoStack(i).BorderTopColor
+        End With
+
+        With cel.Borders(xlEdgeBottom)
+            .LineStyle = undoStack(i).BorderBottomStyle
+            .Weight = undoStack(i).BorderBottomWeight
+            .Color = undoStack(i).BorderBottomColor
+        End With
+    Next i
+
+    Application.EnableEvents = True
+    Application.ScreenUpdating = True
+
+    ' Clear stack after undo
+    undoStackSize = 0
 
     On Error GoTo 0
 End Sub
 
-' Offentlig Undo for Planlegger-arket
+' Offentlig Undo for Planlegger-arket (MED melding)
 Public Sub UndoPlanlegger()
     Dim ws As Worksheet
     Set ws = ThisWorkbook.Worksheets("Planlegger")
+
+    If undoStackSize = 0 Then
+        MsgBox "Ingen undo-tilstand tilgjengelig.", vbExclamation
+        Exit Sub
+    End If
+
     Call Undo(ws)
+    MsgBox "Undo utført!", vbInformation
 End Sub
 
 ' Sjekk om undo er tilgjengelig
 Public Function UndoTilgjengelig() As Boolean
     UndoTilgjengelig = (undoStackSize > 0)
 End Function
+
+' =====================================================
+' CTRL+Z INTEGRATION
+' =====================================================
+
+' Smart Ctrl+Z handler som fungerer med både makro-operasjoner og manuelle endringer
+Public Sub CtrlZ_Handler()
+    On Error Resume Next
+
+    ' SMART LOGIKK:
+    ' - Hvis vi har custom undo tilgjengelig = makro kjørte nettopp → bruk custom undo
+    ' - Hvis ikke = brukeren gjorde manuelle endringer → bruk Excel's undo
+
+    If UndoTilgjengelig() Then
+        ' Vi har custom undo snapshot (makro kjørte) → bruk den (STILLE - ingen melding)
+        Dim ws As Worksheet
+        Set ws = ThisWorkbook.Worksheets("Planlegger")
+        Call UndoSilent(ws)
+    Else
+        ' Ingen custom undo → prøv Excel's innebygde undo for manuelle endringer
+        On Error Resume Next
+        Application.Undo
+        If Err.Number <> 0 Then
+            ' Excel's undo feilet også → ingen undo tilgjengelig
+            ' (Ingen melding - Ctrl+Z skal være stille som i Excel)
+            Err.Clear
+        End If
+        On Error GoTo 0
+    End If
+End Sub
+
+' Initialiser Ctrl+Z til å bruke smart undo-handler
+' Dette gjør at Ctrl+Z fungerer BÅDE for manuelle endringer OG makro-operasjoner
+Public Sub InitializeCtrlZ()
+    Application.OnKey "^z", "CtrlZ_Handler"
+    MsgBox "Ctrl+Z er nå konfigurert!" & vbCrLf & vbCrLf & _
+           "Smart undo-håndtering aktivert:" & vbCrLf & _
+           "• Angrer makro-operasjoner (Delete, LeggInn, Rydd, etc.)" & vbCrLf & _
+           "• Angrer også manuelle endringer (Excel standard)" & vbCrLf & vbCrLf & _
+           "Bruk ResetCtrlZ() for å deaktivere.", _
+           vbInformation, "Undo konfigurert"
+End Sub
+
+' Fjern Ctrl+Z override (tilbakestill til Excel's standard)
+Public Sub ResetCtrlZ()
+    Application.OnKey "^z"
+    MsgBox "Ctrl+Z er tilbakestilt til Excel's standard oppførsel.", vbInformation
+End Sub
+
+' Auto-initialiser når Excel åpnes (VALGFRI - kan kalles manuelt)
+Public Sub Auto_Open()
+    ' Uncomment neste linje for å aktivere Ctrl+Z automatisk ved oppstart:
+    ' InitializeCtrlZ
+End Sub
