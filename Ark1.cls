@@ -170,6 +170,23 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                             ' Sett teksten i neste celle
                             nesteCelleIAktivitet.Value = aktivKode & " - " & aktivBeskr
                         End If
+
+                        ' Flytt kommentar hvis den finnes
+                        If c.Comment Is Nothing Then
+                            ' Ingen kommentar å flytte
+                        Else
+                            ' Kopier kommentar til neste celle
+                            Dim kommentarTekst As String
+                            kommentarTekst = c.Comment.Text
+
+                            ' Fjern gammel kommentar fra neste celle hvis den finnes
+                            On Error Resume Next
+                            nesteCelleIAktivitet.Comment.Delete
+                            On Error GoTo 0
+
+                            ' Legg til ny kommentar
+                            nesteCelleIAktivitet.AddComment kommentarTekst
+                        End If
                     End If
 
                     ' Marker denne cellen for fjerning
