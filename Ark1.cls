@@ -1187,13 +1187,14 @@ Private Sub FiksMultiCelleAktivitet(ByVal startCel As Range, ByVal sluttKol As L
     ' Definer hele blokken
     Set rng = Me.Range(startCel, Me.Cells(startCel.Row, sluttKol))
 
-    ' Sett farge og clear content på alle celler (bortsett fra første)
+    ' Sett farge og KOPIER tekst til alle celler
+    Dim tekst As String
+    tekst = startCel.Value  ' Hent teksten fra første celle
+
     For Each c In rng.Cells
-        If c.Address <> startCel.Address Then
-            c.ClearContents
-        End If
         c.Interior.Color = farge
         c.Interior.Pattern = xlSolid
+        c.Value = tekst  ' Kopier teksten til ALLE celler
     Next c
 
     ' Fjern alle borders først
