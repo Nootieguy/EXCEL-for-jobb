@@ -179,14 +179,8 @@ Private Sub Worksheet_Change(ByVal Target As Range)
 
                         ' Hvis det finnes en neste celle, flytt teksten dit
                         If Not nesteCelleIAktivitet Is Nothing Then
-                            ' Slå opp aktivitetskode fra farge
-                            Dim aktivKode As String, aktivBeskr As String
-                            aktivKode = SlåOppAktivitetFraFarge(aktivFarge, aktivBeskr)
-
-                            If Len(aktivKode) > 0 Then
-                                ' Sett teksten i neste celle
-                                nesteCelleIAktivitet.Value = aktivKode & " - " & aktivBeskr
-                            End If
+                            ' Kopier den faktiske teksten (bevarer egendefinert kommentar)
+                            nesteCelleIAktivitet.Value = c.Value
                         End If
 
                         ' Marker denne cellen for fjerning
@@ -1270,25 +1264,6 @@ Private Sub FiksMultiCelleAktivitet(ByVal startCel As Range, ByVal sluttKol As L
         End If
     End With
 
-    ' Kopier kommentar til alle celler (hvis første celle har kommentar)
-    If Not startCel.Comment Is Nothing Then
-        Dim kommentarTekst As String
-        kommentarTekst = startCel.Comment.Text
-
-        ' Legg til samme kommentar i alle celler i aktiviteten
-        For Each c In rng.Cells
-            If c.Address <> startCel.Address Then
-                ' Fjern eksisterende kommentar hvis den finnes
-                On Error Resume Next
-                c.Comment.Delete
-                On Error GoTo 0
-
-                ' Legg til kommentar
-                c.AddComment kommentarTekst
-            End If
-        Next c
-    End If
-
     If DEBUG_MODE Then
         Debug.Print "Fikset multi-celle aktivitet: " & rng.Address
     End If
@@ -1331,94 +1306,6 @@ Private Sub RestaurerRutenettForCelle(ByVal cel As Range)
     If DEBUG_MODE Then
         Debug.Print "Restaurert rutenett for: " & cel.Address
     End If
-End Sub
-
-' ============================================================================
-' UTILITY: Synkroniser kommentarer i aktiviteter (kopier til alle celler)
-' ============================================================================
-Public Sub SynkroniserKommentarer()
-    ' Synkroniserer kommentarer i valgt område eller hele planlegger-arket
-    ' Hvis en aktivitet har kommentar i første celle, kopieres den til alle celler
-    Dim sel As Range
-    Dim datoRad As Long, førsteDatoKol As Long, lastCol As Long
-    Dim r As Long, c As Long
-    Dim teller As Long
-
-    ' Finn dato-området
-    datoRad = Me.Range("FirstDate").Row
-    førsteDatoKol = Me.Range("FirstDate").Column
-    lastCol = Me.Cells(datoRad, Me.Columns.Count).End(xlToLeft).Column
-
-    ' Bestem område (valgt eller hele arket)
-    On Error Resume Next
-    Set sel = Application.Intersect(Selection, Me.UsedRange)
-    On Error GoTo 0
-
-    If sel Is Nothing Then
-        MsgBox "Vennligst velg et område først, eller plasser markøren i planlegger-arket.", vbInformation
-        Exit Sub
-    End If
-
-    Application.ScreenUpdating = False
-    teller = 0
-
-    ' Gå gjennom hver rad i valgt område
-    For r = sel.Row To sel.Row + sel.Rows.Count - 1
-        ' Gå gjennom hver aktivitetsblokk i raden
-        c = førsteDatoKol
-        Do While c <= lastCol
-            Dim cel As Range
-            Set cel = Me.Cells(r, c)
-
-            ' Sjekk om dette er start på en aktivitet med kommentar
-            If HarAktivitetsfarge(cel) And Not cel.Comment Is Nothing Then
-                ' Finn slutten av aktiviteten
-                Dim aktivFarge As Long
-                aktivFarge = cel.Interior.Color
-                Dim sluttCol As Long
-                sluttCol = c
-
-                ' Skann til høyre
-                Dim scanC As Long
-                For scanC = c + 1 To lastCol
-                    If HarAktivitetsfarge(Me.Cells(r, scanC)) Then
-                        If FargeAvstand(Me.Cells(r, scanC).Interior.Color, aktivFarge) <= 10 Then
-                            sluttCol = scanC
-                        Else
-                            Exit For
-                        End If
-                    Else
-                        Exit For
-                    End If
-                Next scanC
-
-                ' Hvis aktiviteten er multi-celle, kopier kommentar
-                If sluttCol > c Then
-                    Dim kommentTxt As String
-                    kommentTxt = cel.Comment.Text
-
-                    ' Kopier til alle celler
-                    Dim copyC As Long
-                    For copyC = c + 1 To sluttCol
-                        On Error Resume Next
-                        Me.Cells(r, copyC).Comment.Delete
-                        On Error GoTo 0
-                        Me.Cells(r, copyC).AddComment kommentTxt
-                    Next copyC
-
-                    teller = teller + 1
-                End If
-
-                ' Hopp til slutten av aktiviteten
-                c = sluttCol + 1
-            Else
-                c = c + 1
-            End If
-        Loop
-    Next r
-
-    Application.ScreenUpdating = True
-    MsgBox "Synkronisert kommentarer i " & teller & " aktiviteter!", vbInformation
 End Sub
 
 ' ============================================================================
