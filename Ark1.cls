@@ -101,7 +101,16 @@ Private Sub Worksheet_Change(ByVal Target As Range)
     Dim cellerÅFjerne As Object
     Set cellerÅFjerne = CreateObject("Scripting.Dictionary")
 
+    ' Dictionary for å tracke celler som allerede er behandlet (paste multi-celle fix)
+    Dim behandledeCeller As Object
+    Set behandledeCeller = CreateObject("Scripting.Dictionary")
+
     For Each c In relevantEndring.Cells
+        ' Hopp over celler som allerede er behandlet (paste multi-celle)
+        If behandledeCeller.Exists(c.Address) Then
+            GoTo NesteCelle
+        End If
+
         ' Sjekk om cellen er tom
         If Len(Trim$(c.Value)) = 0 Then
             If HarAktivitetsfarge(c) Then
@@ -171,7 +180,7 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                     End If
                 End If
             Else
-                ' TILFELLE 2: Tom hvit celle (Fjern markert område ble brukt)
+                ' TILFELLE 2: Tom hvit celle (Fjern markert område / Cut ble brukt)
                 ' Sjekk om den har aktivitetsfarge til venstre eller høyre (split)
                 Dim harAktivVenstre As Boolean, harAktivHøyre As Boolean
                 harAktivVenstre = False
@@ -188,6 +197,9 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                 If (harAktivVenstre Or harAktivHøyre) And Not splittRader.Exists(c.Row) Then
                     splittRader.Add c.Row, c.Row
                 End If
+
+                ' Restaurer rutenett for tom hvit celle (f.eks. etter cut)
+                Call RestaurerRutenettForCelle(c)
             End If
         Else
             ' TILFELLE 3: Celle har fått innhold (paste/drag/typing)
@@ -213,9 +225,16 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                 If sluttCol > c.Column Then
                     ' Fiks formateringen for hele blokken
                     Call FiksMultiCelleAktivitet(c, sluttCol, c.Interior.Color)
+
+                    ' Marker alle celler i blokken som behandlet
+                    Dim markerCol As Long
+                    For markerCol = c.Column To sluttCol
+                        behandledeCeller.Add Me.Cells(c.Row, markerCol).Address, True
+                    Next markerCol
                 End If
             End If
         End If
+NesteCelle:
     Next c
 
     ' STEG 6B: Håndter splits (når hvite celler lages midt i aktivitet)
@@ -1205,6 +1224,45 @@ Private Sub FiksMultiCelleAktivitet(ByVal startCel As Range, ByVal sluttKol As L
 
     If DEBUG_MODE Then
         Debug.Print "Fikset multi-celle aktivitet: " & rng.Address
+    End If
+End Sub
+
+' ============================================================================
+' UTILITY: Restaurer rutenett for en enkelt celle
+' ============================================================================
+Private Sub RestaurerRutenettForCelle(ByVal cel As Range)
+    ' Nullstill alle borders først
+    cel.Borders(xlDiagonalDown).LineStyle = xlLineStyleNone
+    cel.Borders(xlDiagonalUp).LineStyle = xlLineStyleNone
+    cel.Borders(xlEdgeLeft).LineStyle = xlLineStyleNone
+    cel.Borders(xlEdgeRight).LineStyle = xlLineStyleNone
+    cel.Borders(xlEdgeTop).LineStyle = xlLineStyleNone
+    cel.Borders(xlEdgeBottom).LineStyle = xlLineStyleNone
+
+    ' Sett standard rutenett (tynne kanter)
+    With cel.Borders(xlEdgeLeft)
+        .LineStyle = xlContinuous
+        .Weight = xlThin
+        .Color = RGB(0, 0, 0)
+    End With
+    With cel.Borders(xlEdgeRight)
+        .LineStyle = xlContinuous
+        .Weight = xlThin
+        .Color = RGB(0, 0, 0)
+    End With
+    With cel.Borders(xlEdgeTop)
+        .LineStyle = xlContinuous
+        .Weight = xlThin
+        .Color = RGB(0, 0, 0)
+    End With
+    With cel.Borders(xlEdgeBottom)
+        .LineStyle = xlContinuous
+        .Weight = xlThin
+        .Color = RGB(0, 0, 0)
+    End With
+
+    If DEBUG_MODE Then
+        Debug.Print "Restaurert rutenett for: " & cel.Address
     End If
 End Sub
 
