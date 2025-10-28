@@ -180,7 +180,6 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                         ' Hvis det finnes en neste celle, hent tekst via Undo og flytt
                         If Not nesteCelleIAktivitet Is Nothing Then
                             ' Bruk Application.Undo for å reversere slettingen midlertidig
-                            Application.EnableEvents = False
                             Application.Undo
 
                             ' Nå har vi original teksten tilbake
@@ -190,13 +189,9 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                             ' Slett på nytt og kopier til neste celle
                             c.ClearContents
                             nesteCelleIAktivitet.Value = originalTekst
-
-                            ' Re-enable events (men vi er fortsatt i event handler, så hopp til slutt)
-                            Application.EnableEvents = True
-                            GoTo Slutt
                         End If
 
-                        ' Marker denne cellen for fjerning
+                        ' Marker denne cellen for fjerning (cleanup vil fjerne fargen osv)
                         radKey = CStr(c.Row)
                         If Not cellerÅFjerne.Exists(radKey) Then
                             Dim nyCol3b As Object
