@@ -189,6 +189,40 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                     splittRader.Add c.Row, c.Row
                 End If
             End If
+        Else
+            ' TILFELLE 3: Celle har fått innhold (paste/drag/typing)
+            ' Sjekk om dette er en aktivitet som trenger multi-celle formatering
+            If HarAktivitetsfarge(c) And c.Font.Bold And Len(Trim$(c.Value)) > 0 Then
+                ' Dette kan være en paste/drag operasjon av en aktivitet
+                ' Sjekk om cellen mangler riktig alignment (xlCenterAcrossSelection)
+                If c.HorizontalAlignment <> xlCenterAcrossSelection Then
+                    ' Finn ut hvor mange celler til høyre som skal inkluderes
+                    ' Basert på naboer med samme farge
+                    Dim sluttCol As Long
+                    sluttCol = c.Column
+
+                    ' Skann til høyre for å finne celler med samme farge
+                    Dim col As Long
+                    For col = c.Column + 1 To lastCol
+                        If FargeAvstand(Me.Cells(c.Row, col).Interior.Color, c.Interior.Color) <= 10 Then
+                            sluttCol = col
+                        Else
+                            Exit For
+                        End If
+                    Next col
+
+                    ' Hvis vi bare har én celle, ekspander til minst 2 celler for å få plass til tekst
+                    If sluttCol = c.Column And c.Column < lastCol Then
+                        ' Sjekk om naboen er hvit/tom
+                        If Not HarAktivitetsfarge(Me.Cells(c.Row, c.Column + 1)) Then
+                            sluttCol = c.Column + 1
+                        End If
+                    End If
+
+                    ' Fiks formateringen for hele blokken
+                    Call FiksMultiCelleAktivitet(c, sluttCol, c.Interior.Color)
+                End If
+            End If
         End If
     Next c
 
@@ -546,7 +580,7 @@ Private Sub HåndterEnkeltAktivitetSplit(ByVal rad As Long, ByVal blokkStart As 
 
         ' Parse ut kode og beskrivelse
         Dim dashPos As Long
-        dashPos = InStr(fullTekst, "–")
+        dashPos = InStr(fullTekst, "-")
         If dashPos = 0 Then dashPos = InStr(fullTekst, "-")
 
         If dashPos > 0 Then
@@ -658,9 +692,9 @@ Public Sub HåndterAktivitetSplitForRad(ByVal rad As Long, ByVal førsteDatoKol 
         ' Bruk teksten fra cellen (kan være kommentar eller standard beskrivelse)
         fullTekst = Trim$(førsteCelleMedTekst.Value)
 
-        ' Parse ut kode og beskrivelse (format: "KODE – Beskrivelse")
+        ' Parse ut kode og beskrivelse (format: "KODE - Beskrivelse")
         Dim dashPos As Long
-        dashPos = InStr(fullTekst, "–")
+        dashPos = InStr(fullTekst, "-")
         If dashPos = 0 Then dashPos = InStr(fullTekst, "-")  ' Prøv også vanlig bindestrek
 
         If dashPos > 0 Then
@@ -775,7 +809,7 @@ Private Sub FormaterSegment(ByVal rad As Long, ByVal startCol As Long, ByVal end
     ' Lag visningstekst
     visTekst = aktivKode
     If Len(aktivBeskr) > 0 Then
-        visTekst = visTekst & " – " & aktivBeskr
+        visTekst = visTekst & " - " & aktivBeskr
     End If
 
     ' VIKTIG: Sett tekst i ALLE celler i segmentet først (for å tømme gamle verdier)
@@ -1074,7 +1108,7 @@ Private Sub RestaurerAktivitetsNavn(ByVal cel As Range, ByVal kode As String, _
     ' Lag visningstekst
     visTekst = kode
     If Len(beskrivelse) > 0 Then
-        visTekst = visTekst & " – " & beskrivelse
+        visTekst = visTekst & " - " & beskrivelse
     End If
 
     farge = cel.Interior.Color
@@ -1111,6 +1145,76 @@ Private Function ErLysFarge(col As Long) As Boolean
     ' Luma-beregning (ITU BT.601)
     ErLysFarge = (0.299 * r + 0.587 * g + 0.114 * b) > 160
 End Function
+
+' ============================================================================
+' FIKS: Gjenopprett multi-celle aktivitet etter paste/drag
+' ============================================================================
+Private Sub FiksMultiCelleAktivitet(ByVal startCel As Range, ByVal sluttKol As Long, ByVal farge As Long)
+    Dim rng As Range
+    Dim c As Range
+
+    ' Definer hele blokken
+    Set rng = Me.Range(startCel, Me.Cells(startCel.Row, sluttKol))
+
+    ' Sett farge og clear content på alle celler (bortsett fra første)
+    For Each c In rng.Cells
+        If c.Address <> startCel.Address Then
+            c.ClearContents
+        End If
+        c.Interior.Color = farge
+        c.Interior.Pattern = xlSolid
+    Next c
+
+    ' Fjern alle borders først
+    rng.Borders.LineStyle = xlLineStyleNone
+
+    ' Sett thick border rundt hele blokken
+    With rng.Borders(xlEdgeLeft)
+        .LineStyle = xlContinuous
+        .Weight = xlThick
+        .Color = RGB(0, 0, 0)
+    End With
+    With rng.Borders(xlEdgeRight)
+        .LineStyle = xlContinuous
+        .Weight = xlThick
+        .Color = RGB(0, 0, 0)
+    End With
+    With rng.Borders(xlEdgeTop)
+        .LineStyle = xlContinuous
+        .Weight = xlThick
+        .Color = RGB(0, 0, 0)
+    End With
+    With rng.Borders(xlEdgeBottom)
+        .LineStyle = xlContinuous
+        .Weight = xlThick
+        .Color = RGB(0, 0, 0)
+    End With
+
+    ' Fjern inside borders
+    rng.Borders(xlInsideVertical).LineStyle = xlLineStyleNone
+    rng.Borders(xlInsideHorizontal).LineStyle = xlLineStyleNone
+
+    ' Sett alignment og font
+    With rng
+        .HorizontalAlignment = xlCenterAcrossSelection
+        .VerticalAlignment = xlCenter
+        .WrapText = True
+    End With
+
+    ' Sett tekstfarge basert på bakgrunn
+    With startCel.Font
+        .Bold = True
+        If ErLysFarge(farge) Then
+            .Color = RGB(0, 0, 0)  ' Sort tekst på lys bakgrunn
+        Else
+            .Color = RGB(255, 255, 255)  ' Hvit tekst på mørk bakgrunn
+        End If
+    End With
+
+    If DEBUG_MODE Then
+        Debug.Print "Fikset multi-celle aktivitet: " & rng.Address
+    End If
+End Sub
 
 ' ============================================================================
 ' UTILITY: Reset event handler (for debugging)
