@@ -194,31 +194,23 @@ Private Sub Worksheet_Change(ByVal Target As Range)
             ' Sjekk om dette er en aktivitet som trenger multi-celle formatering
             If HarAktivitetsfarge(c) And c.Font.Bold And Len(Trim$(c.Value)) > 0 Then
                 ' Dette kan være en paste/drag operasjon av en aktivitet
-                ' Sjekk om cellen mangler riktig alignment (xlCenterAcrossSelection)
-                If c.HorizontalAlignment <> xlCenterAcrossSelection Then
-                    ' Finn ut hvor mange celler til høyre som skal inkluderes
-                    ' Basert på naboer med samme farge
-                    Dim sluttCol As Long
-                    sluttCol = c.Column
+                ' Finn ut hvor mange celler til høyre som skal inkluderes
+                ' Basert på naboer med samme farge
+                Dim sluttCol As Long
+                sluttCol = c.Column
 
-                    ' Skann til høyre for å finne celler med samme farge
-                    Dim col As Long
-                    For col = c.Column + 1 To lastCol
-                        If FargeAvstand(Me.Cells(c.Row, col).Interior.Color, c.Interior.Color) <= 10 Then
-                            sluttCol = col
-                        Else
-                            Exit For
-                        End If
-                    Next col
-
-                    ' Hvis vi bare har én celle, ekspander til minst 2 celler for å få plass til tekst
-                    If sluttCol = c.Column And c.Column < lastCol Then
-                        ' Sjekk om naboen er hvit/tom
-                        If Not HarAktivitetsfarge(Me.Cells(c.Row, c.Column + 1)) Then
-                            sluttCol = c.Column + 1
-                        End If
+                ' Skann til høyre for å finne celler med samme farge
+                Dim col As Long
+                For col = c.Column + 1 To lastCol
+                    If FargeAvstand(Me.Cells(c.Row, col).Interior.Color, c.Interior.Color) <= 10 Then
+                        sluttCol = col
+                    Else
+                        Exit For
                     End If
+                Next col
 
+                ' Hvis vi fant flere celler med samme farge, fiks formateringen
+                If sluttCol > c.Column Then
                     ' Fiks formateringen for hele blokken
                     Call FiksMultiCelleAktivitet(c, sluttCol, c.Interior.Color)
                 End If
