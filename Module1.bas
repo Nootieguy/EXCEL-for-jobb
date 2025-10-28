@@ -18,7 +18,7 @@ End Property
 ' =============================================
 
 ' =========================================================
-'  MODUL 1  SAMLET v3
+'  MODUL 1 - SAMLET v3
 '  Inneholder begge måter å legge inn aktivitet:
 '    1) LeggInnAktivitet: velg person + datoer (klassisk)
 '    2) LeggInnAktivitetPåMarkering: marker celler og angi kode
@@ -105,11 +105,11 @@ Public Sub LeggInnAktivitet()
     LagUndoSnapshot wsPlan.Range(wsPlan.Cells(målRad, startCol), wsPlan.Cells(målRad, sluttCol))
     On Error GoTo 0
 
-    kommentar = InputBox("Kommentar (valgfritt  vises i blokken):", "Kommentar")
+    kommentar = InputBox("Kommentar (valgfritt - vises i blokken):", "Kommentar")
     If Len(Trim$(kommentar)) > 0 Then
-        visTekst = kode & "  " & Trim$(kommentar)
+        visTekst = kode & " - " & Trim$(kommentar)
     Else
-        visTekst = kode & "  " & beskrivelse
+        visTekst = kode & " - " & beskrivelse
     End If
 
     ApplyBlockFormatting wsPlan, målRad, startCol, sluttCol, farge, visTekst, farger
@@ -153,11 +153,11 @@ Public Sub LeggInnAktivitetPåMarkering()
         Exit Sub
     End If
 
-    kommentar = InputBox("Kommentar (valgfritt  vises i blokken):", "Kommentar")
+    kommentar = InputBox("Kommentar (valgfritt - vises i blokken):", "Kommentar")
     If Len(Trim$(kommentar)) > 0 Then
-        visTekst = kode & "  " & Trim$(kommentar)
+        visTekst = kode & " - " & Trim$(kommentar)
     Else
-        visTekst = kode & "  " & beskrivelse
+        visTekst = kode & " - " & beskrivelse
     End If
 
     Set farger = HentAktivitetsFarger(wsTyp)
@@ -241,9 +241,9 @@ Private Function FinnHovedRad(ws As Worksheet, ByVal rad As Long) As Long
 End Function
 
 ' Overlapp med *annen* aktivitet i spennet?
-' - Dersom vi finner fet tekst i spennet som **ikke** starter med samme kode  TRUE
-' - Dersom vi finner aktivitetsfarge uten tekst  antar annen aktivitet  TRUE
-' - Kun samme kode eller tomt  FALSE
+' - Dersom vi finner fet tekst i spennet som **ikke** starter med samme kode - TRUE
+' - Dersom vi finner aktivitetsfarge uten tekst - antar annen aktivitet - TRUE
+' - Kun samme kode eller tomt - FALSE
 Private Function SpanHarAnnenAktivitet(ws As Worksheet, ByVal r As Long, _
                                        ByVal cMin As Long, ByVal cMax As Long, _
                                        ByVal farger As Object, ByVal kode As String) As Boolean
@@ -323,7 +323,7 @@ Public Function SisteDatoKolonne(ws As Worksheet, ByVal headerRow As Long) As Lo
     SisteDatoKolonne = ws.Cells(headerRow, ws.Columns.Count).End(xlToLeft).Column
 End Function
 
-' LIM INN I **Modul 1  Samlet v3** (eller nyere). Erstatt hele
+' LIM INN I **Modul 1 - Samlet v3** (eller nyere). Erstatt hele
 ' `FinnEllerOpprettLedigRad_UtenNavn` + legg til helper `NullstillTilHvitMedGrid`.
 
 Private Function FinnEllerOpprettLedigRad_UtenNavn(ws As Worksheet, personRow As Long, _
@@ -344,7 +344,7 @@ Private Function FinnEllerOpprettLedigRad_UtenNavn(ws As Worksheet, personRow As
         End If
     Next r
 
-    ' 2) Opprett ny under-rad under blokken  kopier KUN basisformat (kolbredd/rowheight),
+    ' 2) Opprett ny under-rad under blokken - kopier KUN basisformat (kolbredd/rowheight),
     '    men nullstill ALLE datoceller til HVIT + NORMALT RUTENETT (ikke arv fra hovedrad)
     ws.Rows(blockEnd + 1).Insert Shift:=xlDown
     ' behold høyde/nummerformater ved å kopiere radhøyde/kolbredder indirekte via formats,

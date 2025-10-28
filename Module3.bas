@@ -2,7 +2,7 @@
 
 Option Explicit
 '
-' =================== MODUL 5  AKTIVITETSOVERSIKT (v1.0) ===================
+' =================== MODUL 5 - AKTIVITETSOVERSIKT (v1.0) ===================
 ' Totaloversikt av alle aktiviteter med forsinkelseshåndtering og overlappdeteksjon
 ' Toveis synkronisering med Planlegger-arket
 
@@ -91,7 +91,7 @@ Public Sub AktivitetsOversikt_Oppsett()
     ' Toppstripe
     With wsAO.Range("A1:J1")
         .Merge
-        .Value = "AKTIVITETSOVERSIKT  Styringsverktøy"
+        .Value = "AKTIVITETSOVERSIKT - Styringsverktøy"
         .Interior.Color = FARGE_PANEL_TITLE
         .Font.Bold = True
         .Font.Size = 16
@@ -365,7 +365,7 @@ Private Sub SkannPersonAktiviteter(wsP As Worksheet, wsTyp As Worksheet, _
             
             ' Sjekk om dette er start på en aktivitet (fet tekst)
             If Len(celVal) > 0 And wsP.Cells(r, c).Font.Bold Then
-                ' Ekstraher aktivitetskode (første ord før "")
+                ' Ekstraher aktivitetskode (første ord før "-")
                 aktivKode = ExtractAktivitetsKode(celVal)
                 kommentar = ExtractKommentar(celVal)
                 
@@ -448,14 +448,14 @@ NesteCelle:
     Next r
 End Sub
 
-' Ekstraher aktivitetskode fra celle-tekst (før "")
+' Ekstraher aktivitetskode fra celle-tekst (før "-")
 Private Function ExtractAktivitetsKode(txt As String) As String
     Dim pos As Long
-    pos = InStr(txt, "")
+    pos = InStr(txt, "-")
     If pos > 0 Then
         ExtractAktivitetsKode = Trim$(Left$(txt, pos - 1))
     Else
-        ' Hvis ingen "", ta første ord
+        ' Hvis ingen "-", ta første ord
         pos = InStr(txt, " ")
         If pos > 0 Then
             ExtractAktivitetsKode = Trim$(Left$(txt, pos - 1))
@@ -465,10 +465,10 @@ Private Function ExtractAktivitetsKode(txt As String) As String
     End If
 End Function
 
-' Ekstraher kommentar fra celle-tekst (etter "")
+' Ekstraher kommentar fra celle-tekst (etter "-")
 Private Function ExtractKommentar(txt As String) As String
     Dim pos As Long
-    pos = InStr(txt, "")
+    pos = InStr(txt, "-")
     If pos > 0 Then
         ExtractKommentar = Trim$(Mid$(txt, pos + 1))
     Else
@@ -1017,7 +1017,7 @@ Private Function OppdaterAktivitetIPlanlegger(wsP As Worksheet, wsTyp As Workshe
                 Dim overlappSluttCol As Long
                 overlappSluttCol = Application.WorksheetFunction.Min(nyttSluttCol, overlappAktivitetSluttCol)
                 
-                visTekst = kode & IIf(Len(kommentar) > 0, "  " & kommentar, IIf(Len(beskrivelse) > 0, "  " & beskrivelse, ""))
+                visTekst = kode & IIf(Len(kommentar) > 0, " - " & kommentar, IIf(Len(beskrivelse) > 0, " - " & beskrivelse, ""))
                 
                 ' Utvid blokken, men teksten sentreres kun til overlapp-start
                 Call ApplyBlockFormattingMedOverlapp(wsP, målRad, startCol, gammeltSluttCol, overlappStartCol, nyttSluttCol, farge, visTekst)
@@ -1029,7 +1029,7 @@ Private Function OppdaterAktivitetIPlanlegger(wsP As Worksheet, wsTyp As Workshe
             End If
         Else
             ' Ingen overlapp - bare utvid på samme rad
-            visTekst = kode & IIf(Len(kommentar) > 0, "  " & kommentar, IIf(Len(beskrivelse) > 0, "  " & beskrivelse, ""))
+            visTekst = kode & IIf(Len(kommentar) > 0, " - " & kommentar, IIf(Len(beskrivelse) > 0, " - " & beskrivelse, ""))
             Call ApplyBlockFormattingExtend(wsP, målRad, startCol, nyttSluttCol, farge, visTekst)
             OppdaterAktivitetIPlanlegger = True
         End If
@@ -1980,7 +1980,7 @@ Public Sub SynkroniserEnkeltAktivitet(person As String, kode As String, _
     
     ' Tegn ny aktivitet
     Dim visTekst As String
-    visTekst = kode & IIf(Len(kommentar) > 0, "  " & kommentar, IIf(Len(beskrivelse) > 0, "  " & beskrivelse, ""))
+    visTekst = kode & IIf(Len(kommentar) > 0, " - " & kommentar, IIf(Len(beskrivelse) > 0, " - " & beskrivelse, ""))
     
     Call ApplyBlockFormattingExtend(wsP, målRad, nyStartCol, nySluttCol, farge, visTekst)
     
@@ -2133,7 +2133,7 @@ Public Sub FlyttAktivitetTilNyPerson(gammelPerson As String, nyPerson As String,
     
     ' STEG 3: Tegn aktivitet hos ny person
     Dim visTekst As String
-    visTekst = kode & IIf(Len(kommentar) > 0, "  " & kommentar, IIf(Len(beskrivelse) > 0, "  " & beskrivelse, ""))
+    visTekst = kode & IIf(Len(kommentar) > 0, " - " & kommentar, IIf(Len(beskrivelse) > 0, " - " & beskrivelse, ""))
     
     Call ApplyBlockFormattingExtend(wsP, nyRad, startCol, sluttCol, farge, visTekst)
     

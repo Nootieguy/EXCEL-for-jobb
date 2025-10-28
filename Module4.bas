@@ -1,8 +1,8 @@
 
 Option Explicit
 '
-' =================== MODUL 4  UVALGTE (v4.8 - DYNAMISK) ===================
-' Ufordelte aktiviteter  liste i UVALGTE. Forhåndsvisning nederst i Planlegger.
+' =================== MODUL 4 - UVALGTE (v4.8 - DYNAMISK) ===================
+' Ufordelte aktiviteter - liste i UVALGTE. Forhåndsvisning nederst i Planlegger.
 ' Når Person velges i tabellen, flyttes aktiviteten til riktig person i Planlegger.
 '
 ' ENDRING v4.8: Bruker Named Ranges for dynamiske verdier (som Module1 og FjernMarkert)
@@ -88,7 +88,7 @@ Public Sub Uvalgte_Oppsett()
     ' Toppstripe
     With wsU.Range("A1:G1")
         .Merge
-        .Value = "UVALGTE  arbeidsbenk"
+        .Value = "UVALGTE - arbeidsbenk"
         .Interior.Color = FARGE_PANEL_TITLE
         .Font.Bold = True
         .Font.Size = 16
@@ -290,7 +290,7 @@ Public Sub Uvalgte_TildelRad(ByVal r As Long)
     End If
 
     Dim visTekst As String
-    visTekst = kode & IIf(Len(komm) > 0, "  " & komm, IIf(Len(beskrivelse) > 0, "  " & beskrivelse, ""))
+    visTekst = kode & IIf(Len(komm) > 0, " - " & komm, IIf(Len(beskrivelse) > 0, " - " & beskrivelse, ""))
 
     ' Lagre undo-snapshot før endringer
     On Error Resume Next
@@ -445,8 +445,8 @@ Public Sub Uvalgte_RefreshPreview()
                     End If
                     
                     visTekst = UCase$(wsU.Cells(rowIdx, COL_KODE).Value) & _
-                               IIf(Len(Trim$(wsU.Cells(rowIdx, COL_KOMM).Value)) > 0, "  " & Trim$(wsU.Cells(rowIdx, COL_KOMM).Value), _
-                                  IIf(Len(beskrivelse) > 0, "  " & beskrivelse, ""))
+                               IIf(Len(Trim$(wsU.Cells(rowIdx, COL_KOMM).Value)) > 0, " - " & Trim$(wsU.Cells(rowIdx, COL_KOMM).Value), _
+                                  IIf(Len(beskrivelse) > 0, " - " & beskrivelse, ""))
                     
                     ApplyBlockFormatting_Safe wsP, målRad, sCol, eCol, f, visTekst
                 End If
@@ -586,13 +586,13 @@ Private Function Uvalgte_FinnEllerLagPreviewRad(wsP As Worksheet) As Long
     Dim lastRow As Long: lastRow = wsP.Cells(wsP.Rows.Count, 1).End(xlUp).Row
     Dim r As Long
     For r = lastRow To førstePersonRad Step -1
-        If UCase$(Trim$(wsP.Cells(r, 1).Value)) Like "UVALGTE  FORHÅNDSVISNING*" Then
+        If UCase$(Trim$(wsP.Cells(r, 1).Value)) Like "UVALGTE - FORHÅNDSVISNING*" Then
             Uvalgte_FinnEllerLagPreviewRad = r: Exit Function
         End If
     Next r
     wsP.Rows(lastRow + 1).Insert Shift:=xlDown
     wsP.Rows(lastRow + 2).Insert Shift:=xlDown
-    wsP.Cells(lastRow + 2, 1).Value = "UVALGTE  forhåndsvisning"
+    wsP.Cells(lastRow + 2, 1).Value = "UVALGTE - forhåndsvisning"
     wsP.Cells(lastRow + 2, 1).Font.Bold = True
     Uvalgte_FinnEllerLagPreviewRad = lastRow + 2
 End Function

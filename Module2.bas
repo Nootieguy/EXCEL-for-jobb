@@ -103,7 +103,7 @@ Public Sub RyddBlokkForPerson()
     
     Application.ScreenUpdating = True
     
-    MsgBox "Ryddet " & Format(startDato, "dd.mm.yyyy") & "" & _
+    MsgBox "Ryddet " & Format(startDato, "dd.mm.yyyy") & "-" & _
            Format(sluttDato, "dd.mm.yyyy") & " for personblokken, og rutenett er gjenopprettet.", vbInformation
 End Sub
 

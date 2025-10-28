@@ -21,7 +21,7 @@ Public Property Get FJERN_TOMME_UNDERRADER() As Boolean
 End Property
 ' =============================================
 '
-'  v3.4  Dynamisk versjon med Named Ranges
+'  v3.4 - Dynamisk versjon med Named Ranges
 '  Bruker PersonHeader og FirstDate
 '  Legger alltid tilbake heltrukken toppkant over hele raden
 '  Auto-slett tomme rader, auto-flytt opp aktivitet
@@ -186,7 +186,7 @@ Private Sub KomprimerBlokkFlyttOppHvisEnesteUnder(ws As Worksheet, ByVal hovedRa
         End If
     Next r
 
-    ' Hvis hovedraden er tom og det finnes nøyaktig én under-rad med aktivitet  flytt opp
+    ' Hvis hovedraden er tom og det finnes nøyaktig én under-rad med aktivitet - flytt opp
     If Not RadHarAktivitet(ws, hovedRad) And antUnderMedAktivitet = 1 Then
         FlyttRadInnholdOpp ws, underMedAktivitet, hovedRad
         ws.Rows(underMedAktivitet).Delete
