@@ -988,24 +988,27 @@ Private Function SjekkOmHeleAktivitetenSlettes(ByVal førsteCelle As Range, _
 
         ' Sjekk om cellen er del av aktiviteten
         If HarAktivitetsfarge(cel) And FargeAvstand(cel.Interior.Color, aktivFarge) <= 10 Then
-            ' Dette er del av aktiviteten - sjekk om den er tom (blir slettet) eller markert for sletting
-            Dim erTomEllerMarkert As Boolean
-            erTomEllerMarkert = False
-
-            ' Sjekk om cellen er tom (brukeren har slettet innholdet)
-            If Len(Trim$(cel.Value)) = 0 Then
-                erTomEllerMarkert = True
-            End If
+            ' Dette er del av aktiviteten
+            ' En celle er "aktiv" hvis den har farge + bold (selv uten tekst)
+            ' Den blir "inaktiv" når brukeren sletter innhold OG den mister bold
+            Dim erInaktiv As Boolean
+            erInaktiv = False
 
             ' Sjekk om cellen er markert for sletting i dictionary
             If cellerÅFjerne.Exists(radKey) Then
                 If cellerÅFjerne(radKey).Exists(c) Then
-                    erTomEllerMarkert = True
+                    erInaktiv = True
                 End If
             End If
 
-            ' Hvis denne cellen IKKE er tom og ikke markert, hele aktiviteten slettes IKKE
-            If Not erTomEllerMarkert Then
+            ' Sjekk om cellen er tom OG har mistet bold (brukeren har slettet)
+            ' (Celler uten tekst men MED bold er fortsatt aktive del av multi-celle aktivitet)
+            If Len(Trim$(cel.Value)) = 0 And Not cel.Font.Bold Then
+                erInaktiv = True
+            End If
+
+            ' Hvis denne cellen fortsatt er aktiv (ikke inaktiv), hele aktiviteten slettes IKKE
+            If Not erInaktiv Then
                 SjekkOmHeleAktivitetenSlettes = False
                 Exit Function
             End If
