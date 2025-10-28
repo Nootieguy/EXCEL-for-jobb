@@ -137,66 +137,84 @@ Private Sub Worksheet_Change(ByVal Target As Range)
 
                     ' Ikke marker for split - det er ingen aktivitet å splitte
                 ElseIf ErFørsteCelleIBlokk(c, førsteDatoKol) Then
-                    ' FØRSTE CELLE: La brukeren slette den uten å restaurere
-                    ' Teksten flyttes til neste celle i blokken (hvis det finnes en)
-                    If DEBUG_MODE Then
-                        Debug.Print "Første celle slettes - flytter tekst til neste: " & c.Address
-                    End If
+                    ' FØRSTE CELLE: Sjekk om HELE aktiviteten blir slettet
+                    Dim heleAktivitetenSlettes As Boolean
+                    heleAktivitetenSlettes = SjekkOmHeleAktivitetenSlettes(c, førsteDatoKol, cellerÅFjerne)
 
-                    ' Finn neste celle i samme aktivitet
-                    Dim nesteCelleIAktivitet As Range
-                    Set nesteCelleIAktivitet = Nothing
-                    Dim aktivFarge As Long
-                    aktivFarge = c.Interior.Color
+                    If heleAktivitetenSlettes Then
+                        ' HELE aktiviteten slettes - bare marker for fjerning (ingen tekst-flytting)
+                        If DEBUG_MODE Then
+                            Debug.Print "Hele aktiviteten slettes - marker for fjerning: " & c.Address
+                        End If
 
-                    ' Skann til høyre for å finne neste celle med samme farge
-                    Dim scanCol As Long
-                    For scanCol = c.Column + 1 To lastCol
-                        If HarAktivitetsfarge(Me.Cells(c.Row, scanCol)) Then
-                            If FargeAvstand(Me.Cells(c.Row, scanCol).Interior.Color, aktivFarge) <= 10 Then
-                                Set nesteCelleIAktivitet = Me.Cells(c.Row, scanCol)
-                                Exit For
+                        radKey = CStr(c.Row)
+                        If Not cellerÅFjerne.Exists(radKey) Then
+                            Dim nyCol3 As Object
+                            Set nyCol3 = CreateObject("Scripting.Dictionary")
+                            cellerÅFjerne.Add radKey, nyCol3
+                        End If
+                        cellerÅFjerne(radKey).Add c.Column, c.Column
+                    Else
+                        ' Bare første celle slettes - flytt tekst til neste celle
+                        If DEBUG_MODE Then
+                            Debug.Print "Første celle slettes - flytter tekst til neste: " & c.Address
+                        End If
+
+                        ' Finn neste celle i samme aktivitet
+                        Dim nesteCelleIAktivitet As Range
+                        Set nesteCelleIAktivitet = Nothing
+                        Dim aktivFarge As Long
+                        aktivFarge = c.Interior.Color
+
+                        ' Skann til høyre for å finne neste celle med samme farge
+                        Dim scanCol As Long
+                        For scanCol = c.Column + 1 To lastCol
+                            If HarAktivitetsfarge(Me.Cells(c.Row, scanCol)) Then
+                                If FargeAvstand(Me.Cells(c.Row, scanCol).Interior.Color, aktivFarge) <= 10 Then
+                                    Set nesteCelleIAktivitet = Me.Cells(c.Row, scanCol)
+                                    Exit For
+                                End If
+                            End If
+                        Next scanCol
+
+                        ' Hvis det finnes en neste celle, flytt teksten dit
+                        If Not nesteCelleIAktivitet Is Nothing Then
+                            ' Slå opp aktivitetskode fra farge
+                            Dim aktivKode As String, aktivBeskr As String
+                            aktivKode = SlåOppAktivitetFraFarge(aktivFarge, aktivBeskr)
+
+                            If Len(aktivKode) > 0 Then
+                                ' Sett teksten i neste celle
+                                nesteCelleIAktivitet.Value = aktivKode & " - " & aktivBeskr
+                            End If
+
+                            ' Flytt kommentar hvis den finnes
+                            If c.Comment Is Nothing Then
+                                ' Ingen kommentar å flytte
+                            Else
+                                ' Kopier kommentar til neste celle
+                                Dim kommentarTekst As String
+                                kommentarTekst = c.Comment.Text
+
+                                ' Fjern gammel kommentar fra neste celle hvis den finnes
+                                On Error Resume Next
+                                nesteCelleIAktivitet.Comment.Delete
+                                On Error GoTo 0
+
+                                ' Legg til ny kommentar
+                                nesteCelleIAktivitet.AddComment kommentarTekst
                             End If
                         End If
-                    Next scanCol
 
-                    ' Hvis det finnes en neste celle, flytt teksten dit
-                    If Not nesteCelleIAktivitet Is Nothing Then
-                        ' Slå opp aktivitetskode fra farge
-                        Dim aktivKode As String, aktivBeskr As String
-                        aktivKode = SlåOppAktivitetFraFarge(aktivFarge, aktivBeskr)
-
-                        If Len(aktivKode) > 0 Then
-                            ' Sett teksten i neste celle
-                            nesteCelleIAktivitet.Value = aktivKode & " - " & aktivBeskr
+                        ' Marker denne cellen for fjerning
+                        radKey = CStr(c.Row)
+                        If Not cellerÅFjerne.Exists(radKey) Then
+                            Dim nyCol3b As Object
+                            Set nyCol3b = CreateObject("Scripting.Dictionary")
+                            cellerÅFjerne.Add radKey, nyCol3b
                         End If
-
-                        ' Flytt kommentar hvis den finnes
-                        If c.Comment Is Nothing Then
-                            ' Ingen kommentar å flytte
-                        Else
-                            ' Kopier kommentar til neste celle
-                            Dim kommentarTekst As String
-                            kommentarTekst = c.Comment.Text
-
-                            ' Fjern gammel kommentar fra neste celle hvis den finnes
-                            On Error Resume Next
-                            nesteCelleIAktivitet.Comment.Delete
-                            On Error GoTo 0
-
-                            ' Legg til ny kommentar
-                            nesteCelleIAktivitet.AddComment kommentarTekst
-                        End If
+                        cellerÅFjerne(radKey).Add c.Column, c.Column
                     End If
-
-                    ' Marker denne cellen for fjerning
-                    radKey = CStr(c.Row)
-                    If Not cellerÅFjerne.Exists(radKey) Then
-                        Dim nyCol3 As Object
-                        Set nyCol3 = CreateObject("Scripting.Dictionary")
-                        cellerÅFjerne.Add radKey, nyCol3
-                    End If
-                    cellerÅFjerne(radKey).Add c.Column, c.Column
                 Else
                     ' IKKE første celle: Marker for fjerning (Delete = Clear All)
                     If DEBUG_MODE Then
@@ -970,18 +988,24 @@ Private Function SjekkOmHeleAktivitetenSlettes(ByVal førsteCelle As Range, _
 
         ' Sjekk om cellen er del av aktiviteten
         If HarAktivitetsfarge(cel) And FargeAvstand(cel.Interior.Color, aktivFarge) <= 10 Then
-            ' Dette er del av aktiviteten - sjekk om den er markert for sletting
-            Dim erMarkert As Boolean
-            erMarkert = False
+            ' Dette er del av aktiviteten - sjekk om den er tom (blir slettet) eller markert for sletting
+            Dim erTomEllerMarkert As Boolean
+            erTomEllerMarkert = False
 
+            ' Sjekk om cellen er tom (brukeren har slettet innholdet)
+            If Len(Trim$(cel.Value)) = 0 Then
+                erTomEllerMarkert = True
+            End If
+
+            ' Sjekk om cellen er markert for sletting i dictionary
             If cellerÅFjerne.Exists(radKey) Then
                 If cellerÅFjerne(radKey).Exists(c) Then
-                    erMarkert = True
+                    erTomEllerMarkert = True
                 End If
             End If
 
-            ' Hvis denne cellen IKKE er markert for sletting, hele aktiviteten slettes IKKE
-            If Not erMarkert Then
+            ' Hvis denne cellen IKKE er tom og ikke markert, hele aktiviteten slettes IKKE
+            If Not erTomEllerMarkert Then
                 SjekkOmHeleAktivitetenSlettes = False
                 Exit Function
             End If
