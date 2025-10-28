@@ -137,28 +137,49 @@ Private Sub Worksheet_Change(ByVal Target As Range)
 
                     ' Ikke marker for split - det er ingen aktivitet å splitte
                 ElseIf ErFørsteCelleIBlokk(c, førsteDatoKol) Then
-                    ' FØRSTE CELLE: Sjekk om HELE aktiviteten blir slettet
-                    ' Hvis ja, ikke restaurer (la brukeren slette alt)
-                    Dim heleAktivitetenSlettes As Boolean
-                    heleAktivitetenSlettes = SjekkOmHeleAktivitetenSlettes(c, førsteDatoKol, cellerÅFjerne)
-
-                    If heleAktivitetenSlettes Then
-                        ' HELE aktiviteten slettes - bare marker for fjerning
-                        If DEBUG_MODE Then
-                            Debug.Print "Hele aktiviteten slettes - ikke restaurer: " & c.Address
-                        End If
-
-                        radKey = CStr(c.Row)
-                        If Not cellerÅFjerne.Exists(radKey) Then
-                            Dim nyCol3 As Object
-                            Set nyCol3 = CreateObject("Scripting.Dictionary")
-                            cellerÅFjerne.Add radKey, nyCol3
-                        End If
-                        cellerÅFjerne(radKey).Add c.Column, c.Column
-                    Else
-                        ' Bare første celle slettes - restaurer navnet (beskytt aktivitet)
-                        Call BehandleSlettetCelle(c, førsteDatoKol, datoRad)
+                    ' FØRSTE CELLE: La brukeren slette den uten å restaurere
+                    ' Teksten flyttes til neste celle i blokken (hvis det finnes en)
+                    If DEBUG_MODE Then
+                        Debug.Print "Første celle slettes - flytter tekst til neste: " & c.Address
                     End If
+
+                    ' Finn neste celle i samme aktivitet
+                    Dim nesteCelleIAktivitet As Range
+                    Set nesteCelleIAktivitet = Nothing
+                    Dim aktivFarge As Long
+                    aktivFarge = c.Interior.Color
+
+                    ' Skann til høyre for å finne neste celle med samme farge
+                    Dim scanCol As Long
+                    For scanCol = c.Column + 1 To lastCol
+                        If HarAktivitetsfarge(Me.Cells(c.Row, scanCol)) Then
+                            If FargeAvstand(Me.Cells(c.Row, scanCol).Interior.Color, aktivFarge) <= 10 Then
+                                Set nesteCelleIAktivitet = Me.Cells(c.Row, scanCol)
+                                Exit For
+                            End If
+                        End If
+                    Next scanCol
+
+                    ' Hvis det finnes en neste celle, flytt teksten dit
+                    If Not nesteCelleIAktivitet Is Nothing Then
+                        ' Slå opp aktivitetskode fra farge
+                        Dim aktivKode As String, aktivBeskr As String
+                        aktivKode = SlåOppAktivitetFraFarge(aktivFarge, aktivBeskr)
+
+                        If Len(aktivKode) > 0 Then
+                            ' Sett teksten i neste celle
+                            nesteCelleIAktivitet.Value = aktivKode & " - " & aktivBeskr
+                        End If
+                    End If
+
+                    ' Marker denne cellen for fjerning
+                    radKey = CStr(c.Row)
+                    If Not cellerÅFjerne.Exists(radKey) Then
+                        Dim nyCol3 As Object
+                        Set nyCol3 = CreateObject("Scripting.Dictionary")
+                        cellerÅFjerne.Add radKey, nyCol3
+                    End If
+                    cellerÅFjerne(radKey).Add c.Column, c.Column
                 Else
                     ' IKKE første celle: Marker for fjerning (Delete = Clear All)
                     If DEBUG_MODE Then
