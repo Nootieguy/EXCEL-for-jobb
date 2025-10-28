@@ -137,14 +137,99 @@ Private Sub Worksheet_Change(ByVal Target As Range)
 
                     ' Ikke marker for split - det er ingen aktivitet å splitte
                 ElseIf ErFørsteCelleIBlokk(c, førsteDatoKol) Then
-                    ' FØRSTE CELLE: Sjekk om HELE aktiviteten blir slettet
-                    Dim heleAktivitetenSlettes As Boolean
-                    heleAktivitetenSlettes = SjekkOmHeleAktivitetenSlettes(c, førsteDatoKol, cellerÅFjerne)
+                    ' FØRSTE CELLE: Bruk Undo for å sjekke om celle hadde tekst
+                    ' Hvis den hadde tekst, flytt til neste celle
+                    ' Hvis ikke, slett hele aktiviteten
 
-                    If heleAktivitetenSlettes Then
-                        ' HELE aktiviteten slettes - bare marker for fjerning (ingen tekst-flytting)
+                    ' Bruk Application.Undo for å hente original tilstand midlertidig
+                    Application.Undo
+                    Dim hadTekst As Boolean
+                    Dim originalTekst As String
+                    hadTekst = (Len(Trim$(c.Value)) > 0)
+                    originalTekst = c.Value
+
+                    ' Slett på nytt
+                    c.ClearContents
+
+                    If hadTekst Then
+                        ' Celle 1 hadde tekst - sjekk om andre celler også slettes
+                        Dim aktivFarge As Long
+                        aktivFarge = c.Interior.Color
+
+                        ' Sjekk om andre celler i aktiviteten også er i relevantEndring
+                        Dim andreOgsåSlettet As Boolean
+                        andreOgsåSlettet = False
+                        Dim scanCol As Long
+                        For scanCol = c.Column + 1 To lastCol
+                            Dim scanCel As Range
+                            Set scanCel = Me.Cells(c.Row, scanCol)
+                            If HarAktivitetsfarge(scanCel) And FargeAvstand(scanCel.Interior.Color, aktivFarge) <= 10 Then
+                                ' Dette er del av aktiviteten - sjekk om den er i relevantEndring
+                                Dim celleISel As Range
+                                Set celleISel = Nothing
+                                On Error Resume Next
+                                Set celleISel = Intersect(scanCel, relevantEndring)
+                                On Error GoTo 0
+                                If Not celleISel Is Nothing Then
+                                    andreOgsåSlettet = True
+                                    Exit For
+                                End If
+                            Else
+                                Exit For
+                            End If
+                        Next scanCol
+
+                        If andreOgsåSlettet Then
+                            ' Hele aktiviteten slettes - IKKE flytt tekst
+                            If DEBUG_MODE Then
+                                Debug.Print "Hele aktiviteten slettes (flere celler valgt): " & c.Address
+                            End If
+
+                            radKey = CStr(c.Row)
+                            If Not cellerÅFjerne.Exists(radKey) Then
+                                Dim nyCol3c As Object
+                                Set nyCol3c = CreateObject("Scripting.Dictionary")
+                                cellerÅFjerne.Add radKey, nyCol3c
+                            End If
+                            cellerÅFjerne(radKey).Add c.Column, c.Column
+                        Else
+                            ' Bare første celle slettes - flytt tekst til neste celle
+                            If DEBUG_MODE Then
+                                Debug.Print "Første celle slettes - flytter tekst til neste: " & c.Address
+                            End If
+
+                            ' Finn neste celle i samme aktivitet
+                            Dim nesteCelleIAktivitet As Range
+                            Set nesteCelleIAktivitet = Nothing
+
+                            ' Skann til høyre for å finne neste celle med samme farge
+                            For scanCol = c.Column + 1 To lastCol
+                                If HarAktivitetsfarge(Me.Cells(c.Row, scanCol)) Then
+                                    If FargeAvstand(Me.Cells(c.Row, scanCol).Interior.Color, aktivFarge) <= 10 Then
+                                        Set nesteCelleIAktivitet = Me.Cells(c.Row, scanCol)
+                                        Exit For
+                                    End If
+                                End If
+                            Next scanCol
+
+                            ' Hvis det finnes en neste celle, kopier teksten dit
+                            If Not nesteCelleIAktivitet Is Nothing Then
+                                nesteCelleIAktivitet.Value = originalTekst
+                            End If
+
+                            ' Marker denne cellen for fjerning (cleanup vil fjerne fargen osv)
+                            radKey = CStr(c.Row)
+                            If Not cellerÅFjerne.Exists(radKey) Then
+                                Dim nyCol3b As Object
+                                Set nyCol3b = CreateObject("Scripting.Dictionary")
+                                cellerÅFjerne.Add radKey, nyCol3b
+                            End If
+                            cellerÅFjerne(radKey).Add c.Column, c.Column
+                        End If
+                    Else
+                        ' Celle hadde IKKE tekst → hele aktiviteten slettes
                         If DEBUG_MODE Then
-                            Debug.Print "Hele aktiviteten slettes - marker for fjerning: " & c.Address
+                            Debug.Print "Hele aktiviteten slettes (celle 1 var tom): " & c.Address
                         End If
 
                         radKey = CStr(c.Row)
@@ -152,51 +237,6 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                             Dim nyCol3 As Object
                             Set nyCol3 = CreateObject("Scripting.Dictionary")
                             cellerÅFjerne.Add radKey, nyCol3
-                        End If
-                        cellerÅFjerne(radKey).Add c.Column, c.Column
-                    Else
-                        ' Bare første celle slettes - bruk Undo for å hente original tekst
-                        If DEBUG_MODE Then
-                            Debug.Print "Første celle slettes - henter tekst via Undo: " & c.Address
-                        End If
-
-                        ' Finn neste celle i samme aktivitet
-                        Dim nesteCelleIAktivitet As Range
-                        Set nesteCelleIAktivitet = Nothing
-                        Dim aktivFarge As Long
-                        aktivFarge = c.Interior.Color
-
-                        ' Skann til høyre for å finne neste celle med samme farge
-                        Dim scanCol As Long
-                        For scanCol = c.Column + 1 To lastCol
-                            If HarAktivitetsfarge(Me.Cells(c.Row, scanCol)) Then
-                                If FargeAvstand(Me.Cells(c.Row, scanCol).Interior.Color, aktivFarge) <= 10 Then
-                                    Set nesteCelleIAktivitet = Me.Cells(c.Row, scanCol)
-                                    Exit For
-                                End If
-                            End If
-                        Next scanCol
-
-                        ' Hvis det finnes en neste celle, hent tekst via Undo og flytt
-                        If Not nesteCelleIAktivitet Is Nothing Then
-                            ' Bruk Application.Undo for å reversere slettingen midlertidig
-                            Application.Undo
-
-                            ' Nå har vi original teksten tilbake
-                            Dim originalTekst As String
-                            originalTekst = c.Value
-
-                            ' Slett på nytt og kopier til neste celle
-                            c.ClearContents
-                            nesteCelleIAktivitet.Value = originalTekst
-                        End If
-
-                        ' Marker denne cellen for fjerning (cleanup vil fjerne fargen osv)
-                        radKey = CStr(c.Row)
-                        If Not cellerÅFjerne.Exists(radKey) Then
-                            Dim nyCol3b As Object
-                            Set nyCol3b = CreateObject("Scripting.Dictionary")
-                            cellerÅFjerne.Add radKey, nyCol3b
                         End If
                         cellerÅFjerne(radKey).Add c.Column, c.Column
                     End If
@@ -974,26 +1014,25 @@ Private Function SjekkOmHeleAktivitetenSlettes(ByVal førsteCelle As Range, _
         ' Sjekk om cellen er del av aktiviteten
         If HarAktivitetsfarge(cel) And FargeAvstand(cel.Interior.Color, aktivFarge) <= 10 Then
             ' Dette er del av aktiviteten
-            ' En celle er "aktiv" hvis den har farge + bold (selv uten tekst)
-            ' Den blir "inaktiv" når brukeren sletter innhold OG den mister bold
-            Dim erInaktiv As Boolean
-            erInaktiv = False
+            ' Sjekk om cellen er tom (brukeren har slettet innholdet)
+            Dim erTom As Boolean
+            erTom = False
 
             ' Sjekk om cellen er markert for sletting i dictionary
             If cellerÅFjerne.Exists(radKey) Then
                 If cellerÅFjerne(radKey).Exists(c) Then
-                    erInaktiv = True
+                    erTom = True
                 End If
             End If
 
-            ' Sjekk om cellen er tom OG har mistet bold (brukeren har slettet)
-            ' (Celler uten tekst men MED bold er fortsatt aktive del av multi-celle aktivitet)
-            If Len(Trim$(cel.Value)) = 0 And Not cel.Font.Bold Then
-                erInaktiv = True
+            ' Sjekk om cellen er tom (uavhengig av bold-formatering)
+            ' Dette fanger opp når brukeren trykker Delete på alle celler
+            If Len(Trim$(cel.Value)) = 0 Then
+                erTom = True
             End If
 
-            ' Hvis denne cellen fortsatt er aktiv (ikke inaktiv), hele aktiviteten slettes IKKE
-            If Not erInaktiv Then
+            ' Hvis denne cellen IKKE er tom, hele aktiviteten slettes IKKE
+            If Not erTom Then
                 SjekkOmHeleAktivitetenSlettes = False
                 Exit Function
             End If
