@@ -226,6 +226,17 @@ Public Sub FixRutenett()
     MsgBox "Rutenett er reparert!", vbInformation
 End Sub
 
+' ============================================================================
+' Synkroniser kommentarer (kopier til alle celler i aktivitet)
+' ============================================================================
+Public Sub SynkroniserKommentarer()
+    Dim ws As Worksheet
+    Set ws = ThisWorkbook.Worksheets(ARK_PLAN)
+
+    ' Kall funksjonen i Ark1
+    ws.SynkroniserKommentarer
+End Sub
+
 ' Sjekk om celle har aktivitetsfarge (ikke hvit/grå)
 Private Function HarAktivitetsfarge(ByVal cel As Range) As Boolean
     Dim col As Long
