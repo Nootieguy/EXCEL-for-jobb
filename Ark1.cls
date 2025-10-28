@@ -179,8 +179,13 @@ Private Sub Worksheet_Change(ByVal Target As Range)
 
                         ' Hvis det finnes en neste celle, flytt teksten dit
                         If Not nesteCelleIAktivitet Is Nothing Then
-                            ' Kopier den faktiske teksten (bevarer egendefinert kommentar)
-                            nesteCelleIAktivitet.Value = c.Value
+                            ' Hent original tekst fra undo snapshot (c.Value er allerede tom)
+                            Dim originalTekst As Variant
+                            originalTekst = HentOriginalVerdi(c.Address)
+
+                            If Not IsEmpty(originalTekst) Then
+                                nesteCelleIAktivitet.Value = originalTekst
+                            End If
                         End If
 
                         ' Marker denne cellen for fjerning

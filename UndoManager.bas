@@ -433,6 +433,23 @@ Public Function UndoTilgjengelig() As Boolean
     UndoTilgjengelig = (undoStackSize > 0)
 End Function
 
+' Hent original verdi fra undo snapshot for en gitt celle-adresse
+Public Function HentOriginalVerdi(ByVal celleAdresse As String) As Variant
+    Dim i As Long
+
+    HentOriginalVerdi = Empty
+
+    If undoStackSize = 0 Then Exit Function
+
+    ' Søk gjennom undo stack
+    For i = 1 To undoStackSize
+        If undoStack(i).Address = celleAdresse Then
+            HentOriginalVerdi = undoStack(i).Value
+            Exit Function
+        End If
+    Next i
+End Function
+
 ' =====================================================
 ' CTRL+Z INTEGRATION
 ' =====================================================
