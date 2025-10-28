@@ -155,10 +155,45 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                         End If
                         cellerÅFjerne(radKey).Add c.Column, c.Column
                     Else
-                        ' Bare første celle slettes - ingen tekst-flytting nødvendig
-                        ' (Alle celler i aktiviteten har allerede teksten lagret)
+                        ' Bare første celle slettes - bruk Undo for å hente original tekst
                         If DEBUG_MODE Then
-                            Debug.Print "Første celle slettes - marker for fjerning: " & c.Address
+                            Debug.Print "Første celle slettes - henter tekst via Undo: " & c.Address
+                        End If
+
+                        ' Finn neste celle i samme aktivitet
+                        Dim nesteCelleIAktivitet As Range
+                        Set nesteCelleIAktivitet = Nothing
+                        Dim aktivFarge As Long
+                        aktivFarge = c.Interior.Color
+
+                        ' Skann til høyre for å finne neste celle med samme farge
+                        Dim scanCol As Long
+                        For scanCol = c.Column + 1 To lastCol
+                            If HarAktivitetsfarge(Me.Cells(c.Row, scanCol)) Then
+                                If FargeAvstand(Me.Cells(c.Row, scanCol).Interior.Color, aktivFarge) <= 10 Then
+                                    Set nesteCelleIAktivitet = Me.Cells(c.Row, scanCol)
+                                    Exit For
+                                End If
+                            End If
+                        Next scanCol
+
+                        ' Hvis det finnes en neste celle, hent tekst via Undo og flytt
+                        If Not nesteCelleIAktivitet Is Nothing Then
+                            ' Bruk Application.Undo for å reversere slettingen midlertidig
+                            Application.EnableEvents = False
+                            Application.Undo
+
+                            ' Nå har vi original teksten tilbake
+                            Dim originalTekst As String
+                            originalTekst = c.Value
+
+                            ' Slett på nytt og kopier til neste celle
+                            c.ClearContents
+                            nesteCelleIAktivitet.Value = originalTekst
+
+                            ' Re-enable events (men vi er fortsatt i event handler, så hopp til slutt)
+                            Application.EnableEvents = True
+                            GoTo Slutt
                         End If
 
                         ' Marker denne cellen for fjerning
@@ -1187,14 +1222,13 @@ Private Sub FiksMultiCelleAktivitet(ByVal startCel As Range, ByVal sluttKol As L
     ' Definer hele blokken
     Set rng = Me.Range(startCel, Me.Cells(startCel.Row, sluttKol))
 
-    ' Sett farge og KOPIER tekst til alle celler
-    Dim tekst As String
-    tekst = startCel.Value  ' Hent teksten fra første celle
-
+    ' Sett farge på alle celler (clear content i celle 2-5 for xlCenterAcrossSelection)
     For Each c In rng.Cells
+        If c.Address <> startCel.Address Then
+            c.ClearContents
+        End If
         c.Interior.Color = farge
         c.Interior.Pattern = xlSolid
-        c.Value = tekst  ' Kopier teksten til ALLE celler
     Next c
 
     ' Fjern alle borders først

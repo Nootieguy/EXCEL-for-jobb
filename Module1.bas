@@ -465,13 +465,7 @@ Public Sub ApplyBlockFormatting(ws As Worksheet, målRad As Long, _
         End With
     End If
 
-    ' Sett tekst i ALLE celler (ikke bare første)
-    ' Dette gjør at når første celle slettes, har celle 2 allerede teksten
-    Dim celleIRng As Range
-    For Each celleIRng In rng.Cells
-        celleIRng.Value = visTekst
-    Next celleIRng
-
+    startCell.Value = visTekst
     rng.HorizontalAlignment = xlCenterAcrossSelection
     rng.VerticalAlignment = xlCenter
     rng.WrapText = True
