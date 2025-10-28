@@ -155,37 +155,10 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                         End If
                         cellerÅFjerne(radKey).Add c.Column, c.Column
                     Else
-                        ' Bare første celle slettes - flytt tekst til neste celle
+                        ' Bare første celle slettes - ingen tekst-flytting nødvendig
+                        ' (Alle celler i aktiviteten har allerede teksten lagret)
                         If DEBUG_MODE Then
-                            Debug.Print "Første celle slettes - flytter tekst til neste: " & c.Address
-                        End If
-
-                        ' Finn neste celle i samme aktivitet
-                        Dim nesteCelleIAktivitet As Range
-                        Set nesteCelleIAktivitet = Nothing
-                        Dim aktivFarge As Long
-                        aktivFarge = c.Interior.Color
-
-                        ' Skann til høyre for å finne neste celle med samme farge
-                        Dim scanCol As Long
-                        For scanCol = c.Column + 1 To lastCol
-                            If HarAktivitetsfarge(Me.Cells(c.Row, scanCol)) Then
-                                If FargeAvstand(Me.Cells(c.Row, scanCol).Interior.Color, aktivFarge) <= 10 Then
-                                    Set nesteCelleIAktivitet = Me.Cells(c.Row, scanCol)
-                                    Exit For
-                                End If
-                            End If
-                        Next scanCol
-
-                        ' Hvis det finnes en neste celle, flytt teksten dit
-                        If Not nesteCelleIAktivitet Is Nothing Then
-                            ' Hent original tekst fra undo snapshot (c.Value er allerede tom)
-                            Dim originalTekst As Variant
-                            originalTekst = HentOriginalVerdi(c.Address)
-
-                            If Not IsEmpty(originalTekst) Then
-                                nesteCelleIAktivitet.Value = originalTekst
-                            End If
+                            Debug.Print "Første celle slettes - marker for fjerning: " & c.Address
                         End If
 
                         ' Marker denne cellen for fjerning
