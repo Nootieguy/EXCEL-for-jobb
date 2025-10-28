@@ -489,7 +489,13 @@ Private Sub FyllTabellFraAktiviteter(wsAO As Worksheet, aktiviteter As Object, B
     On Error Resume Next
     Set wsTyp = ThisWorkbook.Worksheets(ARK_OVERSIKT_TYP)
     On Error GoTo 0
-    
+
+    ' Sjekk om det finnes aktiviteter
+    If aktiviteter.Count = 0 Then
+        ' Ingen aktiviteter å vise
+        Exit Sub
+    End If
+
     ' Kopier nøkler til array for sortering
     ReDim sortedKeys(0 To aktiviteter.Count - 1)
     i = 0
