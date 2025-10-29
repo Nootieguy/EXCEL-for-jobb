@@ -374,7 +374,7 @@ Private Function FinnEllerOpprettLedigRad_UtenNavn(ws As Worksheet, personRow As
     FinnEllerOpprettLedigRad_UtenNavn = blockEnd + 1
 End Function
 
-Private Sub NullstillTilHvitMedGrid(ByVal cel As Range)
+Private Sub NullstillTilHvitMedGrid(cel As Range)
     ' Ingen diagonaler, hvit bakgrunn, heltrukne tynne ytterkanter
     If cel Is Nothing Then Exit Sub
 
@@ -418,7 +418,7 @@ Private Sub NullstillTilHvitMedGrid(ByVal cel As Range)
 End Sub
 
 
-Private Sub KopierBakgrunn(ByVal src As Range, ByVal dst As Range)
+Private Sub KopierBakgrunn(src As Range, dst As Range)
     If src Is Nothing Or dst Is Nothing Then Exit Sub
 
     With dst.Interior
