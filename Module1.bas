@@ -4,46 +4,46 @@ Option Explicit
 ' =================== KONFIG ===================
 Private Const ARK_PLAN As String = "Planlegger"
 Private Const ARK_OVERSIKT As String = "AKTIVITETSTYPER - OVERSIKT"
-Public Property Get FØRSTE_DATAKOL() As Long
-    FØRSTE_DATAKOL = Worksheets(ARK_PLAN).Range("FirstDate").Column
+Public Property Get Fï¿½RSTE_DATAKOL() As Long
+    Fï¿½RSTE_DATAKOL = Worksheets(ARK_PLAN).Range("FirstDate").Column
 End Property
 
 Public Property Get datoRad() As Long
     datoRad = Worksheets(ARK_PLAN).Range("FirstDate").Row
 End Property
 
-Public Property Get FØRSTE_PERSONRAD() As Long
-    ' justér +0/+1 avhengig av oppsettet ditt
-    FØRSTE_PERSONRAD = Worksheets(ARK_PLAN).Range("PersonHeader").Row + 1
+Public Property Get Fï¿½RSTE_PERSONRAD() As Long
+    ' justï¿½r +0/+1 avhengig av oppsettet ditt
+    Fï¿½RSTE_PERSONRAD = Worksheets(ARK_PLAN).Range("PersonHeader").Row + 1
 End Property
 ' =============================================
 
 ' =========================================================
-'  MODUL 1 – SAMLET v3
-'  Inneholder begge måter å legge inn aktivitet:
+'  MODUL 1 ï¿½ SAMLET v3
+'  Inneholder begge mï¿½ter ï¿½ legge inn aktivitet:
 '    1) LeggInnAktivitet: velg person + datoer (klassisk)
-'    2) LeggInnAktivitetPåMarkering: marker celler og angi kode
+'    2) LeggInnAktivitetPï¿½Markering: marker celler og angi kode
 '
 '  NYTT I v3 (som du ba om):
-'    - Når markeringen treffer **overlapp** med *annen* aktivitet samme dag
+'    - Nï¿½r markeringen treffer **overlapp** med *annen* aktivitet samme dag
 '      (dvs. det ligger aktivitet i spennet og teksten ikke starter med samme kode),
-'      legges blokken på **ny under-rad** (opprettes ved behov) i samme personblokk.
+'      legges blokken pï¿½ **ny under-rad** (opprettes ved behov) i samme personblokk.
 '    - Hvis spennet er tomt eller kun samme aktivitet, bruker vi den **valgte raden**.
 '
 '  Egenskaper ellers:
 '    - Anti-lekk til raden under
 '    - Gjenoppretter bakgrunn under/ved nye rader (ingen hvite hull)
-'    - ByVal på verdiparametre så Const (DATORAD) fungerer
+'    - ByVal pï¿½ verdiparametre sï¿½ Const (DATORAD) fungerer
 ' =========================================================
 
-' ===================== MÅTE 1 =====================
+' ===================== Mï¿½TE 1 =====================
 Public Sub LeggInnAktivitet()
     Dim wsPlan As Worksheet, wsTyp As Worksheet
     Dim personCell As Range
     Dim personRow As Long
     Dim kode As String, beskrivelse As String, kommentar As String, visTekst As String
     Dim startDato As Date, sluttDato As Date
-    Dim startCol As Long, sluttCol As Long, målRad As Long
+    Dim startCol As Long, sluttCol As Long, mï¿½lRad As Long
     Dim farge As Long
     Dim farger As Object
 
@@ -58,32 +58,32 @@ Public Sub LeggInnAktivitet()
 
     On Error Resume Next
     Set personCell = Application.InputBox( _
-        prompt:="Klikk en celle i kolonne A på '" & ARK_PLAN & "' (rad " & FØRSTE_PERSONRAD & "+).", _
+        prompt:="Klikk en celle i kolonne A pï¿½ '" & ARK_PLAN & "' (rad " & Fï¿½RSTE_PERSONRAD & "+).", _
         Title:="Velg person", Type:=8)
     On Error GoTo 0
     If personCell Is Nothing Then Exit Sub
-    If personCell.Column <> 1 Or personCell.Row < FØRSTE_PERSONRAD Then
-        MsgBox "Velg i kolonne A fra rad " & FØRSTE_PERSONRAD & " og nedover.", vbExclamation
+    If personCell.Column <> 1 Or personCell.Row < Fï¿½RSTE_PERSONRAD Then
+        MsgBox "Velg i kolonne A fra rad " & Fï¿½RSTE_PERSONRAD & " og nedover.", vbExclamation
         Exit Sub
     End If
     personRow = personCell.Row
 
     kode = UCase$(Trim(InputBox("AktivitetsKODE (f.eks. TL, SIC, SAR):", "Aktivitetskode")))
     If Len(kode) = 0 Then Exit Sub
-    If Not SlåOppAktivitet(wsTyp, kode, beskrivelse, farge) Then
+    If Not Slï¿½OppAktivitet(wsTyp, kode, beskrivelse, farge) Then
         MsgBox "Fant ikke koden i '" & ARK_OVERSIKT & "'.", vbCritical
         Exit Sub
     End If
 
-    If Not HentDato("Startdato (dd.mm.åååå):", startDato) Then Exit Sub
-    If Not HentDato("Sluttdato (dd.mm.åååå):", sluttDato) Then Exit Sub
+    If Not HentDato("Startdato (dd.mm.ï¿½ï¿½ï¿½ï¿½):", startDato) Then Exit Sub
+    If Not HentDato("Sluttdato (dd.mm.ï¿½ï¿½ï¿½ï¿½):", sluttDato) Then Exit Sub
     If sluttDato < startDato Then
-        MsgBox "Sluttdato kan ikke være før startdato.", vbExclamation
+        MsgBox "Sluttdato kan ikke vï¿½re fï¿½r startdato.", vbExclamation
         Exit Sub
     End If
 
-    startCol = FinnKolonneForDato_Rad13(wsPlan, startDato, FØRSTE_DATAKOL, datoRad)
-    sluttCol = FinnKolonneForDato_Rad13(wsPlan, sluttDato, FØRSTE_DATAKOL, datoRad)
+    startCol = FinnKolonneForDato_Rad13(wsPlan, startDato, Fï¿½RSTE_DATAKOL, datoRad)
+    sluttCol = FinnKolonneForDato_Rad13(wsPlan, sluttDato, Fï¿½RSTE_DATAKOL, datoRad)
     If startCol = 0 Or sluttCol = 0 Then
         MsgBox "Fant ikke start/sluttdato i rad " & datoRad & ".", vbCritical
         Exit Sub
@@ -95,33 +95,33 @@ Public Sub LeggInnAktivitet()
     End If
 
     Set farger = HentAktivitetsFarger(wsTyp)
-    målRad = FinnEllerOpprettLedigRad_UtenNavn(wsPlan, personRow, startCol, sluttCol, farger)
-    If målRad = 0 Then
+    mï¿½lRad = FinnEllerOpprettLedigRad_UtenNavn(wsPlan, personRow, startCol, sluttCol, farger)
+    If mï¿½lRad = 0 Then
         MsgBox "Fant/skapte ikke ledig rad.", vbCritical
         Exit Sub
     End If
 
-    kommentar = InputBox("Kommentar (valgfritt – vises i blokken):", "Kommentar")
+    kommentar = InputBox("Kommentar (valgfritt ï¿½ vises i blokken):", "Kommentar")
     If Len(Trim$(kommentar)) > 0 Then
-        visTekst = kode & " – " & Trim$(kommentar)
+        visTekst = kode & " ï¿½ " & Trim$(kommentar)
     Else
-        visTekst = kode & " – " & beskrivelse
+        visTekst = kode & " ï¿½ " & beskrivelse
     End If
 
-    ApplyBlockFormatting wsPlan, målRad, startCol, sluttCol, farge, visTekst, farger
+    ApplyBlockFormatting wsPlan, mï¿½lRad, startCol, sluttCol, farge, visTekst, farger
 End Sub
 
-' ===================== MÅTE 2 =====================
-' Legger inn aktivitet i markert område (én blokk per valgt rad)
+' ===================== Mï¿½TE 2 =====================
+' Legger inn aktivitet i markert omrï¿½de (ï¿½n blokk per valgt rad)
 ' v3: Lager ny under-rad hvis spennet overlapper annen aktivitet (ikke samme kode)
-Public Sub LeggInnAktivitetPåMarkering()
+Public Sub LeggInnAktivitetPï¿½Markering()
     Dim wsPlan As Worksheet, wsTyp As Worksheet
     Dim farger As Object
     Dim kode As String, beskrivelse As String, kommentar As String, visTekst As String
     Dim farge As Long
     Dim sel As Range, area As Range
     Dim r As Long, cMin As Long, cMax As Long
-    Dim lastDatoCol As Long, målRad As Long, hovedRad As Long
+    Dim lastDatoCol As Long, mï¿½lRad As Long, hovedRad As Long
 
     On Error Resume Next
     Set wsPlan = ThisWorkbook.Worksheets(ARK_PLAN)
@@ -133,7 +133,7 @@ Public Sub LeggInnAktivitetPåMarkering()
     End If
 
     If TypeName(Selection) <> "Range" Then
-        MsgBox "Marker et område i '" & ARK_PLAN & "' først.", vbExclamation
+        MsgBox "Marker et omrï¿½de i '" & ARK_PLAN & "' fï¿½rst.", vbExclamation
         Exit Sub
     End If
     Set sel = Intersect(Selection, wsPlan.UsedRange)
@@ -149,36 +149,36 @@ Public Sub LeggInnAktivitetPåMarkering()
         Exit Sub
     End If
 
-    kommentar = InputBox("Kommentar (valgfritt – vises i blokken):", "Kommentar")
+    kommentar = InputBox("Kommentar (valgfritt ï¿½ vises i blokken):", "Kommentar")
     If Len(Trim$(kommentar)) > 0 Then
-        visTekst = kode & " – " & Trim$(kommentar)
+        visTekst = kode & " ï¿½ " & Trim$(kommentar)
     Else
-        visTekst = kode & " – " & beskrivelse
+        visTekst = kode & " ï¿½ " & beskrivelse
     End If
 
     Set farger = HentAktivitetsFarger(wsTyp)
 
     Application.ScreenUpdating = False
     lastDatoCol = SisteDatoKolonne(wsPlan, datoRad)
-    If lastDatoCol < FØRSTE_DATAKOL Then lastDatoCol = FØRSTE_DATAKOL
+    If lastDatoCol < Fï¿½RSTE_DATAKOL Then lastDatoCol = Fï¿½RSTE_DATAKOL
 
     For Each area In sel.Areas
         For r = area.Row To area.Row + area.Rows.Count - 1
-            If r < FØRSTE_PERSONRAD Then GoTo nesteRad
-            cMin = Application.WorksheetFunction.Max(FØRSTE_DATAKOL, area.Column)
+            If r < Fï¿½RSTE_PERSONRAD Then GoTo nesteRad
+            cMin = Application.WorksheetFunction.Max(Fï¿½RSTE_DATAKOL, area.Column)
             cMax = Application.WorksheetFunction.Min(lastDatoCol, area.Column + area.Columns.Count - 1)
             If cMax < cMin Then GoTo nesteRad
 
-            ' Bestem målrad: ny under-rad ved overlapp med annen aktivitet
+            ' Bestem mï¿½lrad: ny under-rad ved overlapp med annen aktivitet
             hovedRad = FinnHovedRad(wsPlan, r)
             If SpanHarAnnenAktivitet(wsPlan, r, cMin, cMax, farger, kode) Then
-                målRad = FinnEllerOpprettLedigRad_UtenNavn(wsPlan, hovedRad, cMin, cMax, farger)
-                If målRad = 0 Then GoTo nesteRad
+                mï¿½lRad = FinnEllerOpprettLedigRad_UtenNavn(wsPlan, hovedRad, cMin, cMax, farger)
+                If mï¿½lRad = 0 Then GoTo nesteRad
             Else
-                målRad = r
+                mï¿½lRad = r
             End If
 
-            ApplyBlockFormatting wsPlan, målRad, cMin, cMax, farge, visTekst, farger
+            ApplyBlockFormatting wsPlan, mï¿½lRad, cMin, cMax, farge, visTekst, farger
 nesteRad:
         Next r
     Next area
@@ -186,9 +186,9 @@ nesteRad:
     Application.ScreenUpdating = True
 End Sub
 
-' ---------------- HJELPERE (Public der nødvendig) ----------------
+' ---------------- HJELPERE (Public der nï¿½dvendig) ----------------
 
-Public Function SlåOppAktivitet(wsTyp As Worksheet, ByVal kode As String, _
+Public Function Slï¿½OppAktivitet(wsTyp As Worksheet, ByVal kode As String, _
                                 ByRef beskrivelse As String, ByRef farge As Long) As Boolean
     Dim r As Long, lastRow As Long
     lastRow = wsTyp.Cells(wsTyp.Rows.Count, 1).End(xlUp).Row
@@ -196,7 +196,7 @@ Public Function SlåOppAktivitet(wsTyp As Worksheet, ByVal kode As String, _
         If UCase$(Trim$(wsTyp.Cells(r, 1).Value)) = UCase$(Trim$(kode)) Then
             beskrivelse = CStr(wsTyp.Cells(r, 2).Value)
             farge = wsTyp.Cells(r, 1).Interior.Color
-            SlåOppAktivitet = True
+            Slï¿½OppAktivitet = True
             Exit Function
         End If
     Next r
@@ -204,7 +204,7 @@ End Function
 
 Public Function SlaaOppAktivitet(wsTyp As Worksheet, ByVal kode As String, _
                                  ByRef beskrivelse As String, ByRef farge As Long) As Boolean
-    SlaaOppAktivitet = SlåOppAktivitet(wsTyp, kode, beskrivelse, farge)
+    SlaaOppAktivitet = Slï¿½OppAktivitet(wsTyp, kode, beskrivelse, farge)
 End Function
 
 Private Function FinnKolonneForDato_Rad13(ws As Worksheet, ByVal d As Date, _
@@ -222,19 +222,19 @@ Private Function FinnKolonneForDato_Rad13(ws As Worksheet, ByVal d As Date, _
     Next c
 End Function
 
-' Finn første navnerad (hovedrad) over/lik gitt rad
+' Finn fï¿½rste navnerad (hovedrad) over/lik gitt rad
 Private Function FinnHovedRad(ws As Worksheet, ByVal rad As Long) As Long
     Dim r As Long
-    For r = rad To FØRSTE_PERSONRAD Step -1
+    For r = rad To Fï¿½RSTE_PERSONRAD Step -1
         If Len(Trim$(ws.Cells(r, 1).Value)) > 0 Then FinnHovedRad = r: Exit Function
     Next r
     FinnHovedRad = rad
 End Function
 
 ' Overlapp med *annen* aktivitet i spennet?
-' - Dersom vi finner fet tekst i spennet som **ikke** starter med samme kode – TRUE
-' - Dersom vi finner aktivitetsfarge uten tekst – antar annen aktivitet – TRUE
-' - Kun samme kode eller tomt – FALSE
+' - Dersom vi finner fet tekst i spennet som **ikke** starter med samme kode ï¿½ TRUE
+' - Dersom vi finner aktivitetsfarge uten tekst ï¿½ antar annen aktivitet ï¿½ TRUE
+' - Kun samme kode eller tomt ï¿½ FALSE
 Private Function SpanHarAnnenAktivitet(ws As Worksheet, ByVal r As Long, _
                                        ByVal cMin As Long, ByVal cMax As Long, _
                                        ByVal farger As Object, ByVal kode As String) As Boolean
@@ -247,7 +247,7 @@ Private Function SpanHarAnnenAktivitet(ws As Worksheet, ByVal r As Long, _
                 SpanHarAnnenAktivitet = True: Exit Function
             End If
         ElseIf cel.Interior.ColorIndex <> xlColorIndexNone Then
-            If FargeNærAktivitet(cel.Interior.Color, farger) Then
+            If FargeNï¿½rAktivitet(cel.Interior.Color, farger) Then
                 SpanHarAnnenAktivitet = True: Exit Function
             End If
         End If
@@ -278,12 +278,12 @@ Public Function HentAktivitetsFarger(wsTyp As Worksheet) As Object
     Set HentAktivitetsFarger = dict
 End Function
 
-Private Function FargeNærAktivitet(col As Long, ByVal farger As Object, Optional tol As Long = 18) As Boolean
+Private Function FargeNï¿½rAktivitet(col As Long, ByVal farger As Object, Optional tol As Long = 18) As Boolean
     Dim k As Variant, refCol As Long
     For Each k In farger.Keys
         refCol = CLng(farger(k))
         If FargeAvstand(col, refCol) <= tol Then
-            FargeNærAktivitet = True
+            FargeNï¿½rAktivitet = True
             Exit Function
         End If
     Next k
@@ -302,7 +302,7 @@ Private Function SpennErLedig(rng As Range, ByVal farger As Object) As Boolean
     For Each c In rng.Cells
         If Len(Trim$(c.Value)) > 0 Then SpennErLedig = False: Exit Function
         If c.Interior.ColorIndex <> xlColorIndexNone Then
-            If FargeNærAktivitet(c.Interior.Color, farger) Then
+            If FargeNï¿½rAktivitet(c.Interior.Color, farger) Then
                 SpennErLedig = False: Exit Function
             End If
         End If
@@ -314,7 +314,7 @@ Public Function SisteDatoKolonne(ws As Worksheet, ByVal headerRow As Long) As Lo
     SisteDatoKolonne = ws.Cells(headerRow, ws.Columns.Count).End(xlToLeft).Column
 End Function
 
-' LIM INN I **Modul 1 – Samlet v3** (eller nyere). Erstatt hele
+' LIM INN I **Modul 1 ï¿½ Samlet v3** (eller nyere). Erstatt hele
 ' `FinnEllerOpprettLedigRad_UtenNavn` + legg til helper `NullstillTilHvitMedGrid`.
 
 Private Function FinnEllerOpprettLedigRad_UtenNavn(ws As Worksheet, personRow As Long, _
@@ -335,18 +335,18 @@ Private Function FinnEllerOpprettLedigRad_UtenNavn(ws As Worksheet, personRow As
         End If
     Next r
 
-    ' 2) Opprett ny under-rad under blokken – kopier KUN basisformat (kolbredd/rowheight),
+    ' 2) Opprett ny under-rad under blokken ï¿½ kopier KUN basisformat (kolbredd/rowheight),
     '    men nullstill ALLE datoceller til HVIT + NORMALT RUTENETT (ikke arv fra hovedrad)
     ws.Rows(blockEnd + 1).Insert Shift:=xlDown
-    ' behold høyde/nummerformater ved å kopiere radhøyde/kolbredder indirekte via formats,
-    ' men vi skal uansett blanke ut datofeltene etterpå
+    ' behold hï¿½yde/nummerformater ved ï¿½ kopiere radhï¿½yde/kolbredder indirekte via formats,
+    ' men vi skal uansett blanke ut datofeltene etterpï¿½
     ws.Rows(blockStart).Copy
     ws.Rows(blockEnd + 1).PasteSpecial xlPasteFormats
     Application.CutCopyMode = False
     ws.Cells(blockEnd + 1, 1).ClearContents
 
     lastCol = SisteDatoKolonne(ws, datoRad)
-    For c = FØRSTE_DATAKOL To lastCol
+    For c = Fï¿½RSTE_DATAKOL To lastCol
         Set cel = ws.Cells(blockEnd + 1, c)
         ' UANSETT hva som ble kopiert: sett hvit bakgrunn og heltrukne tynne kanter
         NullstillTilHvitMedGrid cel
@@ -355,7 +355,7 @@ Private Function FinnEllerOpprettLedigRad_UtenNavn(ws As Worksheet, personRow As
     FinnEllerOpprettLedigRad_UtenNavn = blockEnd + 1
 End Function
 
-Private Sub NullstillTilHvitMedGrid(ByVal cel As Range)
+Private Sub NullstillTilHvitMedGrid(cel As Range)
     ' Ingen diagonaler, hvit bakgrunn, heltrukne tynne ytterkanter
     cel.ClearComments
     cel.ClearContents
@@ -406,15 +406,15 @@ Private Sub KopierBakgrunn(ByVal src As Range, ByVal dst As Range)
     End With
 End Sub
 
-Public Sub ApplyBlockFormatting(ws As Worksheet, målRad As Long, _
+Public Sub ApplyBlockFormatting(ws As Worksheet, mï¿½lRad As Long, _
                                startCol As Long, sluttCol As Long, _
                                farge As Long, visTekst As String, _
                                ByVal farger As Object)
     Dim rng As Range, startCell As Range, rngUnder As Range, c As Range, cb As Range
     Application.ScreenUpdating = False
 
-    Set rng = ws.Range(ws.Cells(målRad, startCol), ws.Cells(målRad, sluttCol))
-    Set startCell = ws.Cells(målRad, startCol)
+    Set rng = ws.Range(ws.Cells(mï¿½lRad, startCol), ws.Cells(mï¿½lRad, sluttCol))
+    Set startCell = ws.Cells(mï¿½lRad, startCol)
 
     rng.ClearContents
     rng.ClearComments
@@ -438,17 +438,17 @@ Public Sub ApplyBlockFormatting(ws As Worksheet, målRad As Long, _
     rng.Borders(xlInsideVertical).LineStyle = xlLineStyleNone
     rng.Borders(xlInsideHorizontal).LineStyle = xlLineStyleNone
 
-    If målRad < ws.Rows.Count Then
+    If mï¿½lRad < ws.Rows.Count Then
         For Each c In rng.Cells
             Set cb = c.Offset(1, 0)
             If cb.Row <= ws.Rows.Count Then
                 If Len(Trim$(cb.Value)) = 0 And cb.Interior.Color = farge Then
-                    KopierBakgrunn ws.Cells(målRad, cb.Column), cb
+                    KopierBakgrunn ws.Cells(mï¿½lRad, cb.Column), cb
                 End If
             End If
         Next c
 
-        Set rngUnder = ws.Range(ws.Cells(målRad + 1, startCol), ws.Cells(målRad + 1, sluttCol))
+        Set rngUnder = ws.Range(ws.Cells(mï¿½lRad + 1, startCol), ws.Cells(mï¿½lRad + 1, sluttCol))
         With rngUnder.Borders(xlEdgeTop)
             .LineStyle = xlContinuous
             .Weight = xlThin
