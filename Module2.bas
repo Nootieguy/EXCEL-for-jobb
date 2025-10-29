@@ -1,16 +1,15 @@
-Attribute VB_Name = "Module2"
 Option Explicit
 
 ' =================== KONFIG ===================
 Private Const ARK_PLAN As String = "Planlegger"
-Private Const FØRSTE_DATAKOL As Long = 2    ' B = 2
+Private Const FÃ˜RSTE_DATAKOL As Long = 2    ' B = 2
 Private Const datoRad As Long = 15          ' rad med datoer (ekte datoer)
-Private Const FØRSTE_PERSONRAD As Long = 16
+Private Const FÃ˜RSTE_PERSONRAD As Long = 16
 ' Standard grid: tynn, automatisk farge
 Private Const GRID_WEIGHT As Long = xlHairline   ' bruk xlThin for sterkere ruter
 ' =============================================
 
-' RYDD: fjerner alt i valgt spenn, tegner rutenett på nytt, sletter tomme under-rader
+' RYDD: fjerner alt i valgt spenn, tegner rutenett pÃ¥ nytt, sletter tomme under-rader
 Public Sub RyddBlokkForPerson()
     Dim ws As Worksheet
     Dim personCell As Range
@@ -25,25 +24,25 @@ Public Sub RyddBlokkForPerson()
     ' Velg person (hovedrad)
     On Error Resume Next
     Set personCell = Application.InputBox( _
-        prompt:="Klikk personens HOVEDRAD i kolonne A (rad " & FØRSTE_PERSONRAD & "+).", _
+        prompt:="Klikk personens HOVEDRAD i kolonne A (rad " & FÃ˜RSTE_PERSONRAD & "+).", _
         Title:="Velg person", Type:=8)
     On Error GoTo 0
     If personCell Is Nothing Then Exit Sub
-    If personCell.Column <> 1 Or personCell.Row < FØRSTE_PERSONRAD Then
-        MsgBox "Velg i kol A fra rad " & FØRSTE_PERSONRAD & ".", vbExclamation: Exit Sub
+    If personCell.Column <> 1 Or personCell.Row < FÃ˜RSTE_PERSONRAD Then
+        MsgBox "Velg i kol A fra rad " & FÃ˜RSTE_PERSONRAD & ".", vbExclamation: Exit Sub
     End If
     
     ' Datoer
-    If Not HentDato("Startdato (dd.mm.åååå) som skal ryddes:", startDato) Then Exit Sub
-    If Not HentDato("Sluttdato (dd.mm.åååå):", sluttDato) Then Exit Sub
+    If Not HentDato("Startdato (dd.mm.Ã¥Ã¥Ã¥Ã¥) som skal ryddes:", startDato) Then Exit Sub
+    If Not HentDato("Sluttdato (dd.mm.Ã¥Ã¥Ã¥Ã¥):", sluttDato) Then Exit Sub
     If sluttDato < startDato Then
         MsgBox "Sluttdato < Startdato.", vbExclamation
         Exit Sub
     End If
     
     ' Kolonner for dato-spenn
-    startCol = FinnKolonneForDato_Rad13(ws, startDato, FØRSTE_DATAKOL, datoRad)
-    sluttCol = FinnKolonneForDato_Rad13(ws, sluttDato, FØRSTE_DATAKOL, datoRad)
+    startCol = FinnKolonneForDato_Rad13(ws, startDato, FÃ˜RSTE_DATAKOL, datoRad)
+    sluttCol = FinnKolonneForDato_Rad13(ws, sluttDato, FÃ˜RSTE_DATAKOL, datoRad)
     If startCol = 0 Or sluttCol = 0 Then
         MsgBox "Fant ikke datoene i rad " & datoRad & ".", vbCritical: Exit Sub
     End If
@@ -57,14 +56,19 @@ Public Sub RyddBlokkForPerson()
     
     ' Finn personblokken
     FinnPersonBlokk ws, personCell.Row, blockStart, blockEnd
-    
+
+    ' Lagre undo-snapshot fÃ¸r endringer
+    On Error Resume Next
+    LagUndoSnapshot ws.Range(ws.Cells(blockStart, startCol), ws.Cells(blockEnd, sluttCol))
+    On Error GoTo 0
+
     Application.ScreenUpdating = False
     
-    ' 1) Rydd valgt spenn på hele blokken
+    ' 1) Rydd valgt spenn pÃ¥ hele blokken
     For r = blockStart To blockEnd
         Set rng = ws.Range(ws.Cells(r, startCol), ws.Cells(r, sluttCol))
         
-        ' Tøm
+        ' TÃ¸m
         rng.ClearContents
         rng.Interior.ColorIndex = xlColorIndexNone
         rng.Borders.LineStyle = xlLineStyleNone
@@ -77,7 +81,7 @@ Public Sub RyddBlokkForPerson()
         ws.Cells(r, startCol).ClearComments
         On Error GoTo 0
         
-        ' Tegn rutenett på nytt (tynne inndelingslinjer)
+        ' Tegn rutenett pÃ¥ nytt (tynne inndelingslinjer)
         With rng.Borders
             .LineStyle = xlContinuous
             .ColorIndex = xlColorIndexAutomatic
@@ -85,7 +89,7 @@ Public Sub RyddBlokkForPerson()
         End With
     Next r
     
-    ' 2) Gjenopprett overordnet formatering på under-rader fra hovedraden
+    ' 2) Gjenopprett overordnet formatering pÃ¥ under-rader fra hovedraden
     If blockEnd > blockStart Then
         ws.Rows(blockStart).Copy
         ws.Range(ws.Rows(blockStart + 1), ws.Rows(blockEnd)).PasteSpecial xlPasteFormats
@@ -94,12 +98,12 @@ Public Sub RyddBlokkForPerson()
     
     ' 3) Slett tomme under-rader (aldri hovedraden)
     If blockEnd > blockStart Then
-        SlettTommeUnderRader ws, blockStart, blockEnd, FØRSTE_DATAKOL, lastCol
+        SlettTommeUnderRader ws, blockStart, blockEnd, FÃ˜RSTE_DATAKOL, lastCol
     End If
     
     Application.ScreenUpdating = True
     
-    MsgBox "Ryddet " & Format(startDato, "dd.mm.yyyy") & "–" & _
+    MsgBox "Ryddet " & Format(startDato, "dd.mm.yyyy") & "-" & _
            Format(sluttDato, "dd.mm.yyyy") & " for personblokken, og rutenett er gjenopprettet.", vbInformation
 End Sub
 
@@ -162,6 +166,80 @@ Private Function HentDato(prompt As String, ByRef d As Date) As Boolean
     Exit Function
 Feil:
     MsgBox "Ugyldig dato: " & s, vbExclamation
+End Function
+
+' =================== FIX RUTENETT ===================
+' Reparerer rutenett i hele dato-omrÃ¥det
+' Nyttig etter at borders har blitt Ã¸delagt av aktivitetsoperasjoner
+' =====================================================
+Public Sub FixRutenett()
+    Dim ws As Worksheet
+    Dim lastCol As Long, lastRow As Long
+    Dim r As Long, c As Long
+    Dim cel As Range
+
+    Set ws = ThisWorkbook.Worksheets(ARK_PLAN)
+
+    ' Finn omrÃ¥det som skal fixes
+    lastCol = ws.Cells(datoRad, ws.Columns.Count).End(xlToLeft).Column
+    lastRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
+
+    Application.ScreenUpdating = False
+
+    ' GÃ¥ gjennom alle celler i dato-omrÃ¥det
+    For r = FÃ˜RSTE_PERSONRAD To lastRow
+        For c = FÃ˜RSTE_DATAKOL To lastCol
+            Set cel = ws.Cells(r, c)
+
+            ' Bare fix hvite celler (ikke aktivitets-celler)
+            If Not HarAktivitetsfarge(cel) Then
+                ' Sett standard grid borders
+                With cel.Borders(xlEdgeLeft)
+                    .LineStyle = xlContinuous
+                    .Weight = xlThin
+                    .Color = RGB(0, 0, 0)
+                End With
+
+                With cel.Borders(xlEdgeRight)
+                    .LineStyle = xlContinuous
+                    .Weight = xlThin
+                    .Color = RGB(0, 0, 0)
+                End With
+
+                With cel.Borders(xlEdgeTop)
+                    .LineStyle = xlContinuous
+                    .Weight = xlThin
+                    .Color = RGB(0, 0, 0)
+                End With
+
+                With cel.Borders(xlEdgeBottom)
+                    .LineStyle = xlContinuous
+                    .Weight = xlThin
+                    .Color = RGB(0, 0, 0)
+                End With
+            End If
+        Next c
+    Next r
+
+    Application.ScreenUpdating = True
+
+    MsgBox "Rutenett er reparert!", vbInformation
+End Sub
+
+' Sjekk om celle har aktivitetsfarge (ikke hvit/grÃ¥)
+Private Function HarAktivitetsfarge(ByVal cel As Range) As Boolean
+    Dim col As Long
+
+    If cel.Interior.ColorIndex = xlColorIndexNone Then Exit Function
+
+    col = cel.Interior.Color
+
+    ' Sjekk om fargen er hvit eller lys grÃ¥
+    If col = RGB(255, 255, 255) Then Exit Function
+    If col = RGB(242, 242, 242) Then Exit Function
+    If col = RGB(250, 250, 250) Then Exit Function
+
+    HarAktivitetsfarge = True
 End Function
 
 

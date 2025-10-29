@@ -1,20 +1,19 @@
-Attribute VB_Name = "FjernMarkert"
 Option Explicit
 
 ' =================== KONFIG ===================
 Private Const ARK_PLAN As String = "Planlegger"
 
 ' Alle verdier som Property Get for konsistens
-Public Property Get FØRSTE_DATAKOL() As Long
-    FØRSTE_DATAKOL = Worksheets(ARK_PLAN).Range("FirstDate").Column
+Public Property Get FÃ˜RSTE_DATAKOL() As Long
+    FÃ˜RSTE_DATAKOL = Worksheets(ARK_PLAN).Range("FirstDate").Column
 End Property
 
 Public Property Get datoRad() As Long
     datoRad = Worksheets(ARK_PLAN).Range("FirstDate").Row
 End Property
 
-Public Property Get FØRSTE_PERSONRAD() As Long
-    FØRSTE_PERSONRAD = Worksheets(ARK_PLAN).Range("PersonHeader").Row + 1
+Public Property Get FÃ˜RSTE_PERSONRAD() As Long
+    FÃ˜RSTE_PERSONRAD = Worksheets(ARK_PLAN).Range("PersonHeader").Row + 1
 End Property
 
 Public Property Get FJERN_TOMME_UNDERRADER() As Boolean
@@ -22,18 +21,18 @@ Public Property Get FJERN_TOMME_UNDERRADER() As Boolean
 End Property
 ' =============================================
 '
-'  v3.4 – Dynamisk versjon med Named Ranges
+'  v3.4 - Dynamisk versjon med Named Ranges
 '  Bruker PersonHeader og FirstDate
 '  Legger alltid tilbake heltrukken toppkant over hele raden
 '  Auto-slett tomme rader, auto-flytt opp aktivitet
 '
-Public Sub FjernAktivitetPåMarkering()
+Public Sub FjernAktivitetPÃ¥Markering()
     Dim ws As Worksheet
     Dim sel As Range, area As Range, rng As Range
     Dim lastDatoCol As Long
     Dim r As Long, c As Long
     Dim hovedRad As Long
-    Dim berørteHovedrader As Object
+    Dim berÃ¸rteHovedrader As Object
 
     On Error Resume Next
     Set ws = ThisWorkbook.Worksheets(ARK_PLAN)
@@ -44,7 +43,7 @@ Public Sub FjernAktivitetPåMarkering()
     End If
 
     If TypeName(Selection) <> "Range" Then
-        MsgBox "Marker et område i '" & ARK_PLAN & "' først.", vbExclamation
+        MsgBox "Marker et omrÃ¥de i '" & ARK_PLAN & "' fÃ¸rst.", vbExclamation
         Exit Sub
     End If
     Set sel = Intersect(Selection, ws.UsedRange)
@@ -53,42 +52,105 @@ Public Sub FjernAktivitetPåMarkering()
         Exit Sub
     End If
 
-    Set berørteHovedrader = CreateObject("Scripting.Dictionary")
+    Set berÃ¸rteHovedrader = CreateObject("Scripting.Dictionary")
+    Dim splittRader As Object
+    Set splittRader = CreateObject("Scripting.Dictionary")
+
+    ' Dictionary for Ã¥ spore hvilke celler som skal fjernes (rad -> kolonner)
+    Dim cellerÃ…Fjerne As Object
+    Set cellerÃ…Fjerne = CreateObject("Scripting.Dictionary")
+
+    ' Lagre undo-snapshot fÃ¸r endringer
+    On Error Resume Next
+    LagUndoSnapshot sel
+    On Error GoTo 0
 
     Application.ScreenUpdating = False
+    Application.EnableEvents = False  ' Disable events for Ã¥ unngÃ¥ rekursjon
     lastDatoCol = SisteDatoKolonne(ws, datoRad)
-    If lastDatoCol < FØRSTE_DATAKOL Then lastDatoCol = FØRSTE_DATAKOL
+    If lastDatoCol < FÃ˜RSTE_DATAKOL Then lastDatoCol = FÃ˜RSTE_DATAKOL
 
+    ' STEG 1: Identifiser hvilke celler som skal fjernes OG hvilke rader som har splits
     For Each area In sel.Areas
-        Set rng = Intersect(area, ws.Range(ws.Cells(FØRSTE_PERSONRAD, FØRSTE_DATAKOL), _
+        Set rng = Intersect(area, ws.Range(ws.Cells(FÃ˜RSTE_PERSONRAD, FÃ˜RSTE_DATAKOL), _
                                            ws.Cells(ws.Rows.Count, lastDatoCol)))
         If Not rng Is Nothing Then
             For r = rng.Row To rng.Row + rng.Rows.Count - 1
                 hovedRad = FinnHovedRad(ws, r)
-                If hovedRad >= FØRSTE_PERSONRAD Then berørteHovedrader(CStr(hovedRad)) = True
+                If hovedRad >= FÃ˜RSTE_PERSONRAD Then berÃ¸rteHovedrader(CStr(hovedRad)) = True
+
+                ' Marker raden for split-sjekk (hvis den har aktiviteter)
+                If RadHarAktivitet(ws, r) Then
+                    If Not splittRader.Exists(r) Then splittRader.Add r, r
+                End If
+
+                ' Lagre hvilke celler som skal fjernes
+                Dim radKey As Variant  ' MÃ¥ vÃ¦re Variant for For Each loop
+                radKey = CStr(r)
                 For c = rng.Column To rng.Column + rng.Columns.Count - 1
-                    If c >= FØRSTE_DATAKOL And c <= lastDatoCol Then
-                        RyddCelleTilHvitMedGrid ws, r, c
+                    If c >= FÃ˜RSTE_DATAKOL And c <= lastDatoCol Then
+                        If Not cellerÃ…Fjerne.Exists(radKey) Then
+                            Dim nyCol As Object
+                            Set nyCol = CreateObject("Scripting.Dictionary")
+                            cellerÃ…Fjerne.Add radKey, nyCol
+                        End If
+                        cellerÃ…Fjerne(radKey).Add c, c
                     End If
                 Next c
-
-                ' Trekk toppkant som én sammenhengende linje over hele raden
-                TrekkToppkantHeleRaden ws, r, FØRSTE_DATAKOL, lastDatoCol
-
-                If FJERN_TOMME_UNDERRADER Then SlettTomUnderRadHvisAktuell ws, r, hovedRad
             Next r
         End If
     Next area
 
-    ' Etter rydding: komprimer hver berørt personblokk
+    ' STEG 2: HÃ¥ndter splits FÃ˜R vi fjerner cellene (sÃ¥ vi kan se fargene)
+    Dim arkPlan As Object
+    Set arkPlan = ws  ' ws er allerede Planlegger-arket
+    Dim radNr As Variant
+
+    For Each radNr In splittRader.Keys
+        ' Sjekk om raden vil ha split etter fjerning
+        If SjekkOmRadVilHaSplit(ws, CLng(radNr), FÃ˜RSTE_DATAKOL, lastDatoCol, cellerÃ…Fjerne) Then
+            ' Kall split-hÃ¥ndteringen MED liste over celler som skal fjernes
+            arkPlan.HÃ¥ndterAlleAktiviteterMedSplitIRad CLng(radNr), FÃ˜RSTE_DATAKOL, datoRad, cellerÃ…Fjerne
+        End If
+    Next radNr
+
+    ' STEG 3: NÃ¥ rydd opp cellene som ikke ble hÃ¥ndtert av split-logikken
+    ' Bare rydd celler som er i cellerÃ…Fjerne OG fortsatt har farge
+    For Each radKey In cellerÃ…Fjerne.Keys
+        Dim radNum As Long
+        radNum = CLng(radKey)
+        hovedRad = FinnHovedRad(ws, radNum)
+
+        Dim colDictFinal As Object
+        Set colDictFinal = cellerÃ…Fjerne(radKey)
+
+        Dim colFinal As Variant
+        For Each colFinal In colDictFinal.Keys
+            Dim cFinal As Long
+            cFinal = CLng(colFinal)
+
+            ' Kun rydd hvis cellen fortsatt har farge (split-logikken fjernet ikke den)
+            If ws.Cells(radNum, cFinal).Interior.ColorIndex <> xlColorIndexNone Then
+                RyddCelleTilHvitMedGrid ws, radNum, cFinal
+            End If
+        Next colFinal
+
+        ' Trekk toppkant som Ã©n sammenhengende linje over hele raden
+        TrekkToppkantHeleRaden ws, radNum, FÃ˜RSTE_DATAKOL, lastDatoCol
+
+        If FJERN_TOMME_UNDERRADER Then SlettTomUnderRadHvisAktuell ws, radNum, hovedRad
+    Next radKey
+
+    ' Etter rydding: komprimer hver berÃ¸rt personblokk
     Dim k As Variant
-    For Each k In berørteHovedrader.Keys
+    For Each k In berÃ¸rteHovedrader.Keys
         KomprimerBlokkFlyttOppHvisEnesteUnder ws, CLng(k)
     Next k
 
-    ' Sikre at alle person-skillelinjer er på plass
+    ' Sikre at alle person-skillelinjer er pÃ¥ plass
     GjenopprettPersonSkiller ws
 
+    Application.EnableEvents = True  ' Re-enable events
     Application.ScreenUpdating = True
 End Sub
 
@@ -105,7 +167,7 @@ Private Sub KomprimerBlokkFlyttOppHvisEnesteUnder(ws As Worksheet, ByVal hovedRa
     lastRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
     lastCol = SisteDatoKolonne(ws, datoRad)
 
-    ' Finn enden av blokken (påfølgende rader med tom kol A)
+    ' Finn enden av blokken (pÃ¥fÃ¸lgende rader med tom kol A)
     For r = hovedRad + 1 To lastRow
         If Len(Trim$(ws.Cells(r, 1).Value)) = 0 Then
             endBlokk = r
@@ -124,13 +186,13 @@ Private Sub KomprimerBlokkFlyttOppHvisEnesteUnder(ws As Worksheet, ByVal hovedRa
         End If
     Next r
 
-    ' Hvis hovedraden er tom og det finnes nøyaktig én under-rad med aktivitet – flytt opp
+    ' Hvis hovedraden er tom og det finnes nÃ¸yaktig Ã©n under-rad med aktivitet - flytt opp
     If Not RadHarAktivitet(ws, hovedRad) And antUnderMedAktivitet = 1 Then
         FlyttRadInnholdOpp ws, underMedAktivitet, hovedRad
         ws.Rows(underMedAktivitet).Delete
     End If
 
-    ' Etter sletting: fjern eventuelle gjenværende tomme under-rader
+    ' Etter sletting: fjern eventuelle gjenvÃ¦rende tomme under-rader
     Dim slettet As Boolean: slettet = False
     For r = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row To hovedRad + 1 Step -1
         If Len(Trim$(ws.Cells(r, 1).Value)) = 0 Then
@@ -141,7 +203,7 @@ Private Sub KomprimerBlokkFlyttOppHvisEnesteUnder(ws As Worksheet, ByVal hovedRa
         End If
     Next r
     
-    ' KRITISK FIX: Hvis vi slettet noen under-rader, gjenopprett toppkant på neste rad
+    ' KRITISK FIX: Hvis vi slettet noen under-rader, gjenopprett toppkant pÃ¥ neste rad
     If slettet Then
         Dim nesteRad As Long
         ' Finn neste rad med navn (neste person)
@@ -155,7 +217,7 @@ Private Sub KomprimerBlokkFlyttOppHvisEnesteUnder(ws As Worksheet, ByVal hovedRa
         ' Hvis vi fant en neste person, gjenopprett toppkanten
         If nesteRad > hovedRad Then
             Dim rngTop As Range
-            Set rngTop = ws.Range(ws.Cells(nesteRad, FØRSTE_DATAKOL), ws.Cells(nesteRad, lastCol))
+            Set rngTop = ws.Range(ws.Cells(nesteRad, FÃ˜RSTE_DATAKOL), ws.Cells(nesteRad, lastCol))
             With rngTop.Borders(xlEdgeTop)
                 .LineStyle = xlContinuous
                 .Weight = xlThin
@@ -170,8 +232,8 @@ Private Sub FlyttRadInnholdOpp(ws As Worksheet, ByVal srcRad As Long, ByVal dstR
     lastCol = SisteDatoKolonne(ws, datoRad)
 
     ' Kopier ALT innhold/format fra srcRad (dato-kolonner) til dstRad
-    ws.Range(ws.Cells(srcRad, FØRSTE_DATAKOL), ws.Cells(srcRad, lastCol)).Copy
-    ws.Cells(dstRad, FØRSTE_DATAKOL).PasteSpecial xlPasteAll
+    ws.Range(ws.Cells(srcRad, FÃ˜RSTE_DATAKOL), ws.Cells(srcRad, lastCol)).Copy
+    ws.Cells(dstRad, FÃ˜RSTE_DATAKOL).PasteSpecial xlPasteAll
     Application.CutCopyMode = False
 End Sub
 
@@ -190,7 +252,7 @@ Private Sub RyddCelleTilHvitMedGrid(ws As Worksheet, ByVal r As Long, ByVal c As
     cel.VerticalAlignment = xlCenter
     cel.WrapText = False
 
-    ' 2) Sett bakgrunn til ren hvit (ingen mønster)
+    ' 2) Sett bakgrunn til ren hvit (ingen mÃ¸nster)
     With cel.Interior
         .Pattern = xlSolid
         .TintAndShade = 0
@@ -198,7 +260,7 @@ Private Sub RyddCelleTilHvitMedGrid(ws As Worksheet, ByVal r As Long, ByVal c As
         .PatternTintAndShade = 0
     End With
 
-    ' 3) Slå av diagonale kanter (for å hindre X-kryss)
+    ' 3) SlÃ¥ av diagonale kanter (for Ã¥ hindre X-kryss)
     cel.Borders(xlDiagonalDown).LineStyle = xlLineStyleNone
     cel.Borders(xlDiagonalUp).LineStyle = xlLineStyleNone
 
@@ -261,7 +323,7 @@ End Sub
 Private Function RadErTomIAlleDatoKolonner(ws As Worksheet, ByVal r As Long) As Boolean
     Dim lastCol As Long, c As Long, cel As Range
     lastCol = SisteDatoKolonne(ws, datoRad)
-    For c = FØRSTE_DATAKOL To lastCol
+    For c = FÃ˜RSTE_DATAKOL To lastCol
         Set cel = ws.Cells(r, c)
         If Len(Trim$(cel.Value)) > 0 Then Exit Function
         If cel.Interior.ColorIndex <> xlColorIndexNone Then
@@ -274,7 +336,7 @@ End Function
 Private Function RadHarAktivitet(ws As Worksheet, ByVal r As Long) As Boolean
     Dim lastCol As Long, c As Long, cel As Range
     lastCol = SisteDatoKolonne(ws, datoRad)
-    For c = FØRSTE_DATAKOL To lastCol
+    For c = FÃ˜RSTE_DATAKOL To lastCol
         Set cel = ws.Cells(r, c)
         If Len(Trim$(cel.Value)) > 0 Then RadHarAktivitet = True: Exit Function
         If cel.Interior.ColorIndex <> xlColorIndexNone Then
@@ -288,7 +350,7 @@ End Function
 
 Private Function FinnHovedRad(ws As Worksheet, ByVal rad As Long) As Long
     Dim r As Long
-    For r = rad To FØRSTE_PERSONRAD Step -1
+    For r = rad To FÃ˜RSTE_PERSONRAD Step -1
         If Len(Trim$(ws.Cells(r, 1).Value)) > 0 Then FinnHovedRad = r: Exit Function
     Next r
     FinnHovedRad = rad
@@ -304,12 +366,12 @@ Private Sub GjenopprettPersonSkiller(ws As Worksheet)
     lastRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
     lastCol = SisteDatoKolonne(ws, datoRad)
     
-    ' Gå gjennom alle rader og finn personer (navn i kolonne A)
-    For r = FØRSTE_PERSONRAD To lastRow
+    ' GÃ¥ gjennom alle rader og finn personer (navn i kolonne A)
+    For r = FÃ˜RSTE_PERSONRAD To lastRow
         If Len(Trim$(ws.Cells(r, 1).Value)) > 0 Then
             ' Dette er en personrad - sett toppkant
             Dim rngTop As Range
-            Set rngTop = ws.Range(ws.Cells(r, FØRSTE_DATAKOL), ws.Cells(r, lastCol))
+            Set rngTop = ws.Range(ws.Cells(r, FÃ˜RSTE_DATAKOL), ws.Cells(r, lastCol))
             With rngTop.Borders(xlEdgeTop)
                 .LineStyle = xlContinuous
                 .Weight = xlThin
@@ -318,4 +380,68 @@ Private Sub GjenopprettPersonSkiller(ws As Worksheet)
         End If
     Next r
 End Sub
+
+' ----------- Split-deteksjon -----------
+
+' Sjekk om en rad VIL ha split etter at celler fjernes
+Private Function SjekkOmRadVilHaSplit(ws As Worksheet, ByVal r As Long, _
+                                       ByVal startCol As Long, ByVal endCol As Long, _
+                                       ByVal cellerÃ…Fjerne As Object) As Boolean
+    Dim c As Long
+    Dim harSettFarge As Boolean
+    Dim harSettHvit As Boolean
+    Dim radKey As Variant  ' Variant for konsistens med Dictionary.Keys
+
+    harSettFarge = False
+    harSettHvit = False
+    radKey = CStr(r)
+
+    ' Skann raden fra venstre til hÃ¸yre
+    For c = startCol To endCol
+        Dim cel As Range
+        Set cel = ws.Cells(r, c)
+
+        ' Sjekk om denne cellen skal fjernes
+        Dim skalFjernes As Boolean
+        skalFjernes = False
+        If cellerÃ…Fjerne.Exists(radKey) Then
+            Dim colDict As Object
+            Set colDict = cellerÃ…Fjerne(radKey)
+            If colDict.Exists(c) Then
+                skalFjernes = True
+            End If
+        End If
+
+        ' Sjekk om cellen har aktivitetsfarge (og ikke skal fjernes)
+        Dim harAktivFarge As Boolean
+        harAktivFarge = False
+
+        If Not skalFjernes Then
+            ' Bruk samme logikk som HarAktivitetsfarge fra Ark1.cls
+            If cel.Interior.ColorIndex <> xlColorIndexNone Then
+                Dim celCol As Long
+                celCol = cel.Interior.Color
+                If celCol <> RGB(255, 255, 255) And celCol <> RGB(242, 242, 242) And celCol <> RGB(250, 250, 250) Then
+                    harAktivFarge = True
+                End If
+            End If
+        End If
+
+        If harAktivFarge Then
+            ' Hvis vi har sett hvit/fjernet fÃ¸r â†’ dette er en split!
+            If harSettHvit Then
+                SjekkOmRadVilHaSplit = True
+                Exit Function
+            End If
+            harSettFarge = True
+        Else
+            ' Hvit celle eller skal fjernes
+            If harSettFarge Then
+                harSettHvit = True
+            End If
+        End If
+    Next c
+
+    SjekkOmRadVilHaSplit = False
+End Function
 

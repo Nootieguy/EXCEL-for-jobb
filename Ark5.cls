@@ -1,36 +1,26 @@
-VERSION 1.0 CLASS
-BEGIN
-  MultiUse = -1  'True
-END
-Attribute VB_Name = "Ark5"
-Attribute VB_GlobalNameSpace = False
-Attribute VB_Creatable = False
-Attribute VB_PredeclaredId = True
-Attribute VB_Exposed = True
-
 ' ============================================================================
 ' ARK5: AKTIVITETSOVERSIKT - WORKSHEET EVENT HANDLER (FORBEDRET v4.0)
 ' ============================================================================
-' FORMÅL:
-'   Håndterer automatisk synkronisering mellom AKTIVITETSOVERSIKT og Planlegger
-'   når brukeren endrer data direkte i oversikten.
+' FORMÃ…L:
+'   HÃ¥ndterer automatisk synkronisering mellom AKTIVITETSOVERSIKT og Planlegger
+'   nÃ¥r brukeren endrer data direkte i oversikten.
 '
 ' FUNKSJONALITET:
 '   1. PERSON-SWITCHING: Endre person ? flytt aktivitet mellom personer
 '   2. KODE-VALIDERING: Sjekk at aktivitetskoden finnes i AKTIVITETSTYPER
 '   3. DATO-VALIDERING: Sjekk at startdato ikke er etter sluttdato
-'   4. FORSINKELSE-HÅNDTERING: Respekter forsinkelse ved flytting
+'   4. FORSINKELSE-HÃ…NDTERING: Respekter forsinkelse ved flytting
 '
 ' REKURSJONSBESKYTTELSE:
 '   - behandlerEndring flagg forhindrer evige loops
 '   - Application.EnableEvents sjekk forhindrer meldinger under refresh
 '
 ' FORBEDRINGER v4.0:
-'   - Mer robust søkelogikk (krever ikke fet tekst)
+'   - Mer robust sÃ¸kelogikk (krever ikke fet tekst)
 '   - Detaljert debugging til Immediate Window
 '   - Bedre feilmeldinger med diagnoseinformasjon
-'   - Ny UltraBred-søkemetode som fallback
-'   - Debug-funksjon for å liste alle aktiviteter
+'   - Ny UltraBred-sÃ¸kemetode som fallback
+'   - Debug-funksjon for Ã¥ liste alle aktiviteter
 ' ============================================================================
 
 ' ============================================================================
@@ -38,7 +28,7 @@ Attribute VB_Exposed = True
 ' ============================================================================
 ' Definerer tabellstruktur og beskyttelsesflagg
 
-' Første rad med data i tabellen
+' FÃ¸rste rad med data i tabellen
 Private Const TBL_START_ROW As Long = 4
 
 ' Kolonneindekser (hvilken kolonne inneholder hva)
@@ -52,7 +42,7 @@ Private Const COL_NY_SLUTT As Long = 7     ' G: Ny sluttdato (beregnet = E + F)
 Private Const COL_KOMMENTAR As Long = 10   ' J: Kommentar (valgfri)
 
 ' Beskyttelsesflagg mot rekursjon
-' Settes til True når vi behandler endring for å unngå nested calls
+' Settes til True nÃ¥r vi behandler endring for Ã¥ unngÃ¥ nested calls
 Private behandlerEndring As Boolean
 
 ' Debug-modus (sett til True for detaljert logging)
@@ -65,7 +55,7 @@ Private Const DEBUG_MODE As Boolean = True
 Private Sub Worksheet_Change(ByVal Target As Range)
     On Error GoTo Slutt
 
-    ' STEG 1: Sjekk om vi allerede behandler (unngå rekursjon)
+    ' STEG 1: Sjekk om vi allerede behandler (unngÃ¥ rekursjon)
     If behandlerEndring Then Exit Sub
 
     ' STEG 2: Valider input
@@ -93,19 +83,19 @@ Private Sub Worksheet_Change(ByVal Target As Range)
 
         ' Kun behandle rader fra TBL_START_ROW og nedover
         If c.Row >= TBL_START_ROW Then
-            ' Rute til riktig handler basert på hvilken kolonne som ble endret
+            ' Rute til riktig handler basert pÃ¥ hvilken kolonne som ble endret
             Select Case c.Column
                 Case COL_PERSON
-                    Call HåndterPersonEndring(c.Row)
+                    Call HÃ¥ndterPersonEndring(c.Row)
 
                 Case COL_KODE
-                    Call HåndterKodeEndring(c.Row)
+                    Call HÃ¥ndterKodeEndring(c.Row)
 
                 Case COL_OPP_START, COL_OPP_SLUTT
-                    Call HåndterDatoEndring(c.Row)
+                    Call HÃ¥ndterDatoEndring(c.Row)
 
                 Case COL_FORSINKET
-                    Call HåndterForsinkelseEndring(c.Row)
+                    Call HÃ¥ndterForsinkelseEndring(c.Row)
             End Select
         End If
     Next c
@@ -126,7 +116,7 @@ End Sub
 ' ============================================================================
 ' SEKSJON 3: PERSON-SWITCHING HANDLER (FORBEDRET)
 ' ============================================================================
-Private Sub HåndterPersonEndring(ByVal rad As Long)
+Private Sub HÃ¥ndterPersonEndring(ByVal rad As Long)
     On Error GoTo ErrorHandler
 
     ' --- STEG 1: HENT DATA FRA RADEN ---
@@ -144,7 +134,7 @@ Private Sub HåndterPersonEndring(ByVal rad As Long)
     nyPerson = Trim$(Me.Cells(rad, COL_PERSON).Value)
     kode = UCase$(Trim$(Me.Cells(rad, COL_KODE).Value))
 
-    ' Valider at vi har nødvendig data
+    ' Valider at vi har nÃ¸dvendig data
     If Len(nyPerson) = 0 Or Len(kode) = 0 Then Exit Sub
 
     ' Hent datoer og forsinkelse
@@ -182,7 +172,7 @@ Private Sub HåndterPersonEndring(ByVal rad As Long)
         Debug.Print String(80, "=")
         Debug.Print "PERSON-SWITCHING DEBUG [" & Now & "]"
         Debug.Print String(80, "=")
-        Debug.Print "Søker etter aktivitet:"
+        Debug.Print "SÃ¸ker etter aktivitet:"
         Debug.Print "  Kode:        " & kode
         Debug.Print "  StartDato:   " & Format(startDato, "dd.mm.yyyy")
         Debug.Print "  SluttDato:   " & Format(sluttDato, "dd.mm.yyyy")
@@ -192,31 +182,31 @@ Private Sub HåndterPersonEndring(ByVal rad As Long)
         Debug.Print ""
     End If
 
-    ' --- STEG 4: FINN GAMMEL PERSON (4 SØKEMETODER MED FALLBACK) ---
+    ' --- STEG 4: FINN GAMMEL PERSON (4 SÃ˜KEMETODER MED FALLBACK) ---
     ' Metode 1: Eksakt match med ny slutt (hvis forsinket)
     If forsinkelse > 0 Then
-        If DEBUG_MODE Then Debug.Print "Metode 1: Søker med ny sluttdato..."
+        If DEBUG_MODE Then Debug.Print "Metode 1: SÃ¸ker med ny sluttdato..."
         gammelPerson = FinnPersonForAktivitet(wsP, kode, startDato, nySluttDato)
         If DEBUG_MODE And Len(gammelPerson) > 0 Then Debug.Print "  ? Funnet: " & gammelPerson
     End If
 
     ' Metode 2: Eksakt match med opprinnelig slutt
     If Len(gammelPerson) = 0 Then
-        If DEBUG_MODE Then Debug.Print "Metode 2: Søker med opprinnelig sluttdato..."
+        If DEBUG_MODE Then Debug.Print "Metode 2: SÃ¸ker med opprinnelig sluttdato..."
         gammelPerson = FinnPersonForAktivitet(wsP, kode, startDato, sluttDato)
         If DEBUG_MODE And Len(gammelPerson) > 0 Then Debug.Print "  ? Funnet: " & gammelPerson
     End If
 
-    ' Metode 3: Bred søk (kun kode og start, krever fet tekst)
+    ' Metode 3: Bred sÃ¸k (kun kode og start, krever fet tekst)
     If Len(gammelPerson) = 0 Then
-        If DEBUG_MODE Then Debug.Print "Metode 3: Bred søk (kun startdato)..."
+        If DEBUG_MODE Then Debug.Print "Metode 3: Bred sÃ¸k (kun startdato)..."
         gammelPerson = FinnPersonForAktivitetBred(wsP, kode, startDato)
         If DEBUG_MODE And Len(gammelPerson) > 0 Then Debug.Print "  ? Funnet: " & gammelPerson
     End If
 
-    ' Metode 4: ULTRA BRED - søk uten krav om fet tekst (ny!)
+    ' Metode 4: ULTRA BRED - sÃ¸k uten krav om fet tekst (ny!)
     If Len(gammelPerson) = 0 Then
-        If DEBUG_MODE Then Debug.Print "Metode 4: Ultra bred søk (ingen formateringskrav)..."
+        If DEBUG_MODE Then Debug.Print "Metode 4: Ultra bred sÃ¸k (ingen formateringskrav)..."
         gammelPerson = FinnPersonForAktivitetUltraBred(wsP, kode, startDato)
         If DEBUG_MODE And Len(gammelPerson) > 0 Then Debug.Print "  ? Funnet: " & gammelPerson
     End If
@@ -226,20 +216,20 @@ Private Sub HåndterPersonEndring(ByVal rad As Long)
         If DEBUG_MODE Then
             Debug.Print "  ? IKKE FUNNET!"
             Debug.Print ""
-            Debug.Print "Diagnose: Kjør 'Call Ark5.DebugListAktiviteter' i Immediate Window"
-            Debug.Print "for å se alle aktiviteter i Planlegger."
+            Debug.Print "Diagnose: KjÃ¸r 'Call Ark5.DebugListAktiviteter' i Immediate Window"
+            Debug.Print "for Ã¥ se alle aktiviteter i Planlegger."
             Debug.Print String(80, "=")
         End If
 
         If Application.EnableEvents Then
             MsgBox "Fant ikke aktiviteten i Planlegger!" & vbCrLf & vbCrLf & _
-                   "Søkte etter:" & vbCrLf & _
+                   "SÃ¸kte etter:" & vbCrLf & _
                    "  Kode: " & kode & vbCrLf & _
                    "  Start: " & Format(startDato, "dd.mm.yyyy") & vbCrLf & _
                    "  Slutt: " & Format(sluttDato, "dd.mm.yyyy") & vbCrLf & vbCrLf & _
-                   "Prøvde 4 søkemetoder uten resultat." & vbCrLf & vbCrLf & _
+                   "PrÃ¸vde 4 sÃ¸kemetoder uten resultat." & vbCrLf & vbCrLf & _
                    "DEBUGGING:" & vbCrLf & _
-                   "Åpne VBA Editor (Alt+F11)" & vbCrLf & _
+                   "Ã…pne VBA Editor (Alt+F11)" & vbCrLf & _
                    "Trykk Ctrl+G (Immediate Window)" & vbCrLf & _
                    "Skriv: Call Ark5.DebugListAktiviteter" & vbCrLf & _
                    "Dette viser alle aktiviteter i Planlegger.", _
@@ -281,12 +271,12 @@ ErrorHandler:
     If Application.EnableEvents Then
         MsgBox "Feil ved person-endring:" & vbCrLf & Err.Description, vbCritical
     End If
-    Debug.Print "FEIL i HåndterPersonEndring: " & Err.Description
+    Debug.Print "FEIL i HÃ¥ndterPersonEndring: " & Err.Description
 End Sub
 
 
 ' ============================================================================
-' SEKSJON 4: SØKEFUNKSJONER FOR AKTIVITETER (FORBEDRET)
+' SEKSJON 4: SÃ˜KEFUNKSJONER FOR AKTIVITETER (FORBEDRET)
 ' ============================================================================
 
 ' ----------------------------------------------------------------------------
@@ -296,7 +286,7 @@ Private Function FinnPersonForAktivitet(wsP As Worksheet, _
                                        kode As String, _
                                        startDato As Date, _
                                        sluttDato As Date) As String
-    Dim førsteDatoKol As Long, datoRad As Long, førstePersonRad As Long
+    Dim fÃ¸rsteDatoKol As Long, datoRad As Long, fÃ¸rstePersonRad As Long
     Dim lastRow As Long, r As Long, blockEnd As Long
     Dim startCol As Long, sluttCol As Long
     Dim cel As Range
@@ -304,19 +294,19 @@ Private Function FinnPersonForAktivitet(wsP As Worksheet, _
 
     ' Hent struktur fra Named Ranges
     On Error Resume Next
-    førsteDatoKol = wsP.Range("FirstDate").Column
+    fÃ¸rsteDatoKol = wsP.Range("FirstDate").Column
     datoRad = wsP.Range("FirstDate").Row
-    førstePersonRad = wsP.Range("PersonHeader").Row + 1
+    fÃ¸rstePersonRad = wsP.Range("PersonHeader").Row + 1
     On Error GoTo 0
 
-    If førsteDatoKol = 0 Or datoRad = 0 Or førstePersonRad = 0 Then
+    If fÃ¸rsteDatoKol = 0 Or datoRad = 0 Or fÃ¸rstePersonRad = 0 Then
         If DEBUG_MODE Then Debug.Print "  [!] Named Ranges mangler (FirstDate/PersonHeader)"
         Exit Function
     End If
 
     ' Finn kolonne-indekser for start og slutt
-    startCol = FinnDatoKol(wsP, startDato, datoRad, førsteDatoKol)
-    sluttCol = FinnDatoKol(wsP, sluttDato, datoRad, førsteDatoKol)
+    startCol = FinnDatoKol(wsP, startDato, datoRad, fÃ¸rsteDatoKol)
+    sluttCol = FinnDatoKol(wsP, sluttDato, datoRad, fÃ¸rsteDatoKol)
 
     If startCol = 0 Or sluttCol = 0 Then
         If DEBUG_MODE Then
@@ -328,10 +318,10 @@ Private Function FinnPersonForAktivitet(wsP As Worksheet, _
 
     If DEBUG_MODE Then Debug.Print "  Kolonner: Start=" & startCol & ", Slutt=" & sluttCol
 
-    ' Søk gjennom alle personer
+    ' SÃ¸k gjennom alle personer
     lastRow = wsP.Cells(wsP.Rows.Count, 1).End(xlUp).Row
 
-    For r = førstePersonRad To lastRow
+    For r = fÃ¸rstePersonRad To lastRow
         personNavn = Trim$(wsP.Cells(r, 1).Value)
 
         If Len(personNavn) > 0 Then
@@ -345,7 +335,7 @@ Private Function FinnPersonForAktivitet(wsP As Worksheet, _
             For blockRow = r To blockEnd
                 Set cel = wsP.Cells(blockRow, startCol)
 
-                ' Sjekk om dette er start på en aktivitet
+                ' Sjekk om dette er start pÃ¥ en aktivitet
                 If cel.Font.Bold And Len(Trim$(cel.Value)) > 0 Then
                     If InStr(1, Trim$(cel.Value), kode, vbTextCompare) = 1 Then
                         If VerifiserAktivitetSpenn(wsP, blockRow, startCol, sluttCol) Then
@@ -360,33 +350,33 @@ Private Function FinnPersonForAktivitet(wsP As Worksheet, _
 End Function
 
 ' ----------------------------------------------------------------------------
-' FUNKSJON: FinnPersonForAktivitetBred (BRED SØKNING - kun startdato)
+' FUNKSJON: FinnPersonForAktivitetBred (BRED SÃ˜KNING - kun startdato)
 ' ----------------------------------------------------------------------------
 Private Function FinnPersonForAktivitetBred(wsP As Worksheet, _
                                            kode As String, _
                                            startDato As Date) As String
-    Dim førsteDatoKol As Long, datoRad As Long, førstePersonRad As Long
+    Dim fÃ¸rsteDatoKol As Long, datoRad As Long, fÃ¸rstePersonRad As Long
     Dim lastRow As Long, r As Long, blockEnd As Long
     Dim startCol As Long
     Dim cel As Range
     Dim personNavn As String
 
     On Error Resume Next
-    førsteDatoKol = wsP.Range("FirstDate").Column
+    fÃ¸rsteDatoKol = wsP.Range("FirstDate").Column
     datoRad = wsP.Range("FirstDate").Row
-    førstePersonRad = wsP.Range("PersonHeader").Row + 1
+    fÃ¸rstePersonRad = wsP.Range("PersonHeader").Row + 1
     On Error GoTo 0
 
-    If førsteDatoKol = 0 Or datoRad = 0 Or førstePersonRad = 0 Then Exit Function
+    If fÃ¸rsteDatoKol = 0 Or datoRad = 0 Or fÃ¸rstePersonRad = 0 Then Exit Function
 
-    startCol = FinnDatoKol(wsP, startDato, datoRad, førsteDatoKol)
+    startCol = FinnDatoKol(wsP, startDato, datoRad, fÃ¸rsteDatoKol)
     If startCol = 0 Then Exit Function
 
     If DEBUG_MODE Then Debug.Print "  Kolonne: Start=" & startCol
 
     lastRow = wsP.Cells(wsP.Rows.Count, 1).End(xlUp).Row
 
-    For r = førstePersonRad To lastRow
+    For r = fÃ¸rstePersonRad To lastRow
         personNavn = Trim$(wsP.Cells(r, 1).Value)
         If Len(personNavn) > 0 Then
             blockEnd = r
@@ -399,7 +389,7 @@ Private Function FinnPersonForAktivitetBred(wsP As Worksheet, _
             For blockRow = r To blockEnd
                 Set cel = wsP.Cells(blockRow, startCol)
 
-                ' Aksepterer både fet og ikke-fet tekst
+                ' Aksepterer bÃ¥de fet og ikke-fet tekst
                 If Len(Trim$(cel.Value)) > 0 Then
                     If InStr(1, Trim$(cel.Value), kode, vbTextCompare) = 1 Then
                         FinnPersonForAktivitetBred = personNavn
@@ -415,14 +405,14 @@ End Function
 ' ----------------------------------------------------------------------------
 ' FUNKSJON: FinnPersonForAktivitetUltraBred (NY! - mest robust)
 ' ----------------------------------------------------------------------------
-' Søker kun basert på kode og startdato
+' SÃ¸ker kun basert pÃ¥ kode og startdato
 ' Krever IKKE fet tekst
-' Tillater kode hvor som helst i cellen (ikke bare først)
+' Tillater kode hvor som helst i cellen (ikke bare fÃ¸rst)
 ' ----------------------------------------------------------------------------
 Private Function FinnPersonForAktivitetUltraBred(wsP As Worksheet, _
                                                  kode As String, _
                                                  startDato As Date) As String
-    Dim førsteDatoKol As Long, datoRad As Long, førstePersonRad As Long
+    Dim fÃ¸rsteDatoKol As Long, datoRad As Long, fÃ¸rstePersonRad As Long
     Dim lastRow As Long, r As Long, blockEnd As Long
     Dim startCol As Long
     Dim cel As Range
@@ -430,21 +420,21 @@ Private Function FinnPersonForAktivitetUltraBred(wsP As Worksheet, _
     Dim cellValue As String
 
     On Error Resume Next
-    førsteDatoKol = wsP.Range("FirstDate").Column
+    fÃ¸rsteDatoKol = wsP.Range("FirstDate").Column
     datoRad = wsP.Range("FirstDate").Row
-    førstePersonRad = wsP.Range("PersonHeader").Row + 1
+    fÃ¸rstePersonRad = wsP.Range("PersonHeader").Row + 1
     On Error GoTo 0
 
-    If førsteDatoKol = 0 Or datoRad = 0 Or førstePersonRad = 0 Then Exit Function
+    If fÃ¸rsteDatoKol = 0 Or datoRad = 0 Or fÃ¸rstePersonRad = 0 Then Exit Function
 
-    startCol = FinnDatoKol(wsP, startDato, datoRad, førsteDatoKol)
+    startCol = FinnDatoKol(wsP, startDato, datoRad, fÃ¸rsteDatoKol)
     If startCol = 0 Then Exit Function
 
-    If DEBUG_MODE Then Debug.Print "  UltraBred: Søker i kolonne " & startCol
+    If DEBUG_MODE Then Debug.Print "  UltraBred: SÃ¸ker i kolonne " & startCol
 
     lastRow = wsP.Cells(wsP.Rows.Count, 1).End(xlUp).Row
 
-    For r = førstePersonRad To lastRow
+    For r = fÃ¸rstePersonRad To lastRow
         personNavn = Trim$(wsP.Cells(r, 1).Value)
         If Len(personNavn) > 0 Then
             blockEnd = r
@@ -458,7 +448,7 @@ Private Function FinnPersonForAktivitetUltraBred(wsP As Worksheet, _
                 Set cel = wsP.Cells(blockRow, startCol)
                 cellValue = UCase$(Trim$(cel.Value))
 
-                ' Søk etter kode HVOR SOM HELST i cellen (ikke kun start)
+                ' SÃ¸k etter kode HVOR SOM HELST i cellen (ikke kun start)
                 If Len(cellValue) > 0 Then
                     If InStr(1, cellValue, UCase$(kode), vbTextCompare) > 0 Then
                         FinnPersonForAktivitetUltraBred = personNavn
@@ -491,7 +481,7 @@ Private Function VerifiserAktivitetSpenn(wsP As Worksheet, _
     For c = startCol To sluttCol
         Set cel = wsP.Cells(rad, c)
 
-        ' Celle må enten ha fet tekst ELLER samme farge som start
+        ' Celle mÃ¥ enten ha fet tekst ELLER samme farge som start
         If Not cel.Font.Bold And cel.Interior.Color <> startFarge Then
             alleFet = False
             Exit For
@@ -505,16 +495,16 @@ End Function
 ' FUNKSJON: FinnDatoKol
 ' ----------------------------------------------------------------------------
 Private Function FinnDatoKol(wsP As Worksheet, _
-                            søkDato As Date, _
+                            sÃ¸kDato As Date, _
                             datoRad As Long, _
-                            førsteDatoKol As Long) As Long
+                            fÃ¸rsteDatoKol As Long) As Long
     Dim lastCol As Long, c As Long
     lastCol = wsP.Cells(datoRad, wsP.Columns.Count).End(xlToLeft).Column
 
-    For c = førsteDatoKol To lastCol
+    For c = fÃ¸rsteDatoKol To lastCol
         If IsDate(wsP.Cells(datoRad, c).Value) Then
             ' CLng sammenligner bare datodelen, ignorerer tid
-            If CLng(CDate(wsP.Cells(datoRad, c).Value)) = CLng(søkDato) Then
+            If CLng(CDate(wsP.Cells(datoRad, c).Value)) = CLng(sÃ¸kDato) Then
                 FinnDatoKol = c
                 Exit Function
             End If
@@ -526,7 +516,7 @@ End Function
 ' ============================================================================
 ' SEKSJON 5: KODE-VALIDERING HANDLER
 ' ============================================================================
-Private Sub HåndterKodeEndring(ByVal rad As Long)
+Private Sub HÃ¥ndterKodeEndring(ByVal rad As Long)
     On Error GoTo ErrorHandler
 
     Dim nyKode As String
@@ -551,7 +541,7 @@ Private Sub HåndterKodeEndring(ByVal rad As Long)
     If Not funnet Then
         If Application.EnableEvents Then
             MsgBox "Aktivitetskode '" & nyKode & "' finnes ikke i AKTIVITETSTYPER - OVERSIKT!" & vbCrLf & vbCrLf & _
-                   "Legg til koden først, eller velg en eksisterende kode.", vbExclamation, "Ugyldig kode"
+                   "Legg til koden fÃ¸rst, eller velg en eksisterende kode.", vbExclamation, "Ugyldig kode"
             Me.Cells(rad, COL_KODE).Value = ""
         End If
     Else
@@ -561,7 +551,7 @@ Private Sub HåndterKodeEndring(ByVal rad As Long)
     Exit Sub
 
 ErrorHandler:
-    Debug.Print "Feil i HåndterKodeEndring: " & Err.Description
+    Debug.Print "Feil i HÃ¥ndterKodeEndring: " & Err.Description
     Application.EnableEvents = True
 End Sub
 
@@ -569,7 +559,7 @@ End Sub
 ' ============================================================================
 ' SEKSJON 6A: FORSINKELSE-ENDRING HANDLER
 ' ============================================================================
-Private Sub HåndterForsinkelseEndring(ByVal rad As Long)
+Private Sub HÃ¥ndterForsinkelseEndring(ByVal rad As Long)
     On Error GoTo ErrorHandler
 
     Dim person As String
@@ -606,12 +596,12 @@ Private Sub HåndterForsinkelseEndring(ByVal rad As Long)
     testPerson = FinnPersonForAktivitetUltraBred(wsP, kode, startDato)
 
     If Len(testPerson) = 0 Then
-        Debug.Print "HåndterForsinkelseEndring: Aktivitet " & kode & " ikke funnet i Planlegger - hopper over"
+        Debug.Print "HÃ¥ndterForsinkelseEndring: Aktivitet " & kode & " ikke funnet i Planlegger - hopper over"
         Exit Sub
     End If
 
     If StrComp(testPerson, person, vbTextCompare) <> 0 Then
-        Debug.Print "HåndterForsinkelseEndring: Person mismatch - forventet " & person & ", fant " & testPerson & " - hopper over"
+        Debug.Print "HÃ¥ndterForsinkelseEndring: Person mismatch - forventet " & person & ", fant " & testPerson & " - hopper over"
         Exit Sub
     End If
 
@@ -650,14 +640,14 @@ ErrorHandler:
     If Application.EnableEvents Then
         MsgBox "Feil ved forsinkelse-endring:" & vbCrLf & Err.Description, vbCritical
     End If
-    Debug.Print "FEIL i HåndterForsinkelseEndring: " & Err.Description
+    Debug.Print "FEIL i HÃ¥ndterForsinkelseEndring: " & Err.Description
 End Sub
 
 
 ' ============================================================================
 ' SEKSJON 6B: DATO-VALIDERING HANDLER
 ' ============================================================================
-Private Sub HåndterDatoEndring(ByVal rad As Long)
+Private Sub HÃ¥ndterDatoEndring(ByVal rad As Long)
     On Error GoTo ErrorHandler
 
     Dim startDato As Date
@@ -672,7 +662,7 @@ Private Sub HåndterDatoEndring(ByVal rad As Long)
 
     If startDato > sluttDato Then
         If Application.EnableEvents Then
-            MsgBox "Startdato kan ikke være etter sluttdato!", vbExclamation, "Ugyldig dato"
+            MsgBox "Startdato kan ikke vÃ¦re etter sluttdato!", vbExclamation, "Ugyldig dato"
             Me.Cells(rad, COL_OPP_START).Value = sluttDato
         End If
     End If
@@ -680,7 +670,7 @@ Private Sub HåndterDatoEndring(ByVal rad As Long)
     Exit Sub
 
 ErrorHandler:
-    Debug.Print "Feil i HåndterDatoEndring: " & Err.Description
+    Debug.Print "Feil i HÃ¥ndterDatoEndring: " & Err.Description
     Application.EnableEvents = True
 End Sub
 
@@ -695,18 +685,18 @@ End Sub
 Public Sub ResetEventHandler()
     behandlerEndring = False
     Application.EnableEvents = True
-    Debug.Print "Event handler reset - Ark5 v4.0 (Forbedret søk + debugging)"
+    Debug.Print "Event handler reset - Ark5 v4.0 (Forbedret sÃ¸k + debugging)"
 End Sub
 
 ' ----------------------------------------------------------------------------
 ' FUNKSJON: DebugListAktiviteter (NY!)
 ' ----------------------------------------------------------------------------
-' FORMÅL: Lister alle aktiviteter i Planlegger for debugging
-' BRUK: Kjør i Immediate Window: Call Ark5.DebugListAktiviteter
+' FORMÃ…L: Lister alle aktiviteter i Planlegger for debugging
+' BRUK: KjÃ¸r i Immediate Window: Call Ark5.DebugListAktiviteter
 ' ----------------------------------------------------------------------------
 Public Sub DebugListAktiviteter()
     Dim wsP As Worksheet
-    Dim førsteDatoKol As Long, datoRad As Long, førstePersonRad As Long
+    Dim fÃ¸rsteDatoKol As Long, datoRad As Long, fÃ¸rstePersonRad As Long
     Dim lastRow As Long, lastCol As Long
     Dim r As Long, c As Long
     Dim personNavn As String
@@ -723,12 +713,12 @@ Public Sub DebugListAktiviteter()
     End If
 
     On Error Resume Next
-    førsteDatoKol = wsP.Range("FirstDate").Column
+    fÃ¸rsteDatoKol = wsP.Range("FirstDate").Column
     datoRad = wsP.Range("FirstDate").Row
-    førstePersonRad = wsP.Range("PersonHeader").Row + 1
+    fÃ¸rstePersonRad = wsP.Range("PersonHeader").Row + 1
     On Error GoTo 0
 
-    If førsteDatoKol = 0 Or datoRad = 0 Or førstePersonRad = 0 Then
+    If fÃ¸rsteDatoKol = 0 Or datoRad = 0 Or fÃ¸rstePersonRad = 0 Then
         Debug.Print "FEIL: Named Ranges mangler (FirstDate/PersonHeader)"
         Exit Sub
     End If
@@ -737,21 +727,21 @@ Public Sub DebugListAktiviteter()
     Debug.Print "AKTIVITETER I PLANLEGGER [" & Now & "]"
     Debug.Print String(80, "=")
     Debug.Print "Struktur:"
-    Debug.Print "  Første datokol: " & førsteDatoKol
+    Debug.Print "  FÃ¸rste datokol: " & fÃ¸rsteDatoKol
     Debug.Print "  Datorad:        " & datoRad
-    Debug.Print "  Første person:  " & førstePersonRad
+    Debug.Print "  FÃ¸rste person:  " & fÃ¸rstePersonRad
     Debug.Print ""
 
     lastRow = wsP.Cells(wsP.Rows.Count, 1).End(xlUp).Row
     lastCol = wsP.Cells(datoRad, wsP.Columns.Count).End(xlToLeft).Column
 
-    For r = førstePersonRad To lastRow
+    For r = fÃ¸rstePersonRad To lastRow
         personNavn = Trim$(wsP.Cells(r, 1).Value)
 
         If Len(personNavn) > 0 Then
             Debug.Print "PERSON: " & personNavn & " (rad " & r & ")"
 
-            ' Finn slutten på personblokken
+            ' Finn slutten pÃ¥ personblokken
             Dim blockEnd As Long
             blockEnd = r
             Do While blockEnd < lastRow
@@ -759,8 +749,8 @@ Public Sub DebugListAktiviteter()
                 blockEnd = blockEnd + 1
             Loop
 
-            ' Søk gjennom alle datokolonner
-            For c = førsteDatoKol To lastCol
+            ' SÃ¸k gjennom alle datokolonner
+            For c = fÃ¸rsteDatoKol To lastCol
                 Dim dato As Variant
                 dato = wsP.Cells(datoRad, c).Value
 

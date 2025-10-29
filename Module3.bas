@@ -1,10 +1,9 @@
-Attribute VB_Name = "Module3"
 
 
 Option Explicit
 '
-' =================== MODUL 5 – AKTIVITETSOVERSIKT (v1.0) ===================
-' Totaloversikt av alle aktiviteter med forsinkelseshåndtering og overlappdeteksjon
+' =================== MODUL 5 - AKTIVITETSOVERSIKT (v1.0) ===================
+' Totaloversikt av alle aktiviteter med forsinkelseshÃ¥ndtering og overlappdeteksjon
 ' Toveis synkronisering med Planlegger-arket
 
 ' ===== KONFIG =====
@@ -28,8 +27,8 @@ Private Const COL_KOMMENTAR As Long = 10    ' J - Kommentar
 ' Farger (samme stil som UVALGTE)
 Private Const FARGE_HEADER As Long = &HE9D7B9
 Private Const FARGE_PANEL_TITLE As Long = &HDDE7FF
-Private Const FARGE_OK As Long = &HC6EFCE         ' Lys grønn
-Private Const FARGE_OVERLAPP As Long = &HFFC7CE   ' Lys rød
+Private Const FARGE_OK As Long = &HC6EFCE         ' Lys grÃ¸nn
+Private Const FARGE_OVERLAPP As Long = &HFFC7CE   ' Lys rÃ¸d
 Private Const FARGE_BTN As Long = &HE36C2E
 Private Const FARGE_BTN_TXT As Long = &HFFFFFF
 
@@ -69,7 +68,7 @@ Public Sub AktivitetsOversikt_Oppsett()
         wsAO.Name = ARK_OVERSIKT_AKT
     End If
     
-    ' VIKTIG: Fjern beskyttelse før vi rydder
+    ' VIKTIG: Fjern beskyttelse fÃ¸r vi rydder
     On Error Resume Next
     wsAO.Unprotect Password:=""
     On Error GoTo 0
@@ -92,7 +91,7 @@ Public Sub AktivitetsOversikt_Oppsett()
     ' Toppstripe
     With wsAO.Range("A1:J1")
         .Merge
-        .Value = "AKTIVITETSOVERSIKT – Styringsverktøy"
+        .Value = "AKTIVITETSOVERSIKT - StyringsverktÃ¸y"
         .Interior.Color = FARGE_PANEL_TITLE
         .Font.Bold = True
         .Font.Size = 16
@@ -105,7 +104,7 @@ Public Sub AktivitetsOversikt_Oppsett()
     ' Panel med knapper og info
     With wsAO
         .Range("A" & PANEL_ROW & ":J" & PANEL_ROW).Interior.Color = RGB(255, 255, 255)
-        .Range("A" & PANEL_ROW).Value = "Rediger 'Forsinkelse (dager)' og trykk 'Oppdater Planlegger' for å anvende endringer."
+        .Range("A" & PANEL_ROW).Value = "Rediger 'Forsinkelse (dager)' og trykk 'Oppdater Planlegger' for Ã¥ anvende endringer."
         .Range("A" & PANEL_ROW).Font.Size = 10
         .Range("A" & PANEL_ROW).Font.Italic = True
         .Rows(PANEL_ROW).RowHeight = 20
@@ -167,20 +166,20 @@ Public Sub AktivitetsOversikt_Oppsett()
         .Range(.Cells(TBL_START_ROW, COL_KODE), .Cells(TBL_START_ROW + 500, COL_KODE)).HorizontalAlignment = xlCenter
         .Range(.Cells(TBL_START_ROW, COL_STATUS), .Cells(TBL_START_ROW + 500, COL_STATUS)).HorizontalAlignment = xlCenter
         
-        ' Formelkolonner (ikke redigerbare - grå bakgrunn)
+        ' Formelkolonner (ikke redigerbare - grÃ¥ bakgrunn)
         .Range(.Cells(TBL_START_ROW, COL_NY_SLUTT), .Cells(TBL_START_ROW + 500, COL_NY_SLUTT)).Interior.Color = RGB(242, 242, 242)
         .Range(.Cells(TBL_START_ROW, COL_VARIGHET), .Cells(TBL_START_ROW + 500, COL_VARIGHET)).Interior.Color = RGB(242, 242, 242)
         .Range(.Cells(TBL_START_ROW, COL_STATUS), .Cells(TBL_START_ROW + 500, COL_STATUS)).Interior.Color = RGB(242, 242, 242)
         
-        ' Lås kolonner (tillat kun redigering av Person, Opp.Start, Opp.Slutt, Forsinkelse, Kommentar)
-        ' Lås header-rad
+        ' LÃ¥s kolonner (tillat kun redigering av Person, Opp.Start, Opp.Slutt, Forsinkelse, Kommentar)
+        ' LÃ¥s header-rad
         .Range(.Cells(TBL_START_ROW - 1, 1), .Cells(TBL_START_ROW - 1, 10)).Locked = True
         
-        ' Lås Kode og Beskrivelse (auto-generert)
+        ' LÃ¥s Kode og Beskrivelse (auto-generert)
         .Range(.Cells(TBL_START_ROW, COL_KODE), .Cells(TBL_START_ROW + 500, COL_KODE)).Locked = True
         .Range(.Cells(TBL_START_ROW, COL_BESKR), .Cells(TBL_START_ROW + 500, COL_BESKR)).Locked = True
         
-        ' Lås formelkolonner
+        ' LÃ¥s formelkolonner
         .Range(.Cells(TBL_START_ROW, COL_NY_SLUTT), .Cells(TBL_START_ROW + 500, COL_NY_SLUTT)).Locked = True
         .Range(.Cells(TBL_START_ROW, COL_VARIGHET), .Cells(TBL_START_ROW + 500, COL_VARIGHET)).Locked = True
         .Range(.Cells(TBL_START_ROW, COL_STATUS), .Cells(TBL_START_ROW + 500, COL_STATUS)).Locked = True
@@ -196,7 +195,7 @@ Public Sub AktivitetsOversikt_Oppsett()
     ' *** Sett begrenset AutoFilter ***
     Call SettBegrensetAutoFilter(wsAO)
     
-    ' *** Legg til dropdown på Person-kolonnen ***
+    ' *** Legg til dropdown pÃ¥ Person-kolonnen ***
     Call SettPersonDropdown(wsAO)
     
     ' *** Aktiver arkbeskyttelse ETTER filter og dropdown er satt ***
@@ -226,16 +225,16 @@ Public Sub AktivitetsOversikt_Oppsett()
     Application.ScreenUpdating = True
     
     MsgBox "AKTIVITETSOVERSIKT er klar!" & vbCrLf & vbCrLf & _
-           "• Rediger 'Forsinkelse (dager)' for å justere aktiviteter" & vbCrLf & _
-           "• Trykk 'Oppdater Planlegger' for å anvende endringer" & vbCrLf & _
-           "• Status-kolonnen viser automatisk om det er overlapp", vbInformation
+           "Â• Rediger 'Forsinkelse (dager)' for Ã¥ justere aktiviteter" & vbCrLf & _
+           "Â• Trykk 'Oppdater Planlegger' for Ã¥ anvende endringer" & vbCrLf & _
+           "Â• Status-kolonnen viser automatisk om det er overlapp", vbInformation
 End Sub
 
 ' =================== OPPDATERING ===================
 
 Public Sub AktivitetsOversikt_Refresh()
     Dim wsAO As Worksheet, wsP As Worksheet, wsTyp As Worksheet
-    Dim førsteDatoKol As Long, datoRad As Long, førstePersonRad As Long
+    Dim fÃ¸rsteDatoKol As Long, datoRad As Long, fÃ¸rstePersonRad As Long
     Dim lastCol As Long, lastRow As Long
     Dim personRad As Long, r As Long, c As Long
     Dim personNavn As String
@@ -251,19 +250,19 @@ Public Sub AktivitetsOversikt_Refresh()
     On Error GoTo 0
     
     If wsAO Is Nothing Or wsP Is Nothing Or wsTyp Is Nothing Then
-        MsgBox "Mangler nødvendige ark.", vbCritical
+        MsgBox "Mangler nÃ¸dvendige ark.", vbCritical
         Exit Sub
     End If
     
-    ' VIKTIG: Fjern beskyttelse før refresh
+    ' VIKTIG: Fjern beskyttelse fÃ¸r refresh
     On Error Resume Next
     wsAO.Unprotect Password:=""
     On Error GoTo 0
     
     ' Hent dynamiske verdier
-    førsteDatoKol = HentFørsteDatoKol()
+    fÃ¸rsteDatoKol = HentFÃ¸rsteDatoKol()
     datoRad = HentDatoRad()
-    førstePersonRad = HentFørstePersonRad()
+    fÃ¸rstePersonRad = HentFÃ¸rstePersonRad()
     
     Application.ScreenUpdating = False
     Application.Calculation = xlCalculationManual
@@ -282,15 +281,15 @@ Public Sub AktivitetsOversikt_Refresh()
     lastCol = wsP.Cells(datoRad, wsP.Columns.Count).End(xlToLeft).Column
     lastRow = wsP.Cells(wsP.Rows.Count, 1).End(xlUp).Row
     
-    ' Gå gjennom alle personer i Planlegger
-    For personRad = førstePersonRad To lastRow
+    ' GÃ¥ gjennom alle personer i Planlegger
+    For personRad = fÃ¸rstePersonRad To lastRow
         personNavn = Trim$(wsP.Cells(personRad, 1).Value)
         
         ' Sjekk om dette er en personrad (ikke tom og ikke preview)
         If Len(personNavn) > 0 And Not (UCase$(personNavn) Like "UVALGTE*") Then
             ' Skann gjennom alle datocolonner for denne personen (og under-rader)
             Call SkannPersonAktiviteter(wsP, wsTyp, personRad, personNavn, _
-                                        førsteDatoKol, lastCol, datoRad, aktiviteter)
+                                        fÃ¸rsteDatoKol, lastCol, datoRad, aktiviteter)
         End If
     Next personRad
     
@@ -341,7 +340,7 @@ End Sub
 ' Skann en personblokk (hovedrad + under-rader) for aktiviteter
 Private Sub SkannPersonAktiviteter(wsP As Worksheet, wsTyp As Worksheet, _
                                    personRad As Long, personNavn As String, _
-                                   førsteDatoKol As Long, lastCol As Long, datoRad As Long, _
+                                   fÃ¸rsteDatoKol As Long, lastCol As Long, datoRad As Long, _
                                    aktiviteter As Object)
     Dim r As Long, c As Long, startCol As Long, endCol As Long
     Dim celVal As String, aktivKode As String, aktivBeskr As String, aktivFarge As Long
@@ -359,14 +358,14 @@ Private Sub SkannPersonAktiviteter(wsP As Worksheet, wsTyp As Worksheet, _
     
     ' Skann alle rader i blokken (hovedrad + under-rader)
     For r = personRad To blockEnd
-        c = førsteDatoKol
+        c = fÃ¸rsteDatoKol
         
         Do While c <= lastCol
             celVal = Trim$(wsP.Cells(r, c).Value)
             
-            ' Sjekk om dette er start på en aktivitet (fet tekst)
+            ' Sjekk om dette er start pÃ¥ en aktivitet (fet tekst)
             If Len(celVal) > 0 And wsP.Cells(r, c).Font.Bold Then
-                ' Ekstraher aktivitetskode (første ord før "–")
+                ' Ekstraher aktivitetskode (fÃ¸rste ord fÃ¸r "-")
                 aktivKode = ExtractAktivitetsKode(celVal)
                 kommentar = ExtractKommentar(celVal)
                 
@@ -416,12 +415,12 @@ Private Sub SkannPersonAktiviteter(wsP As Worksheet, wsTyp As Worksheet, _
                     GoTo NesteCelle
                 End If
                 
-                ' Slå opp aktivitetsbeskrivelse
+                ' SlÃ¥ opp aktivitetsbeskrivelse
                 If Not LookupAktivitet(wsTyp, aktivKode, aktivBeskr, aktivFarge) Then
                     aktivBeskr = ""
                 End If
                 
-                ' Lag unik nøkkel (person + kode + startdato)
+                ' Lag unik nÃ¸kkel (person + kode + startdato)
                 aktKey = personNavn & "|" & aktivKode & "|" & Format(startDato, "yyyy-mm-dd")
                 
                 ' Legg til i dictionary hvis ikke allerede finnes
@@ -449,14 +448,14 @@ NesteCelle:
     Next r
 End Sub
 
-' Ekstraher aktivitetskode fra celle-tekst (før "–")
+' Ekstraher aktivitetskode fra celle-tekst (fÃ¸r "-")
 Private Function ExtractAktivitetsKode(txt As String) As String
     Dim pos As Long
-    pos = InStr(txt, "–")
+    pos = InStr(txt, "-")
     If pos > 0 Then
         ExtractAktivitetsKode = Trim$(Left$(txt, pos - 1))
     Else
-        ' Hvis ingen "–", ta første ord
+        ' Hvis ingen "-", ta fÃ¸rste ord
         pos = InStr(txt, " ")
         If pos > 0 Then
             ExtractAktivitetsKode = Trim$(Left$(txt, pos - 1))
@@ -466,10 +465,10 @@ Private Function ExtractAktivitetsKode(txt As String) As String
     End If
 End Function
 
-' Ekstraher kommentar fra celle-tekst (etter "–")
+' Ekstraher kommentar fra celle-tekst (etter "-")
 Private Function ExtractKommentar(txt As String) As String
     Dim pos As Long
-    pos = InStr(txt, "–")
+    pos = InStr(txt, "-")
     If pos > 0 Then
         ExtractKommentar = Trim$(Mid$(txt, pos + 1))
     Else
@@ -490,8 +489,14 @@ Private Sub FyllTabellFraAktiviteter(wsAO As Worksheet, aktiviteter As Object, B
     On Error Resume Next
     Set wsTyp = ThisWorkbook.Worksheets(ARK_OVERSIKT_TYP)
     On Error GoTo 0
-    
-    ' Kopier nøkler til array for sortering
+
+    ' Sjekk om det finnes aktiviteter
+    If aktiviteter.Count = 0 Then
+        ' Ingen aktiviteter Ã¥ vise
+        Exit Sub
+    End If
+
+    ' Kopier nÃ¸kler til array for sortering
     ReDim sortedKeys(0 To aktiviteter.Count - 1)
     i = 0
     For Each k In aktiviteter.Keys
@@ -506,7 +511,7 @@ Private Sub FyllTabellFraAktiviteter(wsAO As Worksheet, aktiviteter As Object, B
             Dim aktInfo2 As Object
             Set aktInfo2 = aktiviteter(sortedKeys(j))
             
-            ' Sorter først etter dato, deretter etter kode
+            ' Sorter fÃ¸rst etter dato, deretter etter kode
             If aktInfo("StartDato") > aktInfo2("StartDato") Or _
                (aktInfo("StartDato") = aktInfo2("StartDato") And _
                 aktInfo("Kode") > aktInfo2("Kode")) Then
@@ -547,7 +552,7 @@ Private Sub FyllTabellFraAktiviteter(wsAO As Worksheet, aktiviteter As Object, B
     Next i
 End Sub
 
-' Sjekk om farge er lys (for å velge tekst-farge)
+' Sjekk om farge er lys (for Ã¥ velge tekst-farge)
 Private Function ErLysFarge(col As Long) As Boolean
     Dim r As Long, g As Long, b As Long
     r = col Mod 256: g = (col \ 256) Mod 256: b = (col \ 65536) Mod 256
@@ -575,7 +580,7 @@ Private Sub DetekterOverlapp(wsAO As Worksheet, startRow As Long, endRow As Long
     Dim start2 As Date, slutt2 As Date, nySlut2 As Date
     Dim harOverlapp As Boolean
     
-    ' Gå gjennom alle rader
+    ' GÃ¥ gjennom alle rader
     For r = startRow To endRow
         person1 = wsAO.Cells(r, COL_PERSON).Value
         start1 = wsAO.Cells(r, COL_OPP_START).Value
@@ -626,15 +631,15 @@ Private Sub DetekterOverlapp(wsAO As Worksheet, startRow As Long, endRow As Long
     Next r
 End Sub
 
-' Sett dropdown-validering på Person-kolonnen
+' Sett dropdown-validering pÃ¥ Person-kolonnen
 Private Sub SettPersonDropdown(wsAO As Worksheet)
     Dim wsP As Worksheet
     Dim lastRowP As Long, lastRowAO As Long
     Dim r As Long, w As Long
     Dim personListe As String
-    Dim førstePersonRad As Long
+    Dim fÃ¸rstePersonRad As Long
     
-    ' VIKTIG: Fjern beskyttelse først
+    ' VIKTIG: Fjern beskyttelse fÃ¸rst
     On Error Resume Next
     wsAO.Unprotect Password:=""
     On Error GoTo 0
@@ -644,14 +649,14 @@ Private Sub SettPersonDropdown(wsAO As Worksheet)
     On Error GoTo 0
     If wsP Is Nothing Then Exit Sub
     
-    ' Hent førstePersonRad fra Named Range
-    førstePersonRad = wsP.Range("PersonHeader").Row + 1
+    ' Hent fÃ¸rstePersonRad fra Named Range
+    fÃ¸rstePersonRad = wsP.Range("PersonHeader").Row + 1
     
     ' Bygg person-liste fra Planlegger
     lastRowP = wsP.Cells(wsP.Rows.Count, 1).End(xlUp).Row
     personListe = ""
     
-    For r = førstePersonRad To lastRowP
+    For r = fÃ¸rstePersonRad To lastRowP
         If Len(Trim$(wsP.Cells(r, 1).Value)) > 0 Then
             If Len(personListe) > 0 Then
                 personListe = personListe & "," & Trim$(wsP.Cells(r, 1).Value)
@@ -667,7 +672,7 @@ Private Sub SettPersonDropdown(wsAO As Worksheet)
     lastRowAO = wsAO.Cells(wsAO.Rows.Count, COL_PERSON).End(xlUp).Row
     If lastRowAO < TBL_START_ROW Then lastRowAO = TBL_START_ROW + 100
     
-    ' Legg til dropdown-validering på Person-kolonnen (kun data-rader, ikke header)
+    ' Legg til dropdown-validering pÃ¥ Person-kolonnen (kun data-rader, ikke header)
     With wsAO.Range(wsAO.Cells(TBL_START_ROW, COL_PERSON), wsAO.Cells(lastRowAO, COL_PERSON)).Validation
         .Delete  ' Fjern eksisterende validering
         .Add Type:=xlValidateList, _
@@ -685,7 +690,7 @@ End Sub
 
 ' Sett AutoFilter med begrensede dropdown-piler
 Private Sub SettBegrensetAutoFilter(wsAO As Worksheet)
-    ' VIKTIG: Fjern beskyttelse først
+    ' VIKTIG: Fjern beskyttelse fÃ¸rst
     On Error Resume Next
     wsAO.Unprotect Password:=""
     On Error GoTo 0
@@ -693,7 +698,7 @@ Private Sub SettBegrensetAutoFilter(wsAO As Worksheet)
     ' Fjern eksisterende filter
     If wsAO.AutoFilterMode Then wsAO.AutoFilterMode = False
     
-    ' Sett AutoFilter på header-raden
+    ' Sett AutoFilter pÃ¥ header-raden
     wsAO.Range(wsAO.Cells(TBL_START_ROW - 1, 1), wsAO.Cells(TBL_START_ROW - 1, 10)).AutoFilter
     
     ' Fjern dropdown-piler fra kolonner vi ikke vil filtrere
@@ -713,7 +718,7 @@ Private Sub FormaterTabell(wsAO As Worksheet, startRow As Long, endRow As Long)
     
     If endRow < startRow Then Exit Sub
     
-    ' Legg til grid på hele tabellen
+    ' Legg til grid pÃ¥ hele tabellen
     With wsAO.Range(wsAO.Cells(startRow, 1), wsAO.Cells(endRow, 10)).Borders
         .LineStyle = xlContinuous
         .Weight = xlThin
@@ -723,7 +728,7 @@ Private Sub FormaterTabell(wsAO As Worksheet, startRow As Long, endRow As Long)
     ' Altererende radfarger for lesbarhet (UNNTATT Status og Kode kolonner)
     For r = startRow To endRow
         If r Mod 2 = 0 Then
-            ' Altererende rad - lys grå bakgrunn
+            ' Altererende rad - lys grÃ¥ bakgrunn
             For c = 1 To 10
                 ' HOPP OVER Status-kolonnen (9) og Kode-kolonnen (2) - de har egne farger
                 If c <> COL_STATUS And c <> COL_KODE Then
@@ -731,10 +736,10 @@ Private Sub FormaterTabell(wsAO As Worksheet, startRow As Long, endRow As Long)
                 End If
             Next c
         Else
-            ' Hvit bakgrunn på oddetallsrader (unntatt Status og Kode)
+            ' Hvit bakgrunn pÃ¥ oddetallsrader (unntatt Status og Kode)
             For c = 1 To 10
                 If c <> COL_STATUS And c <> COL_KODE Then
-                    ' Sjekk om dette er formelkolonne (grå)
+                    ' Sjekk om dette er formelkolonne (grÃ¥)
                     If c = COL_NY_SLUTT Or c = COL_VARIGHET Then
                         wsAO.Cells(r, c).Interior.Color = RGB(242, 242, 242)
                     Else
@@ -745,11 +750,11 @@ Private Sub FormaterTabell(wsAO As Worksheet, startRow As Long, endRow As Long)
         End If
     Next r
     
-    ' Sikre at formelkolonner alltid har grå bakgrunn (på de som ikke er Status)
+    ' Sikre at formelkolonner alltid har grÃ¥ bakgrunn (pÃ¥ de som ikke er Status)
     wsAO.Range(wsAO.Cells(startRow, COL_NY_SLUTT), wsAO.Cells(endRow, COL_NY_SLUTT)).Interior.Color = RGB(242, 242, 242)
     wsAO.Range(wsAO.Cells(startRow, COL_VARIGHET), wsAO.Cells(endRow, COL_VARIGHET)).Interior.Color = RGB(242, 242, 242)
-    ' Status-kolonnen får sin egen farge fra DetekterOverlapp - ikke rør den her
-    ' Kode-kolonnen får sin egen farge fra FyllTabellFraAktiviteter - ikke rør den her
+    ' Status-kolonnen fÃ¥r sin egen farge fra DetekterOverlapp - ikke rÃ¸r den her
+    ' Kode-kolonnen fÃ¥r sin egen farge fra FyllTabellFraAktiviteter - ikke rÃ¸r den her
 End Sub
 
 ' Lookup aktivitet (kopierer fra andre moduler)
@@ -769,12 +774,12 @@ Private Function LookupAktivitet(wsTyp As Worksheet, ByVal kode As String, _
 End Function
 
 Public Sub AktivitetsOversikt_Apply()
-    MsgBox "Apply-funksjonen starter nå...", vbInformation, "DEBUG"
+    MsgBox "Apply-funksjonen starter nÃ¥...", vbInformation, "DEBUG"
     
     On Error GoTo ErrorHandler
     
     Dim wsAO As Worksheet, wsP As Worksheet, wsTyp As Worksheet
-    Dim førsteDatoKol As Long, datoRad As Long, førstePersonRad As Long
+    Dim fÃ¸rsteDatoKol As Long, datoRad As Long, fÃ¸rstePersonRad As Long
     Dim lastRow As Long, r As Long
     Dim person As String, kode As String, beskrivelse As String, farge As Long
     Dim oppStart As Date, oppSlutt As Date, forsinkelse As Long, nySlutDato As Date
@@ -805,9 +810,9 @@ Public Sub AktivitetsOversikt_Apply()
     End If
     
     ' Hent dynamiske verdier
-    førsteDatoKol = HentFørsteDatoKol()
+    fÃ¸rsteDatoKol = HentFÃ¸rsteDatoKol()
     datoRad = HentDatoRad()
-    førstePersonRad = HentFørstePersonRad()
+    fÃ¸rstePersonRad = HentFÃ¸rstePersonRad()
     
     ' Bekreft med bruker
     If MsgBox("Dette vil oppdatere Planlegger med forsinkelser fra oversikten." & vbCrLf & vbCrLf & _
@@ -820,9 +825,9 @@ Public Sub AktivitetsOversikt_Apply()
     Application.EnableEvents = False
     
     ' KRITISK: Lagre tilstand for UNDO (hele Planlegger-tilstanden)
-    Set SisteForsinkelser = LagrePlanleggerTilstand(wsP, førsteDatoKol, datoRad, førstePersonRad)
+    Set SisteForsinkelser = LagrePlanleggerTilstand(wsP, fÃ¸rsteDatoKol, datoRad, fÃ¸rstePersonRad)
     
-    ' Lagre også forsinkelser for å gjenopprette etter refresh
+    ' Lagre ogsÃ¥ forsinkelser for Ã¥ gjenopprette etter refresh
     Dim forsinkelser As Object
     Set forsinkelser = LagreForsinkelser(wsAO)
     
@@ -835,13 +840,13 @@ Public Sub AktivitetsOversikt_Apply()
     ' Finn siste rad i oversiktstabellen
     lastRow = wsAO.Cells(wsAO.Rows.Count, COL_PERSON).End(xlUp).Row
     If lastRow < TBL_START_ROW Then
-        MsgBox "Ingen aktiviteter å oppdatere.", vbInformation
+        MsgBox "Ingen aktiviteter Ã¥ oppdatere.", vbInformation
         GoTo Cleanup
     End If
     
     antallOppdatert = 0
     
-    ' Gå gjennom alle aktiviteter i oversikten
+    ' GÃ¥ gjennom alle aktiviteter i oversikten
     For r = TBL_START_ROW To lastRow
         person = Trim$(wsAO.Cells(r, COL_PERSON).Value)
         kode = Trim$(wsAO.Cells(r, COL_KODE).Value)
@@ -854,18 +859,18 @@ Public Sub AktivitetsOversikt_Apply()
         ' Bare oppdater hvis det er forsinkelse
         If forsinkelse > 0 Then
             ' Finn person i Planlegger
-            personRow = FinnPersonRadIPlanlegger(wsP, person, førstePersonRad)
+            personRow = FinnPersonRadIPlanlegger(wsP, person, fÃ¸rstePersonRad)
             If personRow > 0 Then
                 ' Finn aktiviteten i Planlegger
-                startCol = FinnDatoKolonneIPlanlegger(wsP, oppStart, datoRad, førsteDatoKol)
-                sluttCol = FinnDatoKolonneIPlanlegger(wsP, oppSlutt, datoRad, førsteDatoKol)
-                nySluttCol = FinnDatoKolonneIPlanlegger(wsP, nySlutDato, datoRad, førsteDatoKol)
+                startCol = FinnDatoKolonneIPlanlegger(wsP, oppStart, datoRad, fÃ¸rsteDatoKol)
+                sluttCol = FinnDatoKolonneIPlanlegger(wsP, oppSlutt, datoRad, fÃ¸rsteDatoKol)
+                nySluttCol = FinnDatoKolonneIPlanlegger(wsP, nySlutDato, datoRad, fÃ¸rsteDatoKol)
                 
                 If startCol > 0 And sluttCol > 0 And nySluttCol > 0 Then
                     ' Oppdater aktiviteten i Planlegger
                     If OppdaterAktivitetIPlanlegger(wsP, wsTyp, personRow, kode, _
                                                     startCol, sluttCol, nySluttCol, _
-                                                    kommentar, farger, førsteDatoKol, datoRad) Then
+                                                    kommentar, farger, fÃ¸rsteDatoKol, datoRad) Then
                         antallOppdatert = antallOppdatert + 1
                     End If
                 End If
@@ -885,14 +890,14 @@ Public Sub AktivitetsOversikt_Apply()
     
     ' Tegn skravering for overlapp
     If antallOverlapp > 0 Then
-        Call TegnOverlappSkravering(wsP, overlappListe, førsteDatoKol, datoRad, førstePersonRad)
+        Call TegnOverlappSkravering(wsP, overlappListe, fÃ¸rsteDatoKol, datoRad, fÃ¸rstePersonRad)
     End If
     
-    ' VIKTIG: Lagre ALLE redigerbare kolonner før refresh (Person, Forsinkelse, Kommentar)
+    ' VIKTIG: Lagre ALLE redigerbare kolonner fÃ¸r refresh (Person, Forsinkelse, Kommentar)
     Dim alleEndringer As Object
     Set alleEndringer = LagreAlleRedigerbareFelt(wsAO)
     
-    ' Oppdater oversikten for å reflektere endringer fra Planlegger
+    ' Oppdater oversikten for Ã¥ reflektere endringer fra Planlegger
     Call AktivitetsOversikt_Refresh
     
     ' KRITISK: Gjenopprett ALLE endringer etter refresh
@@ -922,13 +927,13 @@ ErrorHandler:
            "Rad i kode: " & Erl, vbCritical
 End Sub
 
-' Oppdater én aktivitet i Planlegger (utvid blokken)
+' Oppdater Ã©n aktivitet i Planlegger (utvid blokken)
 Private Function OppdaterAktivitetIPlanlegger(wsP As Worksheet, wsTyp As Worksheet, _
                                               personRow As Long, kode As String, _
                                               startCol As Long, gammeltSluttCol As Long, nyttSluttCol As Long, _
                                               kommentar As String, farger As Object, _
-                                              førsteDatoKol As Long, datoRad As Long) As Boolean
-    Dim r As Long, blockEnd As Long, målRad As Long
+                                              fÃ¸rsteDatoKol As Long, datoRad As Long) As Boolean
+    Dim r As Long, blockEnd As Long, mÃ¥lRad As Long
     Dim c As Long, cel As Range
     Dim funnet As Boolean
     Dim beskrivelse As String, farge As Long, visTekst As String
@@ -949,7 +954,7 @@ Private Function OppdaterAktivitetIPlanlegger(wsP As Worksheet, wsTyp As Workshe
         Set cel = wsP.Cells(r, startCol)
         If Len(Trim$(cel.Value)) > 0 And cel.Font.Bold Then
             If InStr(1, cel.Value, kode, vbTextCompare) > 0 Then
-                målRad = r
+                mÃ¥lRad = r
                 funnet = True
                 Exit For
             End If
@@ -958,41 +963,41 @@ Private Function OppdaterAktivitetIPlanlegger(wsP As Worksheet, wsTyp As Workshe
     
     If Not funnet Then Exit Function
     
-    ' Slå opp aktivitetsinfo
+    ' SlÃ¥ opp aktivitetsinfo
     If Not LookupAktivitet(wsTyp, kode, beskrivelse, farge) Then
         Exit Function
     End If
     
     ' Utvid blokken til ny sluttdato
     If nyttSluttCol > gammeltSluttCol Then
-        ' Finn overlappende aktivitet i utvidelsesområdet
+        ' Finn overlappende aktivitet i utvidelsesomrÃ¥det
         overlappAktivitetRad = 0
         overlappStartCol = 0
         
         For c = gammeltSluttCol + 1 To nyttSluttCol
-            Set cel = wsP.Cells(målRad, c)
+            Set cel = wsP.Cells(mÃ¥lRad, c)
             If Len(Trim$(cel.Value)) > 0 And cel.Font.Bold Then
                 ' Funnet overlappende aktivitet!
-                overlappAktivitetRad = målRad
+                overlappAktivitetRad = mÃ¥lRad
                 overlappStartCol = c
                 overlappFarge = cel.Interior.Color
                 
                 ' Finn hvor denne aktiviteten starter
                 Dim tempC As Long
-                For tempC = c To førsteDatoKol Step -1
-                    If wsP.Cells(målRad, tempC).Interior.Color <> overlappFarge Or _
-                       (Len(Trim$(wsP.Cells(målRad, tempC).Value)) > 0 And tempC < c) Then
+                For tempC = c To fÃ¸rsteDatoKol Step -1
+                    If wsP.Cells(mÃ¥lRad, tempC).Interior.Color <> overlappFarge Or _
+                       (Len(Trim$(wsP.Cells(mÃ¥lRad, tempC).Value)) > 0 And tempC < c) Then
                         overlappAktivitetStartCol = tempC + 1
                         Exit For
                     End If
-                    If tempC = førsteDatoKol Then overlappAktivitetStartCol = førsteDatoKol
+                    If tempC = fÃ¸rsteDatoKol Then overlappAktivitetStartCol = fÃ¸rsteDatoKol
                 Next tempC
                 
                 ' Finn hvor denne aktiviteten slutter
                 Dim lastCol As Long
                 lastCol = wsP.Cells(datoRad, wsP.Columns.Count).End(xlToLeft).Column
                 For tempC = c To lastCol
-                    If wsP.Cells(målRad, tempC).Interior.Color <> overlappFarge Then
+                    If wsP.Cells(mÃ¥lRad, tempC).Interior.Color <> overlappFarge Then
                         overlappAktivitetSluttCol = tempC - 1
                         Exit For
                     End If
@@ -1008,51 +1013,51 @@ Private Function OppdaterAktivitetIPlanlegger(wsP As Worksheet, wsTyp As Workshe
             
             ' 1. Finn ledig rad for den overlappende aktiviteten
             Dim nyRad As Long
-            nyRad = FinnEllerOpprettLedigRadU5(wsP, personRow, overlappAktivitetStartCol, overlappAktivitetSluttCol, farger, førsteDatoKol, datoRad)
+            nyRad = FinnEllerOpprettLedigRadU5(wsP, personRow, overlappAktivitetStartCol, overlappAktivitetSluttCol, farger, fÃ¸rsteDatoKol, datoRad)
             
             If nyRad > 0 Then
                 ' 2. Flytt den overlappende aktiviteten til ny rad
-                Call FlyttHeleAktivitetTilNyRad(wsP, målRad, nyRad, overlappAktivitetStartCol, overlappAktivitetSluttCol)
+                Call FlyttHeleAktivitetTilNyRad(wsP, mÃ¥lRad, nyRad, overlappAktivitetStartCol, overlappAktivitetSluttCol)
                 
                 ' 3. Utvid den forsinkede aktiviteten MED SMART TEKST-SENTRERING
                 Dim overlappSluttCol As Long
                 overlappSluttCol = Application.WorksheetFunction.Min(nyttSluttCol, overlappAktivitetSluttCol)
                 
-                visTekst = kode & IIf(Len(kommentar) > 0, " – " & kommentar, IIf(Len(beskrivelse) > 0, " – " & beskrivelse, ""))
+                visTekst = kode & IIf(Len(kommentar) > 0, " - " & kommentar, IIf(Len(beskrivelse) > 0, " - " & beskrivelse, ""))
                 
                 ' Utvid blokken, men teksten sentreres kun til overlapp-start
-                Call ApplyBlockFormattingMedOverlapp(wsP, målRad, startCol, gammeltSluttCol, overlappStartCol, nyttSluttCol, farge, visTekst)
+                Call ApplyBlockFormattingMedOverlapp(wsP, mÃ¥lRad, startCol, gammeltSluttCol, overlappStartCol, nyttSluttCol, farge, visTekst)
                 
-                ' 4. Legg RØD skravering i overlapp-området
-                Call LeggSkraveringIOverlapp(wsP, målRad, overlappStartCol, overlappSluttCol)
+                ' 4. Legg RÃ˜D skravering i overlapp-omrÃ¥det
+                Call LeggSkraveringIOverlapp(wsP, mÃ¥lRad, overlappStartCol, overlappSluttCol)
                 
                 OppdaterAktivitetIPlanlegger = True
             End If
         Else
-            ' Ingen overlapp - bare utvid på samme rad
-            visTekst = kode & IIf(Len(kommentar) > 0, " – " & kommentar, IIf(Len(beskrivelse) > 0, " – " & beskrivelse, ""))
-            Call ApplyBlockFormattingExtend(wsP, målRad, startCol, nyttSluttCol, farge, visTekst)
+            ' Ingen overlapp - bare utvid pÃ¥ samme rad
+            visTekst = kode & IIf(Len(kommentar) > 0, " - " & kommentar, IIf(Len(beskrivelse) > 0, " - " & beskrivelse, ""))
+            Call ApplyBlockFormattingExtend(wsP, mÃ¥lRad, startCol, nyttSluttCol, farge, visTekst)
             OppdaterAktivitetIPlanlegger = True
         End If
     End If
 End Function
 
-' Utvid blokk med smart tekst-sentrering (unngår skravert område)
-Private Sub ApplyBlockFormattingMedOverlapp(wsP As Worksheet, målRad As Long, _
+' Utvid blokk med smart tekst-sentrering (unngÃ¥r skravert omrÃ¥de)
+Private Sub ApplyBlockFormattingMedOverlapp(wsP As Worksheet, mÃ¥lRad As Long, _
                                             startCol As Long, gammeltSluttCol As Long, _
                                             overlappStartCol As Long, sluttCol As Long, _
                                             farge As Long, visTekst As String)
     Dim c As Long, cel As Range
     Dim heleBlokken As Range, tekstDel As Range
     
-    ' STEG 1: Rydd alt først (blank slate)
-    Set heleBlokken = wsP.Range(wsP.Cells(målRad, startCol), wsP.Cells(målRad, sluttCol))
+    ' STEG 1: Rydd alt fÃ¸rst (blank slate)
+    Set heleBlokken = wsP.Range(wsP.Cells(mÃ¥lRad, startCol), wsP.Cells(mÃ¥lRad, sluttCol))
     heleBlokken.ClearFormats
     heleBlokken.ClearContents
     
-    ' STEG 2: Sett bakgrunnsfarge på ALLE celler individuelt
+    ' STEG 2: Sett bakgrunnsfarge pÃ¥ ALLE celler individuelt
     For c = startCol To sluttCol
-        With wsP.Cells(målRad, c).Interior
+        With wsP.Cells(mÃ¥lRad, c).Interior
             .Pattern = xlSolid
             .Color = farge
         End With
@@ -1074,35 +1079,35 @@ Private Sub ApplyBlockFormattingMedOverlapp(wsP As Worksheet, målRad As Long, _
         End With
     End With
     
-    ' STEG 4: Legg grid-linjer på HVER celle
+    ' STEG 4: Legg grid-linjer pÃ¥ HVER celle
     For c = startCol To sluttCol - 1
-        With wsP.Cells(målRad, c).Borders(xlEdgeRight)
+        With wsP.Cells(mÃ¥lRad, c).Borders(xlEdgeRight)
             .LineStyle = xlContinuous
             .Weight = xlThin
             .Color = RGB(180, 180, 180)
         End With
     Next c
     
-    ' STEG 5: Sett font-formatering på alle celler
+    ' STEG 5: Sett font-formatering pÃ¥ alle celler
     With heleBlokken.Font
         .Bold = True
         .Color = IIf(ErLysFarge(farge), RGB(0, 0, 0), RGB(255, 255, 255))
     End With
     heleBlokken.VerticalAlignment = xlCenter
     
-    ' STEG 6: Sentrer tekst-delen (ikke-skravert område) - UTEN Å MERGE
-    Set tekstDel = wsP.Range(wsP.Cells(målRad, startCol), wsP.Cells(målRad, overlappStartCol - 1))
+    ' STEG 6: Sentrer tekst-delen (ikke-skravert omrÃ¥de) - UTEN Ã… MERGE
+    Set tekstDel = wsP.Range(wsP.Cells(mÃ¥lRad, startCol), wsP.Cells(mÃ¥lRad, overlappStartCol - 1))
     
     ' Bruk CenterAcrossSelection i stedet for Merge
     tekstDel.HorizontalAlignment = xlCenterAcrossSelection
     
     ' Sett teksten
-    wsP.Cells(målRad, startCol).Value = visTekst
-    wsP.Cells(målRad, startCol).WrapText = True
+    wsP.Cells(mÃ¥lRad, startCol).Value = visTekst
+    wsP.Cells(mÃ¥lRad, startCol).WrapText = True
     
     ' STEG 7: Gjenopprett bunnlinje
-    If målRad < wsP.Rows.Count Then
-        With wsP.Range(wsP.Cells(målRad + 1, startCol), wsP.Cells(målRad + 1, sluttCol)).Borders(xlEdgeTop)
+    If mÃ¥lRad < wsP.Rows.Count Then
+        With wsP.Range(wsP.Cells(mÃ¥lRad + 1, startCol), wsP.Cells(mÃ¥lRad + 1, sluttCol)).Borders(xlEdgeTop)
             .LineStyle = xlContinuous
             .Weight = xlThin
             .Color = RGB(0, 0, 0)
@@ -1110,7 +1115,7 @@ Private Sub ApplyBlockFormattingMedOverlapp(wsP As Worksheet, målRad As Long, _
     End If
 End Sub
 
-' Legg rød skravering i overlapp-området (ETTER at alt annet er satt opp)
+' Legg rÃ¸d skravering i overlapp-omrÃ¥det (ETTER at alt annet er satt opp)
 Private Sub LeggSkraveringIOverlapp(wsP As Worksheet, rad As Long, startCol As Long, sluttCol As Long)
     Dim c As Long
     
@@ -1121,7 +1126,7 @@ Private Sub LeggSkraveringIOverlapp(wsP As Worksheet, rad As Long, startCol As L
             ' Color forblir som den var
         End With
         
-        ' Gjenopprett grid (må gjøres etter pattern)
+        ' Gjenopprett grid (mÃ¥ gjÃ¸res etter pattern)
         If c < sluttCol Then
             With wsP.Cells(rad, c).Borders(xlEdgeRight)
                 .LineStyle = xlContinuous
@@ -1185,7 +1190,7 @@ End Sub
 
 Private Function FinnEllerOpprettLedigRadU5(wsP As Worksheet, personRow As Long, _
                                             startCol As Long, sluttCol As Long, _
-                                            farger As Object, førsteDatoKol As Long, datoRad As Long) As Long
+                                            farger As Object, fÃ¸rsteDatoKol As Long, datoRad As Long) As Long
     Dim blockStart As Long, blockEnd As Long, r As Long
     Dim c As Long, fri As Boolean, cel As Range
     Dim lastCol As Long
@@ -1211,7 +1216,7 @@ Private Function FinnEllerOpprettLedigRadU5(wsP As Worksheet, personRow As Long,
             If cel.Interior.ColorIndex <> xlColorIndexNone Then
                 If cel.Interior.Color <> RGB(255, 255, 255) And _
                    cel.Interior.Color <> RGB(255, 220, 220) Then ' Ignorer skravering
-                    If FargeNærAktivitetU5(cel.Interior.Color, farger) Then
+                    If FargeNÃ¦rAktivitetU5(cel.Interior.Color, farger) Then
                         fri = False: Exit For
                     End If
                 End If
@@ -1232,7 +1237,7 @@ Private Function FinnEllerOpprettLedigRadU5(wsP As Worksheet, personRow As Long,
     
     ' Nullstill alle datoceller til hvit med grid
     lastCol = wsP.Cells(datoRad, wsP.Columns.Count).End(xlToLeft).Column
-    For c = førsteDatoKol To lastCol
+    For c = fÃ¸rsteDatoKol To lastCol
         NullstillCelleTilHvitMedGridU5 wsP.Cells(blockEnd + 1, c)
     Next c
     
@@ -1273,8 +1278,8 @@ Private Sub NullstillCelleTilHvitMedGridU5(ByVal cel As Range)
     End With
 End Sub
 
-' Sjekk om farge er nær aktivitetsfarge
-Private Function FargeNærAktivitetU5(col As Long, ByVal farger As Object, Optional tol As Long = 18) As Boolean
+' Sjekk om farge er nÃ¦r aktivitetsfarge
+Private Function FargeNÃ¦rAktivitetU5(col As Long, ByVal farger As Object, Optional tol As Long = 18) As Boolean
     If col = RGB(255, 255, 255) Then Exit Function
     If col = RGB(255, 220, 220) Then Exit Function ' Ignorer skravering
     
@@ -1282,7 +1287,7 @@ Private Function FargeNærAktivitetU5(col As Long, ByVal farger As Object, Option
     For Each k In farger.Keys
         refCol = CLng(farger(k))
         If FargeAvstandU5(col, refCol) <= tol Then
-            FargeNærAktivitetU5 = True
+            FargeNÃ¦rAktivitetU5 = True
             Exit Function
         End If
     Next k
@@ -1298,23 +1303,23 @@ Private Function FargeAvstandU5(c1 As Long, c2 As Long) As Long
 End Function
 
 ' Utvid en eksisterende blokk (ikke lag ny)
-Private Sub ApplyBlockFormattingExtend(wsP As Worksheet, målRad As Long, _
+Private Sub ApplyBlockFormattingExtend(wsP As Worksheet, mÃ¥lRad As Long, _
                                        startCol As Long, sluttCol As Long, _
                                        farge As Long, visTekst As String)
     Dim rng As Range, startCell As Range, rngUnder As Range
     Dim c As Long
     
-    Set rng = wsP.Range(wsP.Cells(målRad, startCol), wsP.Cells(målRad, sluttCol))
-    Set startCell = wsP.Cells(målRad, startCol)
+    Set rng = wsP.Range(wsP.Cells(mÃ¥lRad, startCol), wsP.Cells(mÃ¥lRad, sluttCol))
+    Set startCell = wsP.Cells(mÃ¥lRad, startCol)
     
     ' Fyll fargen over hele spennet
     For c = startCol To sluttCol
-        wsP.Cells(målRad, c).Interior.Pattern = xlSolid
-        wsP.Cells(målRad, c).Interior.TintAndShade = 0
-        wsP.Cells(målRad, c).Interior.Color = farge
+        wsP.Cells(mÃ¥lRad, c).Interior.Pattern = xlSolid
+        wsP.Cells(mÃ¥lRad, c).Interior.TintAndShade = 0
+        wsP.Cells(mÃ¥lRad, c).Interior.Color = farge
     Next c
     
-    ' Sett kraftige ytterkanter på hele blokken
+    ' Sett kraftige ytterkanter pÃ¥ hele blokken
     With rng.Borders(xlEdgeLeft)
         .LineStyle = xlContinuous: .Weight = xlThick: .Color = RGB(0, 0, 0)
     End With
@@ -1330,17 +1335,17 @@ Private Sub ApplyBlockFormattingExtend(wsP As Worksheet, målRad As Long, _
     
     ' Gjenopprett tynne grid-linjer INNI blokken
     For c = startCol To sluttCol
-        With wsP.Cells(målRad, c).Borders(xlEdgeRight)
+        With wsP.Cells(mÃ¥lRad, c).Borders(xlEdgeRight)
             .LineStyle = xlContinuous
             .Weight = xlThin
-            .Color = RGB(200, 200, 200)  ' Lys grå for subtile grid-linjer
+            .Color = RGB(200, 200, 200)  ' Lys grÃ¥ for subtile grid-linjer
         End With
     Next c
     
-    ' Ingen borders på innsiden horisontalt
+    ' Ingen borders pÃ¥ innsiden horisontalt
     rng.Borders(xlInsideHorizontal).LineStyle = xlLineStyleNone
     
-    ' Sett tekst (kun i første celle)
+    ' Sett tekst (kun i fÃ¸rste celle)
     startCell.Value = visTekst
     startCell.Font.Bold = True
     startCell.Font.Color = IIf(ErLysFarge(farge), RGB(0, 0, 0), RGB(255, 255, 255))
@@ -1350,9 +1355,9 @@ Private Sub ApplyBlockFormattingExtend(wsP As Worksheet, målRad As Long, _
     rng.VerticalAlignment = xlCenter
     rng.WrapText = True
     
-    ' Gjenopprett bunnlinje på raden under
-    If målRad < wsP.Rows.Count Then
-        Set rngUnder = wsP.Range(wsP.Cells(målRad + 1, startCol), wsP.Cells(målRad + 1, sluttCol))
+    ' Gjenopprett bunnlinje pÃ¥ raden under
+    If mÃ¥lRad < wsP.Rows.Count Then
+        Set rngUnder = wsP.Range(wsP.Cells(mÃ¥lRad + 1, startCol), wsP.Cells(mÃ¥lRad + 1, sluttCol))
         With rngUnder.Borders(xlEdgeTop)
             .LineStyle = xlContinuous
             .Weight = xlThin
@@ -1363,7 +1368,7 @@ End Sub
 
 ' Tegn diagonal skravering for overlappende aktiviteter
 Private Sub TegnOverlappSkravering(wsP As Worksheet, overlappListe As Object, _
-                                   førsteDatoKol As Long, datoRad As Long, førstePersonRad As Long)
+                                   fÃ¸rsteDatoKol As Long, datoRad As Long, fÃ¸rstePersonRad As Long)
     Dim k As Variant
     Dim info As Variant
     Dim person As String, personRow As Long
@@ -1372,7 +1377,7 @@ Private Sub TegnOverlappSkravering(wsP As Worksheet, overlappListe As Object, _
     Dim r As Long, blockEnd As Long
     Dim rng As Range
     
-    ' Gå gjennom alle overlapp
+    ' GÃ¥ gjennom alle overlapp
     For Each k In overlappListe.Keys
         info = overlappListe(k)
         person = info(0)
@@ -1380,11 +1385,11 @@ Private Sub TegnOverlappSkravering(wsP As Worksheet, overlappListe As Object, _
         sluttDato = info(2)
         
         ' Finn person
-        personRow = FinnPersonRadIPlanlegger(wsP, person, førstePersonRad)
+        personRow = FinnPersonRadIPlanlegger(wsP, person, fÃ¸rstePersonRad)
         If personRow > 0 Then
             ' Finn datokolonner
-            startCol = FinnDatoKolonneIPlanlegger(wsP, startDato, datoRad, førsteDatoKol)
-            sluttCol = FinnDatoKolonneIPlanlegger(wsP, sluttDato, datoRad, førsteDatoKol)
+            startCol = FinnDatoKolonneIPlanlegger(wsP, startDato, datoRad, fÃ¸rsteDatoKol)
+            sluttCol = FinnDatoKolonneIPlanlegger(wsP, sluttDato, datoRad, fÃ¸rsteDatoKol)
             
             If startCol > 0 And sluttCol > 0 Then
                 ' Finn personblokken
@@ -1394,7 +1399,7 @@ Private Sub TegnOverlappSkravering(wsP As Worksheet, overlappListe As Object, _
                     blockEnd = blockEnd + 1
                 Loop
                 
-                ' Tegn skravering på alle rader i personblokken for dette tidsrommet
+                ' Tegn skravering pÃ¥ alle rader i personblokken for dette tidsrommet
                 For r = personRow To blockEnd
                     Set rng = wsP.Range(wsP.Cells(r, startCol), wsP.Cells(r, sluttCol))
                     
@@ -1407,11 +1412,11 @@ Private Sub TegnOverlappSkravering(wsP As Worksheet, overlappListe As Object, _
                         ' Hvis cellen ikke har aktivitet (ikke fet tekst og ikke aktivitetsfarge)
                         If Not cel.Font.Bold And _
                            (cel.Interior.ColorIndex = xlColorIndexNone Or cel.Interior.Color = RGB(255, 255, 255)) Then
-                            ' Legg diagonal skravering i RØDT
+                            ' Legg diagonal skravering i RÃ˜DT
                             With cel.Interior
                                 .Pattern = xlPatternLightDown  ' Diagonal skravering
-                                .PatternColor = RGB(255, 0, 0)  ' RØD skravering (ikke grå)
-                                .Color = RGB(255, 220, 220)  ' Lys rød bakgrunn
+                                .PatternColor = RGB(255, 0, 0)  ' RÃ˜D skravering (ikke grÃ¥)
+                                .Color = RGB(255, 220, 220)  ' Lys rÃ¸d bakgrunn
                             End With
                         End If
                     Next c
@@ -1421,21 +1426,21 @@ Private Sub TegnOverlappSkravering(wsP As Worksheet, overlappListe As Object, _
     Next k
 End Sub
 
-' Hjelpefunksjoner for å finne person og dato i Planlegger
-Private Function FinnPersonRadIPlanlegger(ws As Worksheet, ByVal navn As String, førstePersonRad As Long) As Long
+' Hjelpefunksjoner for Ã¥ finne person og dato i Planlegger
+Private Function FinnPersonRadIPlanlegger(ws As Worksheet, ByVal navn As String, fÃ¸rstePersonRad As Long) As Long
     Dim lastRow As Long, r As Long
     lastRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
-    For r = førstePersonRad To lastRow
+    For r = fÃ¸rstePersonRad To lastRow
         If StrComp(Trim$(ws.Cells(r, 1).Value), Trim$(navn), vbTextCompare) = 0 Then
             FinnPersonRadIPlanlegger = r: Exit Function
         End If
     Next r
 End Function
 
-Private Function FinnDatoKolonneIPlanlegger(ws As Worksheet, d As Date, datoRad As Long, førsteDatoKol As Long) As Long
+Private Function FinnDatoKolonneIPlanlegger(ws As Worksheet, d As Date, datoRad As Long, fÃ¸rsteDatoKol As Long) As Long
     Dim lastCol As Long, c As Long
     lastCol = ws.Cells(datoRad, ws.Columns.Count).End(xlToLeft).Column
-    For c = førsteDatoKol To lastCol
+    For c = fÃ¸rsteDatoKol To lastCol
         If IsDate(ws.Cells(datoRad, c).Value) Then
             If CLng(CDate(ws.Cells(datoRad, c).Value)) = CLng(d) Then
                 FinnDatoKolonneIPlanlegger = c: Exit Function
@@ -1495,22 +1500,22 @@ End Sub
 ' =================== DYNAMISKE VERDIER ===================
 ' Henter fra Named Ranges som de andre modulene
 
-Private Function HentFørsteDatoKol() As Long
-    HentFørsteDatoKol = Worksheets(ARK_PLAN).Range("FirstDate").Column
+Private Function HentFÃ¸rsteDatoKol() As Long
+    HentFÃ¸rsteDatoKol = Worksheets(ARK_PLAN).Range("FirstDate").Column
 End Function
 
 Private Function HentDatoRad() As Long
     HentDatoRad = Worksheets(ARK_PLAN).Range("FirstDate").Row
 End Function
 
-Private Function HentFørstePersonRad() As Long
-    HentFørstePersonRad = Worksheets(ARK_PLAN).Range("PersonHeader").Row + 1
+Private Function HentFÃ¸rstePersonRad() As Long
+    HentFÃ¸rstePersonRad = Worksheets(ARK_PLAN).Range("PersonHeader").Row + 1
 End Function
 
-' =================== FORSINKELSESHÅNDTERING ===================
+' =================== FORSINKELSESHÃ…NDTERING ===================
 ' Lagre og gjenopprett forsinkelser ved refresh
 
-' Lagre alle forsinkelser før refresh
+' Lagre alle forsinkelser fÃ¸r refresh
 Private Function LagreForsinkelser(wsAO As Worksheet) As Object
     Dim dict As Object
     Set dict = CreateObject("Scripting.Dictionary")
@@ -1535,7 +1540,7 @@ Private Function LagreForsinkelser(wsAO As Worksheet) As Object
                 forsinkelse = CLng(wsAO.Cells(r, COL_FORSINKET).Value)
                 On Error GoTo 0
                 
-                ' Lag unik nøkkel
+                ' Lag unik nÃ¸kkel
                 key = person & "|" & kode & "|" & Format(oppStart, "yyyy-mm-dd")
                 
                 If Not dict.exists(key) Then
@@ -1557,7 +1562,7 @@ Private Sub GjenopprettForsinkelser(wsAO As Worksheet, forsinkelser As Object)
     If forsinkelser Is Nothing Then Exit Sub
     If forsinkelser.Count = 0 Then Exit Sub
     
-    ' VIKTIG: Fjern beskyttelse først
+    ' VIKTIG: Fjern beskyttelse fÃ¸rst
     On Error Resume Next
     wsAO.Unprotect Password:=""
     On Error GoTo 0
@@ -1572,7 +1577,7 @@ Private Sub GjenopprettForsinkelser(wsAO As Worksheet, forsinkelser As Object)
             If IsDate(wsAO.Cells(r, COL_OPP_START).Value) Then
                 oppStart = wsAO.Cells(r, COL_OPP_START).Value
                 
-                ' Lag samme nøkkel
+                ' Lag samme nÃ¸kkel
                 key = person & "|" & kode & "|" & Format(oppStart, "yyyy-mm-dd")
                 
                 ' Gjenopprett forsinkelse hvis den finnes
@@ -1586,7 +1591,7 @@ Private Sub GjenopprettForsinkelser(wsAO As Worksheet, forsinkelser As Object)
     ' Trigger ny beregning av formler og overlappdeteksjon
     Application.Calculate
     
-    ' Kjør overlappdeteksjon på nytt
+    ' KjÃ¸r overlappdeteksjon pÃ¥ nytt
     Call DetekterOverlapp(wsAO, TBL_START_ROW, lastRow)
 End Sub
 
@@ -1612,7 +1617,7 @@ Private Function LagreAlleRedigerbareFelt(wsAO As Worksheet) As Object
                 forsinkelse = wsAO.Cells(r, COL_FORSINKET).Value
                 kommentar = Trim$(wsAO.Cells(r, COL_KOMMENTAR).Value)
                 
-                ' Lag nøkkel basert på person + kode + startdato
+                ' Lag nÃ¸kkel basert pÃ¥ person + kode + startdato
                 key = person & "|" & kode & "|" & Format(oppStart, "yyyy-mm-dd")
                 
                 ' Lagre alle felt
@@ -1640,14 +1645,14 @@ Private Sub GjenopprettAlleRedigerbareFelt(wsAO As Worksheet, alleEndringer As O
     If alleEndringer Is Nothing Then Exit Sub
     If alleEndringer.Count = 0 Then Exit Sub
     
-    ' VIKTIG: Fjern beskyttelse først
+    ' VIKTIG: Fjern beskyttelse fÃ¸rst
     On Error Resume Next
     wsAO.Unprotect Password:=""
     On Error GoTo 0
     
     lastRow = wsAO.Cells(wsAO.Rows.Count, COL_PERSON).End(xlUp).Row
     
-    ' Først: prøv å matche på person+kode+dato (eksakt match)
+    ' FÃ¸rst: prÃ¸v Ã¥ matche pÃ¥ person+kode+dato (eksakt match)
     For r = TBL_START_ROW To lastRow
         person = Trim$(wsAO.Cells(r, COL_PERSON).Value)
         kode = Trim$(wsAO.Cells(r, COL_KODE).Value)
@@ -1656,7 +1661,7 @@ Private Sub GjenopprettAlleRedigerbareFelt(wsAO As Worksheet, alleEndringer As O
             If IsDate(wsAO.Cells(r, COL_OPP_START).Value) Then
                 oppStart = wsAO.Cells(r, COL_OPP_START).Value
                 
-                ' Prøv nøkkel med NÅVÆRENDE person (etter refresh)
+                ' PrÃ¸v nÃ¸kkel med NÃ…VÃ†RENDE person (etter refresh)
                 key = person & "|" & kode & "|" & Format(oppStart, "yyyy-mm-dd")
                 
                 If alleEndringer.exists(key) Then
@@ -1673,9 +1678,9 @@ Private Sub GjenopprettAlleRedigerbareFelt(wsAO As Worksheet, alleEndringer As O
         End If
     Next r
     
-    ' Andre pass: Hvis person ble endret, må vi finne aktiviteten basert på kode+dato hos NY person
+    ' Andre pass: Hvis person ble endret, mÃ¥ vi finne aktiviteten basert pÃ¥ kode+dato hos NY person
     If alleEndringer.Count > 0 Then
-        ' Gå gjennom de som ikke ble matchet (person ble endret)
+        ' GÃ¥ gjennom de som ikke ble matchet (person ble endret)
         Dim k As Variant
         For Each k In alleEndringer.Keys
             Set feltDict = alleEndringer(k)
@@ -1685,19 +1690,19 @@ Private Sub GjenopprettAlleRedigerbareFelt(wsAO As Worksheet, alleEndringer As O
             ' Finn aktiviteten hos den nye personen
             Dim parts() As String
             parts = Split(CStr(k), "|")
-            Dim søkKode As String, søkDato As String
-            søkKode = parts(1)
-            søkDato = parts(2)
+            Dim sÃ¸kKode As String, sÃ¸kDato As String
+            sÃ¸kKode = parts(1)
+            sÃ¸kDato = parts(2)
             
             For r = TBL_START_ROW To lastRow
                 person = Trim$(wsAO.Cells(r, COL_PERSON).Value)
                 kode = Trim$(wsAO.Cells(r, COL_KODE).Value)
                 
-                ' Match på person (NY), kode og dato
-                If person = nyPerson And kode = søkKode Then
+                ' Match pÃ¥ person (NY), kode og dato
+                If person = nyPerson And kode = sÃ¸kKode Then
                     If IsDate(wsAO.Cells(r, COL_OPP_START).Value) Then
                         oppStart = wsAO.Cells(r, COL_OPP_START).Value
-                        If Format(oppStart, "yyyy-mm-dd") = søkDato Then
+                        If Format(oppStart, "yyyy-mm-dd") = sÃ¸kDato Then
                             ' TREFF! Dette er aktiviteten som ble flyttet
                             wsAO.Cells(r, COL_FORSINKET).Value = feltDict("Forsinkelse")
                             wsAO.Cells(r, COL_KOMMENTAR).Value = feltDict("Kommentar")
@@ -1725,12 +1730,12 @@ Public Sub AktivitetsOversikt_Undo()
     On Error GoTo 0
     
     If wsAO Is Nothing Or wsP Is Nothing Then
-        MsgBox "Mangler nødvendige ark.", vbCritical
+        MsgBox "Mangler nÃ¸dvendige ark.", vbCritical
         Exit Sub
     End If
     
     If SisteForsinkelser Is Nothing Then
-        MsgBox "Ingen endringer å angre.", vbInformation
+        MsgBox "Ingen endringer Ã¥ angre.", vbInformation
         Exit Sub
     End If
     
@@ -1752,7 +1757,7 @@ Public Sub AktivitetsOversikt_Undo()
     ' Refresh oversikten
     Call AktivitetsOversikt_Refresh
     
-    ' Tøm undo-lageret
+    ' TÃ¸m undo-lageret
     Set SisteForsinkelser = Nothing
     
     Application.EnableEvents = True
@@ -1763,8 +1768,8 @@ Public Sub AktivitetsOversikt_Undo()
 End Sub
 
 ' Lagre hele Planlegger-tilstanden for Undo
-Private Function LagrePlanleggerTilstand(wsP As Worksheet, førsteDatoKol As Long, _
-                                         datoRad As Long, førstePersonRad As Long) As Object
+Private Function LagrePlanleggerTilstand(wsP As Worksheet, fÃ¸rsteDatoKol As Long, _
+                                         datoRad As Long, fÃ¸rstePersonRad As Long) As Object
     Dim dict As Object
     Set dict = CreateObject("Scripting.Dictionary")
     
@@ -1776,9 +1781,9 @@ Private Function LagrePlanleggerTilstand(wsP As Worksheet, førsteDatoKol As Long
     lastRow = wsP.Cells(wsP.Rows.Count, 1).End(xlUp).Row
     lastCol = wsP.Cells(datoRad, wsP.Columns.Count).End(xlToLeft).Column
     
-    ' Lagre alle celler i dato-området
-    For r = førstePersonRad To lastRow
-        For c = førsteDatoKol To lastCol
+    ' Lagre alle celler i dato-omrÃ¥det
+    For r = fÃ¸rstePersonRad To lastRow
+        For c = fÃ¸rsteDatoKol To lastCol
             key = r & "|" & c
             
             Set cellInfo = CreateObject("Scripting.Dictionary")
@@ -1832,7 +1837,7 @@ End Sub
 Private Sub NullstillAlleForsinkelser(wsAO As Worksheet)
     Dim lastRow As Long, r As Long
     
-    ' VIKTIG: Fjern beskyttelse først
+    ' VIKTIG: Fjern beskyttelse fÃ¸rst
     On Error Resume Next
     wsAO.Unprotect Password:=""
     On Error GoTo 0
@@ -1846,18 +1851,18 @@ End Sub
 
 ' =================== DIREKTE SYNKRONISERING FRA OVERSIKT TIL PLANLEGGER ===================
 
-' Oppdater aktivitet i Planlegger basert på endringer i Oversikt
+' Oppdater aktivitet i Planlegger basert pÃ¥ endringer i Oversikt
 Public Sub SynkroniserEnkeltAktivitet(person As String, kode As String, _
                                       nyStartDato As Date, nySluttDato As Date, _
                                       Optional kommentar As String = "")
     Dim wsP As Worksheet, wsTyp As Worksheet
-    Dim personRow As Long, målRad As Long
+    Dim personRow As Long, mÃ¥lRad As Long
     Dim gammelStartCol As Long, gammelSluttCol As Long
     Dim nyStartCol As Long, nySluttCol As Long
     Dim beskrivelse As String, farge As Long
     Dim r As Long, c As Long, blockEnd As Long
     Dim funnet As Boolean
-    Dim førsteDatoKol As Long, datoRad As Long
+    Dim fÃ¸rsteDatoKol As Long, datoRad As Long
     
     On Error Resume Next
     Set wsP = ThisWorkbook.Worksheets(ARK_PLAN)
@@ -1866,14 +1871,14 @@ Public Sub SynkroniserEnkeltAktivitet(person As String, kode As String, _
     
     If wsP Is Nothing Or wsTyp Is Nothing Then Exit Sub
     
-    ' Få konstanter
-    førsteDatoKol = wsP.Range("FirstDate").Column
+    ' FÃ¥ konstanter
+    fÃ¸rsteDatoKol = wsP.Range("FirstDate").Column
     datoRad = wsP.Range("FirstDate").Row
-    Dim førstePersonRad As Long
-    førstePersonRad = wsP.Range("PersonHeader").Row + 1
+    Dim fÃ¸rstePersonRad As Long
+    fÃ¸rstePersonRad = wsP.Range("PersonHeader").Row + 1
     
     ' Finn personen
-    personRow = FinnPersonRad(wsP, person, førstePersonRad)
+    personRow = FinnPersonRad(wsP, person, fÃ¸rstePersonRad)
     If personRow = 0 Then
         If Application.EnableEvents Then
             MsgBox "Finner ikke person '" & person & "' i Planlegger.", vbExclamation
@@ -1890,9 +1895,9 @@ Public Sub SynkroniserEnkeltAktivitet(person As String, kode As String, _
     
     funnet = False
     For r = personRow To blockEnd
-        If Len(Trim$(wsP.Cells(r, førsteDatoKol).Value)) > 0 And wsP.Cells(r, førsteDatoKol).Font.Bold Then
-            If InStr(1, wsP.Cells(r, førsteDatoKol).Value, kode, vbTextCompare) > 0 Then
-                målRad = r
+        If Len(Trim$(wsP.Cells(r, fÃ¸rsteDatoKol).Value)) > 0 And wsP.Cells(r, fÃ¸rsteDatoKol).Font.Bold Then
+            If InStr(1, wsP.Cells(r, fÃ¸rsteDatoKol).Value, kode, vbTextCompare) > 0 Then
+                mÃ¥lRad = r
                 funnet = True
                 Exit For
             End If
@@ -1915,12 +1920,12 @@ Public Sub SynkroniserEnkeltAktivitet(person As String, kode As String, _
     End If
     
     ' Finn kolonner for datoer
-    nyStartCol = FinnDatoKolonne(wsP, nyStartDato, førsteDatoKol, datoRad)
-    nySluttCol = FinnDatoKolonne(wsP, nySluttDato, førsteDatoKol, datoRad)
+    nyStartCol = FinnDatoKolonne(wsP, nyStartDato, fÃ¸rsteDatoKol, datoRad)
+    nySluttCol = FinnDatoKolonne(wsP, nySluttDato, fÃ¸rsteDatoKol, datoRad)
     
     If nyStartCol = 0 Or nySluttCol = 0 Then
         If Application.EnableEvents Then
-            MsgBox "Datoene finnes ikke i Planlegger. Utvid datoene først.", vbExclamation
+            MsgBox "Datoene finnes ikke i Planlegger. Utvid datoene fÃ¸rst.", vbExclamation
         End If
         Exit Sub
     End If
@@ -1930,9 +1935,9 @@ Public Sub SynkroniserEnkeltAktivitet(person As String, kode As String, _
     gammelSluttCol = 0
     
     ' Finn startkolonnen
-    For c = førsteDatoKol To wsP.Cells(datoRad, wsP.Columns.Count).End(xlToLeft).Column
-        If wsP.Cells(målRad, c).Interior.Color = farge And _
-           wsP.Cells(målRad, c).Interior.Pattern <> xlPatternLightDown Then
+    For c = fÃ¸rsteDatoKol To wsP.Cells(datoRad, wsP.Columns.Count).End(xlToLeft).Column
+        If wsP.Cells(mÃ¥lRad, c).Interior.Color = farge And _
+           wsP.Cells(mÃ¥lRad, c).Interior.Pattern <> xlPatternLightDown Then
             gammelStartCol = c
             Exit For
         End If
@@ -1942,10 +1947,10 @@ Public Sub SynkroniserEnkeltAktivitet(person As String, kode As String, _
     If gammelStartCol > 0 Then
         gammelSluttCol = gammelStartCol
         For c = gammelStartCol + 1 To wsP.Cells(datoRad, wsP.Columns.Count).End(xlToLeft).Column
-            If wsP.Cells(målRad, c).Interior.Color = farge Then
+            If wsP.Cells(mÃ¥lRad, c).Interior.Color = farge Then
                 gammelSluttCol = c
-            ElseIf wsP.Cells(målRad, c).Interior.Color = RGB(255, 255, 255) Or _
-                   wsP.Cells(målRad, c).Interior.ColorIndex = xlColorIndexNone Then
+            ElseIf wsP.Cells(mÃ¥lRad, c).Interior.Color = RGB(255, 255, 255) Or _
+                   wsP.Cells(mÃ¥lRad, c).Interior.ColorIndex = xlColorIndexNone Then
                 Exit For
             Else
                 Exit For
@@ -1956,7 +1961,7 @@ Public Sub SynkroniserEnkeltAktivitet(person As String, kode As String, _
     ' Rydd gammel aktivitet
     If gammelStartCol > 0 Then
         For c = gammelStartCol To gammelSluttCol
-            With wsP.Cells(målRad, c)
+            With wsP.Cells(mÃ¥lRad, c)
                 .ClearContents
                 .Interior.Color = RGB(255, 255, 255)
                 .Interior.Pattern = xlSolid
@@ -1981,19 +1986,19 @@ Public Sub SynkroniserEnkeltAktivitet(person As String, kode As String, _
     
     ' Tegn ny aktivitet
     Dim visTekst As String
-    visTekst = kode & IIf(Len(kommentar) > 0, " – " & kommentar, IIf(Len(beskrivelse) > 0, " – " & beskrivelse, ""))
+    visTekst = kode & IIf(Len(kommentar) > 0, " - " & kommentar, IIf(Len(beskrivelse) > 0, " - " & beskrivelse, ""))
     
-    Call ApplyBlockFormattingExtend(wsP, målRad, nyStartCol, nySluttCol, farge, visTekst)
+    Call ApplyBlockFormattingExtend(wsP, mÃ¥lRad, nyStartCol, nySluttCol, farge, visTekst)
     
     ' MsgBox "Aktivitet oppdatert i Planlegger!", vbInformation
 End Sub
 
 ' Finn dato-kolonne i Planlegger
-Private Function FinnDatoKolonne(wsP As Worksheet, d As Date, førsteDatoKol As Long, datoRad As Long) As Long
+Private Function FinnDatoKolonne(wsP As Worksheet, d As Date, fÃ¸rsteDatoKol As Long, datoRad As Long) As Long
     Dim lastCol As Long, c As Long
     lastCol = wsP.Cells(datoRad, wsP.Columns.Count).End(xlToLeft).Column
     
-    For c = førsteDatoKol To lastCol
+    For c = fÃ¸rsteDatoKol To lastCol
         If IsDate(wsP.Cells(datoRad, c).Value) Then
             If CLng(CDate(wsP.Cells(datoRad, c).Value)) = CLng(d) Then
                 FinnDatoKolonne = c
@@ -2004,11 +2009,11 @@ Private Function FinnDatoKolonne(wsP As Worksheet, d As Date, førsteDatoKol As L
 End Function
 
 ' Finn person-rad i Planlegger
-Private Function FinnPersonRad(wsP As Worksheet, person As String, førstePersonRad As Long) As Long
+Private Function FinnPersonRad(wsP As Worksheet, person As String, fÃ¸rstePersonRad As Long) As Long
     Dim lastRow As Long, r As Long
     lastRow = wsP.Cells(wsP.Rows.Count, 1).End(xlUp).Row
     
-    For r = førstePersonRad To lastRow
+    For r = fÃ¸rstePersonRad To lastRow
         If StrComp(Trim$(wsP.Cells(r, 1).Value), Trim$(person), vbTextCompare) = 0 Then
             FinnPersonRad = r
             Exit Function
@@ -2027,7 +2032,7 @@ Public Sub FlyttAktivitetTilNyPerson(gammelPerson As String, nyPerson As String,
     Dim r As Long, c As Long, blockEnd As Long
     Dim beskrivelse As String, farge As Long
     Dim funnet As Boolean
-    Dim førsteDatoKol As Long, datoRad As Long, førstePersonRad As Long
+    Dim fÃ¸rsteDatoKol As Long, datoRad As Long, fÃ¸rstePersonRad As Long
     Dim farger As Object
     
     On Error Resume Next
@@ -2036,25 +2041,25 @@ Public Sub FlyttAktivitetTilNyPerson(gammelPerson As String, nyPerson As String,
     On Error GoTo 0
     
     If wsP Is Nothing Or wsTyp Is Nothing Then
-        MsgBox "Finner ikke nødvendige ark.", vbCritical
+        MsgBox "Finner ikke nÃ¸dvendige ark.", vbCritical
         Exit Sub
     End If
     
     ' Hent konstanter
-    førsteDatoKol = wsP.Range("FirstDate").Column
+    fÃ¸rsteDatoKol = wsP.Range("FirstDate").Column
     datoRad = wsP.Range("FirstDate").Row
-    førstePersonRad = wsP.Range("PersonHeader").Row + 1
+    fÃ¸rstePersonRad = wsP.Range("PersonHeader").Row + 1
     
     ' Finn gammel person
-    gammelPersonRow = FinnPersonRad(wsP, gammelPerson, førstePersonRad)
+    gammelPersonRow = FinnPersonRad(wsP, gammelPerson, fÃ¸rstePersonRad)
     If gammelPersonRow = 0 Then
-        ' Kanskje aktiviteten er allerede hos ny person? Prøv å synkroniser i stedet
+        ' Kanskje aktiviteten er allerede hos ny person? PrÃ¸v Ã¥ synkroniser i stedet
         Call SynkroniserEnkeltAktivitet(nyPerson, kode, startDato, sluttDato, kommentar)
         Exit Sub
     End If
     
     ' Finn ny person
-    nyPersonRow = FinnPersonRad(wsP, nyPerson, førstePersonRad)
+    nyPersonRow = FinnPersonRad(wsP, nyPerson, fÃ¸rstePersonRad)
     If nyPersonRow = 0 Then
         MsgBox "Finner ikke ny person '" & nyPerson & "' i Planlegger.", vbExclamation
         Exit Sub
@@ -2069,8 +2074,8 @@ Public Sub FlyttAktivitetTilNyPerson(gammelPerson As String, nyPerson As String,
     
     funnet = False
     For r = gammelPersonRow To blockEnd
-        If Len(Trim$(wsP.Cells(r, førsteDatoKol).Value)) > 0 And wsP.Cells(r, førsteDatoKol).Font.Bold Then
-            If InStr(1, wsP.Cells(r, førsteDatoKol).Value, kode, vbTextCompare) > 0 Then
+        If Len(Trim$(wsP.Cells(r, fÃ¸rsteDatoKol).Value)) > 0 And wsP.Cells(r, fÃ¸rsteDatoKol).Font.Bold Then
+            If InStr(1, wsP.Cells(r, fÃ¸rsteDatoKol).Value, kode, vbTextCompare) > 0 Then
                 gammelRad = r
                 funnet = True
                 Exit For
@@ -2090,8 +2095,8 @@ Public Sub FlyttAktivitetTilNyPerson(gammelPerson As String, nyPerson As String,
     End If
     
     ' Finn kolonner for datoer
-    startCol = FinnDatoKolonne(wsP, startDato, førsteDatoKol, datoRad)
-    sluttCol = FinnDatoKolonne(wsP, sluttDato, førsteDatoKol, datoRad)
+    startCol = FinnDatoKolonne(wsP, startDato, fÃ¸rsteDatoKol, datoRad)
+    sluttCol = FinnDatoKolonne(wsP, sluttDato, fÃ¸rsteDatoKol, datoRad)
     
     If startCol = 0 Or sluttCol = 0 Then
         MsgBox "Datoene finnes ikke i Planlegger.", vbExclamation
@@ -2125,7 +2130,7 @@ Public Sub FlyttAktivitetTilNyPerson(gammelPerson As String, nyPerson As String,
     
     ' STEG 2: Finn ledig rad hos ny person
     Set farger = HentAktivitetsFarger(wsTyp)
-    nyRad = FinnEllerOpprettLedigRadU5(wsP, nyPersonRow, startCol, sluttCol, farger, førsteDatoKol, datoRad)
+    nyRad = FinnEllerOpprettLedigRadU5(wsP, nyPersonRow, startCol, sluttCol, farger, fÃ¸rsteDatoKol, datoRad)
     
     If nyRad = 0 Then
         MsgBox "Fant ikke ledig rad hos '" & nyPerson & "'.", vbExclamation
@@ -2134,7 +2139,7 @@ Public Sub FlyttAktivitetTilNyPerson(gammelPerson As String, nyPerson As String,
     
     ' STEG 3: Tegn aktivitet hos ny person
     Dim visTekst As String
-    visTekst = kode & IIf(Len(kommentar) > 0, " – " & kommentar, IIf(Len(beskrivelse) > 0, " – " & beskrivelse, ""))
+    visTekst = kode & IIf(Len(kommentar) > 0, " - " & kommentar, IIf(Len(beskrivelse) > 0, " - " & beskrivelse, ""))
     
     Call ApplyBlockFormattingExtend(wsP, nyRad, startCol, sluttCol, farge, visTekst)
     

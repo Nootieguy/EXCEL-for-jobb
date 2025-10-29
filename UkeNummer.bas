@@ -1,4 +1,3 @@
-Attribute VB_Name = "UkeNummer"
 Option Explicit
 
 ' Fyller rad 14 med ukenumre sentrert over ukens dager, med linjer på sidene
