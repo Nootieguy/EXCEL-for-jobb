@@ -400,6 +400,30 @@ NesteCelle:
         Next colCleanup
     Next radKeyCleanup
 
+    ' STEG 6D: Fjern tomme under-rader (som FjernMarkert gjør)
+    ' Gå gjennom hver rad som ble endret og slett hvis den er helt tom
+    Dim personHeaderRad As Long
+    personHeaderRad = Me.Range("PersonHeader").Row
+
+    For Each radKeyCleanup In cellerÅFjerne.Keys
+        Dim radNum As Long
+        radNum = CLng(radKeyCleanup)
+
+        ' Bare slett under-rader (ikke header-raden)
+        If radNum > personHeaderRad Then
+            ' Sjekk om raden er helt tom
+            If RadErTomIAlleDatoKolonner(radNum, førsteDatoKol, lastCol) Then
+                ' Sjekk også at kolonne A er tom
+                If Len(Trim$(Me.Cells(radNum, 1).Value)) = 0 Then
+                    If DEBUG_MODE Then
+                        Debug.Print "Sletter tom under-rad: " & radNum
+                    End If
+                    Me.Rows(radNum).Delete
+                End If
+            End If
+        End If
+    Next radKeyCleanup
+
 Slutt:
     ' STEG 7: Re-enable events og fjern beskyttelsesflagg
     Application.EnableEvents = True
@@ -1354,6 +1378,36 @@ Private Sub RestaurerRutenettForCelle(ByVal cel As Range)
         Debug.Print "Restaurert rutenett for: " & cel.Address
     End If
 End Sub
+
+' ============================================================================
+' UTILITY: Sjekk om rad er tom i alle dato-kolonner
+' ============================================================================
+Private Function RadErTomIAlleDatoKolonner(ByVal radNr As Long, ByVal førsteDatoKol As Long, ByVal lastCol As Long) As Boolean
+    Dim c As Long
+    Dim cel As Range
+
+    ' Gå gjennom alle dato-kolonner
+    For c = førsteDatoKol To lastCol
+        Set cel = Me.Cells(radNr, c)
+
+        ' Sjekk om celle har innhold
+        If Len(Trim$(cel.Value)) > 0 Then
+            RadErTomIAlleDatoKolonner = False
+            Exit Function
+        End If
+
+        ' Sjekk om celle har farge (ikke hvit)
+        If cel.Interior.ColorIndex <> xlColorIndexNone Then
+            If cel.Interior.Color <> RGB(255, 255, 255) Then
+                RadErTomIAlleDatoKolonner = False
+                Exit Function
+            End If
+        End If
+    Next c
+
+    ' Hvis vi kom hit, er raden tom
+    RadErTomIAlleDatoKolonner = True
+End Function
 
 ' ============================================================================
 ' UTILITY: Reset event handler (for debugging)
