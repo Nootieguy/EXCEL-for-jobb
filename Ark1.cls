@@ -56,11 +56,6 @@ Private Sub Worksheet_Change(ByVal Target As Range)
     ' STEG 1: Sjekk rekursjon (unngå loop)
     If behandlerEndring Then Exit Sub
 
-    ' STEG 1B: Skip hvis makro kjører (unngå Application.Undo feil)
-    On Error Resume Next
-    If Module1.MakroKjører Then Exit Sub
-    On Error GoTo 0
-
     ' STEG 2: Valider at vi har Target
     If Target Is Nothing Then Exit Sub
 

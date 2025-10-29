@@ -15,9 +15,6 @@ Public Property Get FØRSTE_PERSONRAD() As Long
     ' justér +0/+1 avhengig av oppsettet ditt
     FØRSTE_PERSONRAD = Worksheets(ARK_PLAN).Range("PersonHeader").Row + 1
 End Property
-
-' Global flagg for å deaktivere Worksheet_Change under makro-operasjoner
-Public MakroKjører As Boolean
 ' =============================================
 
 ' =========================================================
@@ -98,13 +95,13 @@ Public Sub LeggInnAktivitet()
 
     Set farger = HentAktivitetsFarger(wsTyp)
 
-    ' Deaktiver Worksheet_Change event under makro-operasjoner
-    MakroKjører = True
+    ' Deaktiver events under makro-operasjoner for å unngå Application.Undo feil
+    Application.EnableEvents = False
 
     målRad = FinnEllerOpprettLedigRad_UtenNavn(wsPlan, personRow, startCol, sluttCol, farger)
     If målRad = 0 Then
         MsgBox "Fant/skapte ikke ledig rad.", vbCritical
-        MakroKjører = False
+        Application.EnableEvents = True
         Exit Sub
     End If
 
@@ -122,8 +119,8 @@ Public Sub LeggInnAktivitet()
 
     ApplyBlockFormatting wsPlan, målRad, startCol, sluttCol, farge, visTekst, farger
 
-    ' Reaktiver Worksheet_Change event
-    MakroKjører = False
+    ' Reaktiver events
+    Application.EnableEvents = True
 End Sub
 
 ' ===================== MÅTE 2 =====================
@@ -173,8 +170,8 @@ Public Sub LeggInnAktivitetPåMarkering()
 
     Set farger = HentAktivitetsFarger(wsTyp)
 
-    ' Deaktiver Worksheet_Change event under makro-operasjoner
-    MakroKjører = True
+    ' Deaktiver events under makro-operasjoner for å unngå Application.Undo feil
+    Application.EnableEvents = False
 
     ' Lagre undo-snapshot før endringer
     On Error Resume Next
@@ -208,8 +205,8 @@ nesteRad:
 
     Application.ScreenUpdating = True
 
-    ' Reaktiver Worksheet_Change event
-    MakroKjører = False
+    ' Reaktiver events
+    Application.EnableEvents = True
 End Sub
 
 ' ---------------- HJELPERE (Public der nødvendig) ----------------
