@@ -129,7 +129,7 @@ Public Sub LagUndoSnapshot(ByVal rng As Range)
     Next cel
 
     undoStackSize = rng.Cells.Count
-    Debug.Print "UNDO: Snapshot lagret - " & undoStackSize & " celler i " & rng.Address
+    ' Debug.Print "UNDO: Snapshot lagret - " & undoStackSize & " celler i " & rng.Address
     Exit Sub
 
 ErrorHandler:

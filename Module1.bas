@@ -250,24 +250,29 @@ Private Function SpanHarAnnenAktivitet(ws As Worksheet, ByVal r As Long, _
     Dim c As Long, cel As Range, txt As String
     Dim debugMsg As String
 
-    debugMsg = "Sjekker overlapp rad " & r & ", kolonner " & cMin & "-" & cMax & " for kode: " & kode & vbCrLf
+    debugMsg = "Sjekker overlapp rad " & r & ", kolonner " & cMin & "-" & cMax & " for ny kode: " & kode & vbCrLf & vbCrLf
 
     For c = cMin To cMax
         Set cel = ws.Cells(r, c)
 
         ' Sjekk om celle har tekst og fet skrift
         If Len(Trim$(cel.Value)) > 0 Then
-            debugMsg = debugMsg & "  Kol " & c & ": '" & cel.Value & "' Bold=" & cel.Font.Bold & vbCrLf
+            debugMsg = debugMsg & "  Kol " & c & ": '" & cel.Value & "'" & vbCrLf
+            debugMsg = debugMsg & "    Bold = " & cel.Font.Bold & vbCrLf
 
             If cel.Font.Bold Then
                 txt = CStr(cel.Value)
                 ' Sjekk om teksten starter med ANNEN kode
                 If StrComp(Left$(Trim$(txt), Len(kode)), kode, vbTextCompare) <> 0 Then
-                    Debug.Print debugMsg & "  -> OVERLAPP FUNNET! (Annen kode)"
+                    debugMsg = debugMsg & vbCrLf & ">>> OVERLAPP FUNNET! (Annen kode) <<<" & vbCrLf
+                    debugMsg = debugMsg & "Eksisterende: '" & txt & "'" & vbCrLf
+                    debugMsg = debugMsg & "Ny kode: '" & kode & "'" & vbCrLf
+                    debugMsg = debugMsg & "-> Oppretter ny underrad!"
+                    MsgBox debugMsg, vbInformation, "Overlapp detektert"
                     SpanHarAnnenAktivitet = True
                     Exit Function
                 Else
-                    debugMsg = debugMsg & "  -> Samme kode, ingen overlapp" & vbCrLf
+                    debugMsg = debugMsg & "    -> Samme kode, OK" & vbCrLf
                 End If
             End If
         End If
@@ -276,14 +281,18 @@ Private Function SpanHarAnnenAktivitet(ws As Worksheet, ByVal r As Long, _
         If Len(Trim$(cel.Value)) = 0 And cel.Interior.ColorIndex <> xlColorIndexNone Then
             debugMsg = debugMsg & "  Kol " & c & ": Tom celle med farge" & vbCrLf
             If FargeNærAktivitet(cel.Interior.Color, farger) Then
-                Debug.Print debugMsg & "  -> OVERLAPP FUNNET! (Aktivitetsfarge)"
+                debugMsg = debugMsg & vbCrLf & ">>> OVERLAPP FUNNET! (Aktivitetsfarge) <<<" & vbCrLf
+                debugMsg = debugMsg & "-> Oppretter ny underrad!"
+                MsgBox debugMsg, vbInformation, "Overlapp detektert"
                 SpanHarAnnenAktivitet = True
                 Exit Function
             End If
         End If
     Next c
 
-    Debug.Print debugMsg & "  -> Ingen overlapp funnet"
+    debugMsg = debugMsg & vbCrLf & ">>> INGEN overlapp funnet <<<" & vbCrLf
+    debugMsg = debugMsg & "-> Bruker samme rad"
+    MsgBox debugMsg, vbInformation, "Ingen overlapp"
     SpanHarAnnenAktivitet = False
 End Function
 
