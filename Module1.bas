@@ -248,19 +248,43 @@ Private Function SpanHarAnnenAktivitet(ws As Worksheet, ByVal r As Long, _
                                        ByVal cMin As Long, ByVal cMax As Long, _
                                        ByVal farger As Object, ByVal kode As String) As Boolean
     Dim c As Long, cel As Range, txt As String
+    Dim debugMsg As String
+
+    debugMsg = "Sjekker overlapp rad " & r & ", kolonner " & cMin & "-" & cMax & " for kode: " & kode & vbCrLf
+
     For c = cMin To cMax
         Set cel = ws.Cells(r, c)
-        If Len(Trim$(cel.Value)) > 0 And cel.Font.Bold Then
-            txt = CStr(cel.Value)
-            If StrComp(Left$(Trim$(txt), Len(kode)), kode, vbTextCompare) <> 0 Then
-                SpanHarAnnenAktivitet = True: Exit Function
+
+        ' Sjekk om celle har tekst og fet skrift
+        If Len(Trim$(cel.Value)) > 0 Then
+            debugMsg = debugMsg & "  Kol " & c & ": '" & cel.Value & "' Bold=" & cel.Font.Bold & vbCrLf
+
+            If cel.Font.Bold Then
+                txt = CStr(cel.Value)
+                ' Sjekk om teksten starter med ANNEN kode
+                If StrComp(Left$(Trim$(txt), Len(kode)), kode, vbTextCompare) <> 0 Then
+                    Debug.Print debugMsg & "  -> OVERLAPP FUNNET! (Annen kode)"
+                    SpanHarAnnenAktivitet = True
+                    Exit Function
+                Else
+                    debugMsg = debugMsg & "  -> Samme kode, ingen overlapp" & vbCrLf
+                End If
             End If
-        ElseIf cel.Interior.ColorIndex <> xlColorIndexNone Then
+        End If
+
+        ' Sjekk om celle har farge (men ingen tekst)
+        If Len(Trim$(cel.Value)) = 0 And cel.Interior.ColorIndex <> xlColorIndexNone Then
+            debugMsg = debugMsg & "  Kol " & c & ": Tom celle med farge" & vbCrLf
             If FargeNærAktivitet(cel.Interior.Color, farger) Then
-                SpanHarAnnenAktivitet = True: Exit Function
+                Debug.Print debugMsg & "  -> OVERLAPP FUNNET! (Aktivitetsfarge)"
+                SpanHarAnnenAktivitet = True
+                Exit Function
             End If
         End If
     Next c
+
+    Debug.Print debugMsg & "  -> Ingen overlapp funnet"
+    SpanHarAnnenAktivitet = False
 End Function
 
 Private Sub FinnPersonBlokk(ws As Worksheet, hovedRad As Long, _
