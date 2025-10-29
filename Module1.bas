@@ -355,10 +355,20 @@ Private Function FinnEllerOpprettLedigRad_UtenNavn(ws As Worksheet, personRow As
     ws.Cells(blockEnd + 1, 1).ClearContents
 
     lastCol = SisteDatoKolonne(ws, datoRad)
+
+    ' Sjekk at vi ikke går utenfor gyldig område
+    If blockEnd + 1 > ws.Rows.Count Then
+        MsgBox "Kan ikke opprette flere rader - arket er fullt.", vbCritical
+        FinnEllerOpprettLedigRad_UtenNavn = 0
+        Exit Function
+    End If
+
     For c = FØRSTE_DATAKOL To lastCol
         Set cel = ws.Cells(blockEnd + 1, c)
         ' UANSETT hva som ble kopiert: sett hvit bakgrunn og heltrukne tynne kanter
-        NullstillTilHvitMedGrid cel
+        If Not cel Is Nothing Then
+            NullstillTilHvitMedGrid cel
+        End If
     Next c
 
     FinnEllerOpprettLedigRad_UtenNavn = blockEnd + 1
@@ -366,6 +376,8 @@ End Function
 
 Private Sub NullstillTilHvitMedGrid(ByVal cel As Range)
     ' Ingen diagonaler, hvit bakgrunn, heltrukne tynne ytterkanter
+    If cel Is Nothing Then Exit Sub
+
     cel.ClearComments
     cel.ClearContents
     cel.Font.Bold = False
@@ -407,6 +419,8 @@ End Sub
 
 
 Private Sub KopierBakgrunn(ByVal src As Range, ByVal dst As Range)
+    If src Is Nothing Or dst Is Nothing Then Exit Sub
+
     With dst.Interior
         .Pattern = src.Interior.Pattern
         .TintAndShade = src.Interior.TintAndShade
