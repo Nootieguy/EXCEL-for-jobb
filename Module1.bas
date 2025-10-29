@@ -247,17 +247,21 @@ End Function
 Private Function SpanHarAnnenAktivitet(ws As Worksheet, ByVal r As Long, _
                                        ByVal cMin As Long, ByVal cMax As Long, _
                                        ByVal farger As Object, ByVal kode As String) As Boolean
-    Dim c As Long, cel As Range, txt As String
+    Dim c As Long, cel As Range, txt As String, erBold As Boolean
+    On Error Resume Next
     For c = cMin To cMax
         Set cel = ws.Cells(r, c)
-        If Len(Trim$(cel.Value)) > 0 And cel.Font.Bold Then
-            txt = CStr(cel.Value)
-            If StrComp(Left$(Trim$(txt), Len(kode)), kode, vbTextCompare) <> 0 Then
-                SpanHarAnnenAktivitet = True: Exit Function
-            End If
-        ElseIf cel.Interior.ColorIndex <> xlColorIndexNone Then
-            If FargeNærAktivitet(cel.Interior.Color, farger) Then
-                SpanHarAnnenAktivitet = True: Exit Function
+        If Not cel Is Nothing Then
+            erBold = cel.Font.Bold
+            If Len(Trim$(cel.Value)) > 0 And erBold Then
+                txt = CStr(cel.Value)
+                If StrComp(Left$(Trim$(txt), Len(kode)), kode, vbTextCompare) <> 0 Then
+                    SpanHarAnnenAktivitet = True: Exit Function
+                End If
+            ElseIf cel.Interior.ColorIndex <> xlColorIndexNone Then
+                If FargeNærAktivitet(cel.Interior.Color, farger) Then
+                    SpanHarAnnenAktivitet = True: Exit Function
+                End If
             End If
         End If
     Next c
@@ -378,6 +382,7 @@ Private Sub NullstillTilHvitMedGrid(cel As Range)
     ' Ingen diagonaler, hvit bakgrunn, heltrukne tynne ytterkanter
     If cel Is Nothing Then Exit Sub
 
+    On Error Resume Next
     cel.ClearComments
     cel.ClearContents
     cel.Font.Bold = False
