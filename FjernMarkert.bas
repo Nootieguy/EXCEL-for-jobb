@@ -34,22 +34,22 @@ Public Sub FjernAktivitetPåMarkering()
     Dim hovedRad As Long
     Dim berørteHovedrader As Object
 
-    On Error Resume Next
+    On Error GoTo Cleanup
+
     Set ws = ThisWorkbook.Worksheets(ARK_PLAN)
-    On Error GoTo 0
     If ws Is Nothing Then
         MsgBox "Finner ikke arket '" & ARK_PLAN & "'.", vbCritical
-        Exit Sub
+        GoTo Cleanup
     End If
 
     If TypeName(Selection) <> "Range" Then
         MsgBox "Marker et område i '" & ARK_PLAN & "' først.", vbExclamation
-        Exit Sub
+        GoTo Cleanup
     End If
     Set sel = Intersect(Selection, ws.UsedRange)
     If sel Is Nothing Then
         MsgBox "Markeringen er tom.", vbExclamation
-        Exit Sub
+        GoTo Cleanup
     End If
 
     Set berørteHovedrader = CreateObject("Scripting.Dictionary")
@@ -63,7 +63,7 @@ Public Sub FjernAktivitetPåMarkering()
     ' Lagre undo-snapshot før endringer
     On Error Resume Next
     LagUndoSnapshot sel
-    On Error GoTo 0
+    On Error GoTo Cleanup
 
     Application.ScreenUpdating = False
     Application.EnableEvents = False  ' Disable events for å unngå rekursjon
@@ -159,7 +159,9 @@ Public Sub FjernAktivitetPåMarkering()
     ' Sikre at alle person-skillelinjer er på plass
     GjenopprettPersonSkiller ws
 
-    Application.EnableEvents = True  ' Re-enable events
+Cleanup:
+    ' ALLTID reaktiver events og screen updating før vi forlater makroen
+    Application.EnableEvents = True
     Application.ScreenUpdating = True
 End Sub
 
