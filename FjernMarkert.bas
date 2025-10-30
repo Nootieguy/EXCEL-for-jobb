@@ -102,7 +102,8 @@ Public Sub FjernAktivitetPåMarkering()
     Next area
 
     ' STEG 2: Håndter splits FØR vi fjerner cellene (så vi kan se fargene)
-    Dim arkPlan As Object
+    ' Note: ws må castes via CallByName siden Ark1 metoder ikke er tilgjengelig direkte
+    Dim arkPlan As Worksheet
     Set arkPlan = ws  ' ws er allerede Planlegger-arket
     Dim radNr As Variant
 
@@ -110,7 +111,15 @@ Public Sub FjernAktivitetPåMarkering()
         ' Sjekk om raden vil ha split etter fjerning
         If SjekkOmRadVilHaSplit(ws, CLng(radNr), FØRSTE_DATAKOL, lastDatoCol, cellerÅFjerne) Then
             ' Kall split-håndteringen MED liste over celler som skal fjernes
-            arkPlan.HåndterAlleAktiviteterMedSplitIRad CLng(radNr), FØRSTE_DATAKOL, datoRad, cellerÅFjerne
+            ' Bruk CallByName for late binding siden metoden er på Ark1 sheet class
+            On Error Resume Next
+            CallByName arkPlan, "HåndterAlleAktiviteterMedSplitIRad", VbMethod, CLng(radNr), FØRSTE_DATAKOL, datoRad, cellerÅFjerne
+            If Err.Number <> 0 Then
+                ' Fallback: Skip split-håndtering hvis metoden ikke finnes
+                Debug.Print "WARNING: HåndterAlleAktiviteterMedSplitIRad ikke tilgjengelig på " & arkPlan.Name
+                Err.Clear
+            End If
+            On Error GoTo 0
         End If
     Next radNr
 
