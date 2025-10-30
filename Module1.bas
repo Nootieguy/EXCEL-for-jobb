@@ -46,46 +46,46 @@ Public Sub LeggInnAktivitet()
     Dim farge As Long
     Dim farger As Object
 
-    On Error Resume Next
+    On Error GoTo Cleanup
+
     Set wsPlan = ThisWorkbook.Worksheets(ARK_PLAN)
     Set wsTyp = ThisWorkbook.Worksheets(ARK_OVERSIKT)
-    On Error GoTo 0
     If wsPlan Is Nothing Or wsTyp Is Nothing Then
         MsgBox "Finner ikke arkene '" & ARK_PLAN & "' og/eller '" & ARK_OVERSIKT & "'.", vbCritical
-        Exit Sub
+        GoTo Cleanup
     End If
 
     On Error Resume Next
     Set personCell = Application.InputBox( _
         prompt:="Klikk en celle i kolonne A på '" & ARK_PLAN & "' (rad " & FØRSTE_PERSONRAD & "+).", _
         Title:="Velg person", Type:=8)
-    On Error GoTo 0
-    If personCell Is Nothing Then Exit Sub
+    On Error GoTo Cleanup
+    If personCell Is Nothing Then GoTo Cleanup
     If personCell.Column <> 1 Or personCell.Row < FØRSTE_PERSONRAD Then
         MsgBox "Velg i kolonne A fra rad " & FØRSTE_PERSONRAD & " og nedover.", vbExclamation
-        Exit Sub
+        GoTo Cleanup
     End If
     personRow = personCell.Row
 
     kode = UCase$(Trim(InputBox("AktivitetsKODE (f.eks. TL, SIC, SAR):", "Aktivitetskode")))
-    If Len(kode) = 0 Then Exit Sub
+    If Len(kode) = 0 Then GoTo Cleanup
     If Not SlåOppAktivitet(wsTyp, kode, beskrivelse, farge) Then
         MsgBox "Fant ikke koden i '" & ARK_OVERSIKT & "'.", vbCritical
-        Exit Sub
+        GoTo Cleanup
     End If
 
-    If Not HentDato("Startdato (dd.mm.åååå):", startDato) Then Exit Sub
-    If Not HentDato("Sluttdato (dd.mm.åååå):", sluttDato) Then Exit Sub
+    If Not HentDato("Startdato (dd.mm.åååå):", startDato) Then GoTo Cleanup
+    If Not HentDato("Sluttdato (dd.mm.åååå):", sluttDato) Then GoTo Cleanup
     If sluttDato < startDato Then
         MsgBox "Sluttdato kan ikke være før startdato.", vbExclamation
-        Exit Sub
+        GoTo Cleanup
     End If
 
     startCol = FinnKolonneForDato_Rad13(wsPlan, startDato, FØRSTE_DATAKOL, datoRad)
     sluttCol = FinnKolonneForDato_Rad13(wsPlan, sluttDato, FØRSTE_DATAKOL, datoRad)
     If startCol = 0 Or sluttCol = 0 Then
         MsgBox "Fant ikke start/sluttdato i rad " & datoRad & ".", vbCritical
-        Exit Sub
+        GoTo Cleanup
     End If
     If sluttCol < startCol Then
         Dim t As Long, td As Date
@@ -101,14 +101,13 @@ Public Sub LeggInnAktivitet()
     målRad = FinnEllerOpprettLedigRad_UtenNavn(wsPlan, personRow, startCol, sluttCol, farger)
     If målRad = 0 Then
         MsgBox "Fant/skapte ikke ledig rad.", vbCritical
-        Application.EnableEvents = True
-        Exit Sub
+        GoTo Cleanup
     End If
 
     ' Lagre undo-snapshot før endringer
     On Error Resume Next
     LagUndoSnapshot wsPlan.Range(wsPlan.Cells(målRad, startCol), wsPlan.Cells(målRad, sluttCol))
-    On Error GoTo 0
+    On Error GoTo Cleanup
 
     kommentar = InputBox("Kommentar (valgfritt - vises i blokken):", "Kommentar")
     If Len(Trim$(kommentar)) > 0 Then
@@ -119,8 +118,10 @@ Public Sub LeggInnAktivitet()
 
     ApplyBlockFormatting wsPlan, målRad, startCol, sluttCol, farge, visTekst, farger
 
-    ' Reaktiver events
+Cleanup:
+    ' ALLTID reaktiver events før vi forlater makroen
     Application.EnableEvents = True
+    Application.ScreenUpdating = True
 End Sub
 
 ' ===================== MÅTE 2 =====================
@@ -135,30 +136,30 @@ Public Sub LeggInnAktivitetPåMarkering()
     Dim r As Long, cMin As Long, cMax As Long
     Dim lastDatoCol As Long, målRad As Long, hovedRad As Long
 
-    On Error Resume Next
+    On Error GoTo Cleanup
+
     Set wsPlan = ThisWorkbook.Worksheets(ARK_PLAN)
     Set wsTyp = ThisWorkbook.Worksheets(ARK_OVERSIKT)
-    On Error GoTo 0
     If wsPlan Is Nothing Or wsTyp Is Nothing Then
         MsgBox "Finner ikke arkene '" & ARK_PLAN & "' og/eller '" & ARK_OVERSIKT & "'.", vbCritical
-        Exit Sub
+        GoTo Cleanup
     End If
 
     If TypeName(Selection) <> "Range" Then
         MsgBox "Marker et område i '" & ARK_PLAN & "' først.", vbExclamation
-        Exit Sub
+        GoTo Cleanup
     End If
     Set sel = Intersect(Selection, wsPlan.UsedRange)
     If sel Is Nothing Then
         MsgBox "Markeringen er tom.", vbExclamation
-        Exit Sub
+        GoTo Cleanup
     End If
 
     kode = UCase$(Trim(InputBox("AktivitetsKODE (f.eks. TL, SIC, SAR):", "Aktivitetskode")))
-    If Len(kode) = 0 Then Exit Sub
+    If Len(kode) = 0 Then GoTo Cleanup
     If Not SlaaOppAktivitet(wsTyp, kode, beskrivelse, farge) Then
         MsgBox "Fant ikke koden i '" & ARK_OVERSIKT & "'.", vbCritical
-        Exit Sub
+        GoTo Cleanup
     End If
 
     kommentar = InputBox("Kommentar (valgfritt - vises i blokken):", "Kommentar")
@@ -176,7 +177,7 @@ Public Sub LeggInnAktivitetPåMarkering()
     ' Lagre undo-snapshot før endringer
     On Error Resume Next
     LagUndoSnapshot sel
-    On Error GoTo 0
+    On Error GoTo Cleanup
 
     Application.ScreenUpdating = False
     lastDatoCol = SisteDatoKolonne(wsPlan, datoRad)
@@ -203,10 +204,10 @@ nesteRad:
         Next r
     Next area
 
-    Application.ScreenUpdating = True
-
-    ' Reaktiver events
+Cleanup:
+    ' ALLTID reaktiver events og screen updating før vi forlater makroen
     Application.EnableEvents = True
+    Application.ScreenUpdating = True
 End Sub
 
 ' ---------------- HJELPERE (Public der nødvendig) ----------------
