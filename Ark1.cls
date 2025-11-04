@@ -311,6 +311,8 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                 Dim høyreNabo As Range
                 Dim venstreNabo As Range
                 Dim dragRng As Range
+                Dim gjenCel As Range
+                Dim gjenRng As Range
                 harOverlapp = False
                 dragFarge = c.Interior.Color
                 dragTekst = c.Value
@@ -364,16 +366,134 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                     End If
                 End If
 
-                ' Hvis det er overlapp, UNDO og legg dragget på ny under-rad
+                ' Hvis det er overlapp, gjenopprett original og legg drag på ny rad
                 If harOverlapp Then
                     If DEBUG_MODE Then
-                        Debug.Print "OVERLAPP DETEKTERT: Bruker Undo for å gjenopprette original, deretter legger drag på ny rad"
+                        Debug.Print "OVERLAPP DETEKTERT: Gjenoppretter original aktivitet fra naboer"
                     End If
 
-                    ' STEG 1: Undo for å gjenopprette det som var der før (f.eks. TL-aktiviteten)
-                    Application.Undo
+                    ' STEG 1: Finn hele den originale aktiviteten ved å skanne naboer
+                    Dim orgStartCol As Long, orgSluttCol As Long
+                    Dim orgFarge As Long, orgTekst As String
+                    Dim orgAktivitetFunnet As Boolean
 
-                    ' STEG 2: Finn hovedrad for denne raden
+                    orgAktivitetFunnet = False
+
+                    ' Sjekk høyre nabo først
+                    If sluttCol < lastCol Then
+                        If HarAktivitetsfarge(høyreNabo) Then
+                            orgFarge = høyreNabo.Interior.Color
+                            orgStartCol = sluttCol + 1
+
+                            ' Skann videre til høyre for å finne hele aktiviteten
+                            orgSluttCol = orgStartCol
+                            For col = orgStartCol + 1 To lastCol
+                                If FargeAvstand(Me.Cells(c.Row, col).Interior.Color, orgFarge) <= 10 Then
+                                    orgSluttCol = col
+                                Else
+                                    Exit For
+                                End If
+                            Next col
+
+                            ' Finn teksten fra første fete celle i denne aktiviteten
+                            For col = orgStartCol To orgSluttCol
+                                If Me.Cells(c.Row, col).Font.Bold And Len(Trim$(Me.Cells(c.Row, col).Value)) > 0 Then
+                                    orgTekst = Trim$(Me.Cells(c.Row, col).Value)
+                                    Exit For
+                                End If
+                            Next col
+
+                            orgAktivitetFunnet = True
+
+                            If DEBUG_MODE Then
+                                Debug.Print "  Original aktivitet funnet til høyre: '" & orgTekst & "' (kol " & orgStartCol & "-" & orgSluttCol & ")"
+                            End If
+                        End If
+                    End If
+
+                    ' Hvis ikke funnet til høyre, sjekk venstre
+                    If Not orgAktivitetFunnet And c.Column > førsteDatoKol Then
+                        If HarAktivitetsfarge(venstreNabo) Then
+                            orgFarge = venstreNabo.Interior.Color
+                            orgSluttCol = c.Column - 1
+
+                            ' Skann videre til venstre for å finne hele aktiviteten
+                            orgStartCol = orgSluttCol
+                            For col = orgSluttCol - 1 To førsteDatoKol Step -1
+                                If FargeAvstand(Me.Cells(c.Row, col).Interior.Color, orgFarge) <= 10 Then
+                                    orgStartCol = col
+                                Else
+                                    Exit For
+                                End If
+                            Next col
+
+                            ' Finn teksten
+                            For col = orgStartCol To orgSluttCol
+                                If Me.Cells(c.Row, col).Font.Bold And Len(Trim$(Me.Cells(c.Row, col).Value)) > 0 Then
+                                    orgTekst = Trim$(Me.Cells(c.Row, col).Value)
+                                    Exit For
+                                End If
+                            Next col
+
+                            orgAktivitetFunnet = True
+
+                            If DEBUG_MODE Then
+                                Debug.Print "  Original aktivitet funnet til venstre: '" & orgTekst & "' (kol " & orgStartCol & "-" & orgSluttCol & ")"
+                            End If
+                        End If
+                    End If
+
+                    If orgAktivitetFunnet Then
+                        ' STEG 2: Gjenopprett den originale aktiviteten i drag-området
+                        For col = c.Column To sluttCol
+                            Set gjenCel = Me.Cells(c.Row, col)
+
+                            ' Sett samme farge og formatering som original
+                            gjenCel.Interior.Color = orgFarge
+                            gjenCel.Font.Bold = True
+                            gjenCel.Font.Color = RGB(255, 255, 255)
+                            gjenCel.VerticalAlignment = xlCenter
+
+                            ' Første celle får teksten
+                            If col = c.Column Then
+                                gjenCel.Value = orgTekst
+                                gjenCel.HorizontalAlignment = xlCenterAcrossSelection
+                            Else
+                                gjenCel.Value = ""
+                                gjenCel.HorizontalAlignment = xlCenterAcrossSelection
+                            End If
+                        Next col
+
+                        ' Sett borders for den gjenopprettede aktiviteten
+                        Set gjenRng = Me.Range(Me.Cells(c.Row, c.Column), Me.Cells(c.Row, sluttCol))
+                        gjenRng.Borders.LineStyle = xlLineStyleNone
+                        With gjenRng.Borders(xlEdgeLeft)
+                            .LineStyle = xlContinuous
+                            .Weight = xlThick
+                            .Color = RGB(0, 0, 0)
+                        End With
+                        With gjenRng.Borders(xlEdgeRight)
+                            .LineStyle = xlContinuous
+                            .Weight = xlThick
+                            .Color = RGB(0, 0, 0)
+                        End With
+                        With gjenRng.Borders(xlEdgeTop)
+                            .LineStyle = xlContinuous
+                            .Weight = xlThick
+                            .Color = RGB(0, 0, 0)
+                        End With
+                        With gjenRng.Borders(xlEdgeBottom)
+                            .LineStyle = xlContinuous
+                            .Weight = xlThick
+                            .Color = RGB(0, 0, 0)
+                        End With
+
+                        If DEBUG_MODE Then
+                            Debug.Print "  ✓ Original aktivitet gjenopprettet i celle " & c.Column & "-" & sluttCol
+                        End If
+                    End If
+
+                    ' STEG 3: Finn hovedrad for personen
                     Dim personHovedRad As Long
                     personHovedRad = c.Row
                     Dim r As Long
@@ -384,7 +504,7 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                         End If
                     Next r
 
-                    ' STEG 3: Hent aktivitetsfarger fra AKTIVITETSTYPER
+                    ' STEG 4: Hent aktivitetsfarger fra AKTIVITETSTYPER
                     Dim wsTyp As Worksheet
                     Dim aktivitetsFarger As Object
                     On Error Resume Next
@@ -397,18 +517,18 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                         On Error GoTo NesteCelle
 
                         If Not aktivitetsFarger Is Nothing Then
-                            ' STEG 4: Finn ledig rad (oppretter ny hvis nødvendig)
+                            ' STEG 5: Finn ledig rad (oppretter ny hvis nødvendig)
                             Dim nyRad As Long
                             On Error Resume Next
                             nyRad = Application.Run("FinnEllerOpprettLedigRad_UtenNavn", Me, personHovedRad, c.Column, sluttCol, aktivitetsFarger)
                             On Error GoTo NesteCelle
 
-                            If nyRad > 0 Then
+                            If nyRad > 0 And nyRad <> c.Row Then
                                 If DEBUG_MODE Then
                                     Debug.Print "  Legger dragget på rad " & nyRad & " (kolonner " & c.Column & "-" & sluttCol & ")"
                                 End If
 
-                                ' STEG 5: Plasser dragget på ny rad ved å bruke lagrede data
+                                ' STEG 6: Plasser dragget på ny rad
                                 For col = c.Column To sluttCol
                                     Set dragCel = Me.Cells(nyRad, col)
                                     dragCel.Value = dragData(col, 1)
@@ -420,13 +540,9 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                                     dragCel.WrapText = dragData(col, 7)
                                 Next col
 
-                                ' STEG 6: Sett borders for hele blokken
+                                ' STEG 7: Sett borders for dragget
                                 Set dragRng = Me.Range(Me.Cells(nyRad, c.Column), Me.Cells(nyRad, sluttCol))
-
-                                ' Fjern alle borders først
                                 dragRng.Borders.LineStyle = xlLineStyleNone
-
-                                ' Sett thick border rundt hele blokken
                                 With dragRng.Borders(xlEdgeLeft)
                                     .LineStyle = xlContinuous
                                     .Weight = xlThick
@@ -447,12 +563,10 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                                     .Weight = xlThick
                                     .Color = RGB(0, 0, 0)
                                 End With
-
-                                ' Fjern inside borders
                                 dragRng.Borders(xlInsideVertical).LineStyle = xlLineStyleNone
                                 dragRng.Borders(xlInsideHorizontal).LineStyle = xlLineStyleNone
 
-                                ' STEG 7: Marker alle celler som behandlet
+                                ' STEG 8: Marker alle celler som behandlet
                                 For markerCol = c.Column To sluttCol
                                     behandledeCeller.Add Me.Cells(c.Row, markerCol).Address, True
                                     behandledeCeller.Add Me.Cells(nyRad, markerCol).Address, True
