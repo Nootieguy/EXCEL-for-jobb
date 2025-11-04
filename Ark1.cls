@@ -308,6 +308,7 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                 Dim eksisterendeTekst As String
                 Dim dragFarge As Long
                 Dim dragTekst As String
+                Dim markerCol As Long
                 harOverlapp = False
 
                 ' VIKTIG: Lagre ALLE detaljer om dragget FØRST (før undo)
@@ -451,7 +452,6 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                     Call FiksMultiCelleAktivitet(c, sluttCol, c.Interior.Color)
 
                     ' Marker alle celler i blokken som behandlet
-                    Dim markerCol As Long
                     For markerCol = c.Column To sluttCol
                         behandledeCeller.Add Me.Cells(c.Row, markerCol).Address, True
                     Next markerCol
