@@ -310,6 +310,7 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                 Dim ryddCel As Range
                 Dim høyreNabo As Range
                 Dim venstreNabo As Range
+                Dim dragRng As Range
                 harOverlapp = False
                 dragFarge = c.Interior.Color
                 dragTekst = c.Value
@@ -363,59 +364,14 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                     End If
                 End If
 
-                ' Hvis det er overlapp, rydd drag-området og legg på ny under-rad
+                ' Hvis det er overlapp, UNDO og legg dragget på ny under-rad
                 If harOverlapp Then
                     If DEBUG_MODE Then
-                        Debug.Print "OVERLAPP DETEKTERT: Rydder drag og oppretter ny under-rad"
+                        Debug.Print "OVERLAPP DETEKTERT: Bruker Undo for å gjenopprette original, deretter legger drag på ny rad"
                     End If
 
-                    ' STEG 1: Rydd drag-området (fjern det som ble dratt)
-                    For col = c.Column To sluttCol
-                        Set ryddCel = Me.Cells(c.Row, col)
-
-                        ' Rens cellen helt
-                        ryddCel.ClearContents
-                        ryddCel.ClearComments
-                        ryddCel.Font.Bold = False
-                        ryddCel.Font.ColorIndex = xlColorIndexAutomatic
-                        ryddCel.HorizontalAlignment = xlGeneral
-                        ryddCel.VerticalAlignment = xlCenter
-                        ryddCel.WrapText = False
-
-                        ' Sett hvit bakgrunn
-                        With ryddCel.Interior
-                            .Pattern = xlSolid
-                            .TintAndShade = 0
-                            .Color = RGB(255, 255, 255)
-                            .PatternTintAndShade = 0
-                        End With
-
-                        ' Fjern diagonaler
-                        ryddCel.Borders(xlDiagonalDown).LineStyle = xlLineStyleNone
-                        ryddCel.Borders(xlDiagonalUp).LineStyle = xlLineStyleNone
-
-                        ' Sett standard rutenett
-                        With ryddCel.Borders(xlEdgeLeft)
-                            .LineStyle = xlContinuous
-                            .Weight = xlThin
-                            .Color = RGB(0, 0, 0)
-                        End With
-                        With ryddCel.Borders(xlEdgeRight)
-                            .LineStyle = xlContinuous
-                            .Weight = xlThin
-                            .Color = RGB(0, 0, 0)
-                        End With
-                        With ryddCel.Borders(xlEdgeTop)
-                            .LineStyle = xlContinuous
-                            .Weight = xlThin
-                            .Color = RGB(0, 0, 0)
-                        End With
-                        With ryddCel.Borders(xlEdgeBottom)
-                            .LineStyle = xlContinuous
-                            .Weight = xlThin
-                            .Color = RGB(0, 0, 0)
-                        End With
-                    Next col
+                    ' STEG 1: Undo for å gjenopprette det som var der før (f.eks. TL-aktiviteten)
+                    Application.Undo
 
                     ' STEG 2: Finn hovedrad for denne raden
                     Dim personHovedRad As Long
@@ -449,7 +405,7 @@ Private Sub Worksheet_Change(ByVal Target As Range)
 
                             If nyRad > 0 Then
                                 If DEBUG_MODE Then
-                                    Debug.Print "  Legger dragget på rad " & nyRad
+                                    Debug.Print "  Legger dragget på rad " & nyRad & " (kolonner " & c.Column & "-" & sluttCol & ")"
                                 End If
 
                                 ' STEG 5: Plasser dragget på ny rad ved å bruke lagrede data
@@ -464,8 +420,37 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                                     dragCel.WrapText = dragData(col, 7)
                                 Next col
 
-                                ' STEG 6: Fiks formateringen på ny rad
-                                Call FiksMultiCelleAktivitet(Me.Cells(nyRad, c.Column), sluttCol, dragFarge)
+                                ' STEG 6: Sett borders for hele blokken
+                                Set dragRng = Me.Range(Me.Cells(nyRad, c.Column), Me.Cells(nyRad, sluttCol))
+
+                                ' Fjern alle borders først
+                                dragRng.Borders.LineStyle = xlLineStyleNone
+
+                                ' Sett thick border rundt hele blokken
+                                With dragRng.Borders(xlEdgeLeft)
+                                    .LineStyle = xlContinuous
+                                    .Weight = xlThick
+                                    .Color = RGB(0, 0, 0)
+                                End With
+                                With dragRng.Borders(xlEdgeRight)
+                                    .LineStyle = xlContinuous
+                                    .Weight = xlThick
+                                    .Color = RGB(0, 0, 0)
+                                End With
+                                With dragRng.Borders(xlEdgeTop)
+                                    .LineStyle = xlContinuous
+                                    .Weight = xlThick
+                                    .Color = RGB(0, 0, 0)
+                                End With
+                                With dragRng.Borders(xlEdgeBottom)
+                                    .LineStyle = xlContinuous
+                                    .Weight = xlThick
+                                    .Color = RGB(0, 0, 0)
+                                End With
+
+                                ' Fjern inside borders
+                                dragRng.Borders(xlInsideVertical).LineStyle = xlLineStyleNone
+                                dragRng.Borders(xlInsideHorizontal).LineStyle = xlLineStyleNone
 
                                 ' STEG 7: Marker alle celler som behandlet
                                 For markerCol = c.Column To sluttCol
