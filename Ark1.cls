@@ -302,6 +302,149 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                     End If
                 Next col
 
+                ' OVERLAPP-SJEKK: Bruk Undo for å sjekke om det var en annen aktivitet der før
+                Dim harOverlapp As Boolean
+                Dim eksisterendeFarge As Long
+                Dim eksisterendeTekst As String
+                Dim dragFarge As Long
+                Dim dragTekst As String
+                harOverlapp = False
+
+                ' VIKTIG: Lagre ALLE detaljer om dragget FØRST (før undo)
+                dragFarge = c.Interior.Color
+                dragTekst = c.Value
+
+                ' Lagre komplett formatering for hele drag-spannet
+                Dim dragData() As Variant
+                ReDim dragData(c.Column To sluttCol, 1 To 10)  ' Nok plass for alle properties
+
+                For col = c.Column To sluttCol
+                    Dim dragCel As Range
+                    Set dragCel = Me.Cells(c.Row, col)
+
+                    dragData(col, 1) = dragCel.Value
+                    dragData(col, 2) = dragCel.Interior.Color
+                    dragData(col, 3) = dragCel.Font.Bold
+                    dragData(col, 4) = dragCel.Font.Color
+                    dragData(col, 5) = dragCel.HorizontalAlignment
+                    dragData(col, 6) = dragCel.VerticalAlignment
+                    dragData(col, 7) = dragCel.WrapText
+                Next col
+
+                ' Midlertidig undo for å se hva som var der før
+                Application.Undo
+
+                ' Sjekk første celle i spannet - hadde den en annen aktivitet?
+                If HarAktivitetsfarge(c) Then
+                    eksisterendeFarge = c.Interior.Color
+                    eksisterendeTekst = c.Value
+
+                    ' Sjekk om det er en ANNEN aktivitet (forskjellig farge)
+                    If FargeAvstand(eksisterendeFarge, dragFarge) > 10 Then
+                        harOverlapp = True
+
+                        If DEBUG_MODE Then
+                            Debug.Print "OVERLAPP: Detekterte tidligere aktivitet med farge " & eksisterendeFarge & " vs ny farge " & dragFarge
+                        End If
+                    ElseIf Len(Trim$(eksisterendeTekst)) > 0 And StrComp(Trim$(eksisterendeTekst), Trim$(dragTekst), vbTextCompare) <> 0 Then
+                        ' Samme farge men forskjellig tekst = forskjellig aktivitet
+                        harOverlapp = True
+
+                        If DEBUG_MODE Then
+                            Debug.Print "OVERLAPP: Detekterte tidligere aktivitet med tekst '" & eksisterendeTekst & "' vs ny tekst '" & dragTekst & "'"
+                        End If
+                    End If
+                End If
+
+                ' Hvis IKKE overlapp, bare gjenopprett dragget og fortsett normalt
+                If Not harOverlapp Then
+                    ' Gjenopprett dragget manuelt
+                    For col = c.Column To sluttCol
+                        Set dragCel = Me.Cells(c.Row, col)
+                        dragCel.Value = dragData(col, 1)
+                        dragCel.Interior.Color = dragData(col, 2)
+                        dragCel.Font.Bold = dragData(col, 3)
+                        dragCel.Font.Color = dragData(col, 4)
+                        dragCel.HorizontalAlignment = dragData(col, 5)
+                        dragCel.VerticalAlignment = dragData(col, 6)
+                        dragCel.WrapText = dragData(col, 7)
+                    Next col
+                End If
+
+                ' Hvis det er overlapp, flytt til ny under-rad
+                If harOverlapp Then
+                    If DEBUG_MODE Then
+                        Debug.Print "OVERLAPP DETEKTERT: Drar aktivitet oppå eksisterende - oppretter ny under-rad"
+                    End If
+
+                    ' Finn hovedrad for denne raden
+                    Dim personHovedRad As Long
+                    personHovedRad = c.Row
+                    Dim r As Long
+                    For r = c.Row To førstePersonRad Step -1
+                        If Len(Trim$(Me.Cells(r, 1).Value)) > 0 Then
+                            personHovedRad = r
+                            Exit For
+                        End If
+                    Next r
+
+                    ' Hent aktivitetsfarger fra AKTIVITETSTYPER
+                    Dim wsTyp As Worksheet
+                    Dim aktivitetsFarger As Object
+                    On Error Resume Next
+                    Set wsTyp = ThisWorkbook.Worksheets("AKTIVITETSTYPER - OVERSIKT")
+                    On Error GoTo NesteCelle
+
+                    If Not wsTyp Is Nothing Then
+                        ' Bruk Module1's funksjon for å hente farger
+                        On Error Resume Next
+                        Set aktivitetsFarger = Application.Run("HentAktivitetsFarger", wsTyp)
+                        On Error GoTo NesteCelle
+
+                        If Not aktivitetsFarger Is Nothing Then
+                            ' Finn ledig rad (oppretter ny hvis nødvendig)
+                            Dim nyRad As Long
+                            On Error Resume Next
+                            nyRad = Application.Run("FinnEllerOpprettLedigRad_UtenNavn", Me, personHovedRad, c.Column, sluttCol, aktivitetsFarger)
+                            On Error GoTo NesteCelle
+
+                            If nyRad > 0 Then
+                                ' Legg dragget på ny rad
+                                If DEBUG_MODE Then
+                                    Debug.Print "  Legger dragget på rad " & nyRad
+                                End If
+
+                                ' Plasser dragget på ny rad ved å bruke lagrede data
+                                For col = c.Column To sluttCol
+                                    Set dragCel = Me.Cells(nyRad, col)
+                                    dragCel.Value = dragData(col, 1)
+                                    dragCel.Interior.Color = dragData(col, 2)
+                                    dragCel.Font.Bold = dragData(col, 3)
+                                    dragCel.Font.Color = dragData(col, 4)
+                                    dragCel.HorizontalAlignment = dragData(col, 5)
+                                    dragCel.VerticalAlignment = dragData(col, 6)
+                                    dragCel.WrapText = dragData(col, 7)
+                                Next col
+
+                                ' Fiks formateringen på ny rad
+                                Call FiksMultiCelleAktivitet(Me.Cells(nyRad, c.Column), sluttCol, dragFarge)
+
+                                ' Marker alle celler som behandlet
+                                For markerCol = c.Column To sluttCol
+                                    behandledeCeller.Add Me.Cells(c.Row, markerCol).Address, True
+                                    behandledeCeller.Add Me.Cells(nyRad, markerCol).Address, True
+                                Next markerCol
+
+                                If DEBUG_MODE Then
+                                    Debug.Print "  ✓ Dragget plassert på ny rad " & nyRad
+                                End If
+
+                                GoTo NesteCelle
+                            End If
+                        End If
+                    End If
+                End If
+
                 ' Hvis vi fant flere celler med samme farge, fiks formateringen
                 If sluttCol > c.Column Then
                     ' Fiks formateringen for hele blokken
