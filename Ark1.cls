@@ -302,13 +302,151 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                     End If
                 Next col
 
+                ' OVERLAPP-SJEKK: Sjekk naboer for å detektere overlapp
+                Dim harOverlapp As Boolean
+                Dim dragFarge As Long
+                Dim dragTekst As String
+                Dim markerCol As Long
+                Dim ryddCel As Range
+                Dim høyreNabo As Range
+                Dim venstreNabo As Range
+                Dim dragRng As Range
+                Dim dragCel As Range
+                Dim gjenCel As Range
+                Dim gjenRng As Range
+                harOverlapp = False
+                dragFarge = c.Interior.Color
+                dragTekst = c.Value
+
+                ' MERK: dragData er ikke lenger brukt, bruker dragTekst og dragFarge istedenfor
+
+                ' Sjekk HØYRE nabo: Er det en annen aktivitet der?
+                ' Dette skjer når brukeren drar en aktivitet inn i første celle av en annen aktivitet
+                If sluttCol < lastCol Then
+                    Set høyreNabo = Me.Cells(c.Row, sluttCol + 1)
+
+                    If HarAktivitetsfarge(høyreNabo) Then
+                        ' Høyre nabo har aktivitetsfarge - sjekk om det er en ANNEN aktivitet
+                        If FargeAvstand(høyreNabo.Interior.Color, dragFarge) > 10 Then
+                            harOverlapp = True
+
+                            If DEBUG_MODE Then
+                                Debug.Print "OVERLAPP: Høyre nabo har annen farge " & høyreNabo.Interior.Color & " vs drag-farge " & dragFarge
+                            End If
+                        End If
+                    End If
+                End If
+
+                ' Sjekk VENSTRE nabo også (hvis brukeren drar til slutten av en aktivitet)
+                If Not harOverlapp And c.Column > førsteDatoKol Then
+                    Set venstreNabo = Me.Cells(c.Row, c.Column - 1)
+
+                    If HarAktivitetsfarge(venstreNabo) Then
+                        If FargeAvstand(venstreNabo.Interior.Color, dragFarge) > 10 Then
+                            harOverlapp = True
+
+                            If DEBUG_MODE Then
+                                Debug.Print "OVERLAPP: Venstre nabo har annen farge " & venstreNabo.Interior.Color & " vs drag-farge " & dragFarge
+                            End If
+                        End If
+                    End If
+                End If
+
+                ' Hvis det er overlapp, fiks navn på ALLE aktiviteter på raden
+                If harOverlapp Then
+                    If DEBUG_MODE Then
+                        Debug.Print "OVERLAPP DETEKTERT: Fikser navn på alle aktiviteter på raden"
+                    End If
+
+                    Dim debugMsg As String
+                    debugMsg = "Overlapp detektert! Skanner rad " & c.Row & vbCrLf & vbCrLf
+
+                    ' Skann hele raden fra førsteDatoKol til lastCol
+                    ' For hver aktivitet: sjekk om fargen matcher navnet, hvis ikke - fiks det
+                    Dim overlapScanCol As Long
+                    overlapScanCol = førsteDatoKol
+
+                    Do While overlapScanCol <= lastCol
+                        Dim overlapScanCel As Range
+                        Set overlapScanCel = Me.Cells(c.Row, overlapScanCol)
+
+                        ' Hvis dette er start av en aktivitet (har tekst og aktivitetsfarge)
+                        If HarAktivitetsfarge(overlapScanCel) And Len(Trim$(overlapScanCel.Value)) > 0 Then
+                            Dim aktFarge As Long
+                            Dim aktTekst As String
+                            Dim aktStartCol As Long
+                            Dim aktSluttCol As Long
+
+                            aktFarge = overlapScanCel.Interior.Color
+                            aktTekst = Trim$(overlapScanCel.Value)
+                            aktStartCol = overlapScanCol
+
+                            debugMsg = debugMsg & "Kol " & overlapScanCol & ": Farge=" & aktFarge & ", Tekst='" & aktTekst & "'" & vbCrLf
+
+                            ' Finn slutten av denne aktiviteten
+                            aktSluttCol = aktStartCol
+                            For col = aktStartCol + 1 To lastCol
+                                If FargeAvstand(Me.Cells(c.Row, col).Interior.Color, aktFarge) <= 10 Then
+                                    aktSluttCol = col
+                                Else
+                                    Exit For
+                                End If
+                            Next col
+
+                            debugMsg = debugMsg & "  Spenn: " & aktStartCol & "-" & aktSluttCol & vbCrLf
+
+                            ' Slå opp riktig navn fra fargen
+                            Dim riktigBeskrivelse As String, riktigKode As String
+                            riktigKode = SlåOppAktivitetFraFarge(aktFarge, riktigBeskrivelse)
+                            If Len(riktigKode) > 0 Then
+                                Dim riktigTekst As String
+                                If Len(riktigBeskrivelse) > 0 Then
+                                    riktigTekst = riktigKode & " - " & riktigBeskrivelse
+                                Else
+                                    riktigTekst = riktigKode
+                                End If
+
+                                debugMsg = debugMsg & "  Riktig navn: '" & riktigTekst & "'" & vbCrLf
+
+                                ' ALLTID fiks formateringen for å isolere denne aktiviteten
+                                ' Selv om teksten er riktig, må vi sikre at xlCenterAcrossSelection
+                                ' ikke spreder seg utenfor denne aktivitetens område
+
+                                ' Sett riktig tekst i første celle
+                                overlapScanCel.Value = riktigTekst
+                                overlapScanCel.HorizontalAlignment = xlCenterAcrossSelection
+
+                                ' Tøm teksten i resten av cellene i denne aktiviteten
+                                For col = aktStartCol + 1 To aktSluttCol
+                                    Me.Cells(c.Row, col).Value = ""
+                                    Me.Cells(c.Row, col).HorizontalAlignment = xlCenterAcrossSelection
+                                Next col
+
+                                If aktTekst <> riktigTekst Then
+                                    debugMsg = debugMsg & "  FIKSET: '" & aktTekst & "' -> '" & riktigTekst & "'" & vbCrLf
+                                Else
+                                    debugMsg = debugMsg & "  Formatering fikset (tekst var riktig)" & vbCrLf
+                                End If
+                            End If
+
+                            debugMsg = debugMsg & vbCrLf
+
+                            ' Hopp til slutten av denne aktiviteten
+                            overlapScanCol = aktSluttCol + 1
+                        Else
+                            overlapScanCol = overlapScanCol + 1
+                        End If
+                    Loop
+
+                    MsgBox debugMsg, vbInformation
+                End If
+
                 ' Hvis vi fant flere celler med samme farge, fiks formateringen
                 If sluttCol > c.Column Then
                     ' Fiks formateringen for hele blokken
                     Call FiksMultiCelleAktivitet(c, sluttCol, c.Interior.Color)
 
                     ' Marker alle celler i blokken som behandlet
-                    Dim markerCol As Long
                     For markerCol = c.Column To sluttCol
                         behandledeCeller.Add Me.Cells(c.Row, markerCol).Address, True
                     Next markerCol

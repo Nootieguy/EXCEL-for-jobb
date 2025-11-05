@@ -326,9 +326,9 @@ End Function
 ' LIM INN I **Modul 1 - Samlet v3** (eller nyere). Erstatt hele
 ' `FinnEllerOpprettLedigRad_UtenNavn` + legg til helper `NullstillTilHvitMedGrid`.
 
-Private Function FinnEllerOpprettLedigRad_UtenNavn(ws As Worksheet, personRow As Long, _
-                                                   startCol As Long, sluttCol As Long, _
-                                                   ByVal farger As Object) As Long
+Public Function FinnEllerOpprettLedigRad_UtenNavn(ws As Worksheet, personRow As Long, _
+                                                  startCol As Long, sluttCol As Long, _
+                                                  ByVal farger As Object) As Long
     Dim blockStart As Long, blockEnd As Long, r As Long
     Dim rng As Range
     Dim lastCol As Long, c As Long, cel As Range
