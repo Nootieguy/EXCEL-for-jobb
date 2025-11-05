@@ -475,6 +475,10 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                         End If
                     End If
 
+                    MsgBox "DEBUG 2.5: orgAktivitetFunnet = " & orgAktivitetFunnet & vbCrLf & _
+                           "orgTekst = '" & orgTekst & "'" & vbCrLf & _
+                           "orgFarge = " & orgFarge, vbInformation
+
                     If orgAktivitetFunnet Then
                         ' STEG 2: Gjenopprett den originale aktiviteten i drag-området
                         For col = c.Column To sluttCol
@@ -524,6 +528,12 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                             Debug.Print "  ✓ Original aktivitet gjenopprettet i celle " & c.Column & "-" & sluttCol
                             Debug.Print "  dragTekst='" & dragTekst & "', dragFarge=" & dragFarge
                         End If
+
+                        MsgBox "DEBUG 2.8: Rekonstruksjon ferdig!" & vbCrLf & _
+                               "Original gjenopprettet: '" & orgTekst & "'" & vbCrLf & _
+                               "Skal nå plassere drag: '" & dragTekst & "'", vbInformation
+                    Else
+                        MsgBox "DEBUG 2.9: orgAktivitetFunnet = False, hopper over rekonstruksjon", vbExclamation
                     End If
 
                     ' STEG 3: Finn hovedrad for personen
@@ -548,10 +558,15 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                     Set wsTyp = ThisWorkbook.Worksheets("AKTIVITETSTYPER - OVERSIKT")
                     On Error GoTo NesteCelle
 
+                    MsgBox "DEBUG 3: personHovedRad = " & personHovedRad & vbCrLf & _
+                           "wsTyp Is Nothing = " & (wsTyp Is Nothing), vbInformation
+
                     If Not wsTyp Is Nothing Then
                         On Error Resume Next
                         Set aktivitetsFarger = Application.Run("HentAktivitetsFarger", wsTyp)
                         On Error GoTo NesteCelle
+
+                        MsgBox "DEBUG 4: aktivitetsFarger Is Nothing = " & (aktivitetsFarger Is Nothing), vbInformation
 
                         If Not aktivitetsFarger Is Nothing Then
                             ' STEG 5: Finn ledig rad (oppretter ny hvis nødvendig)
