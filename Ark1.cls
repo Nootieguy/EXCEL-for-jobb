@@ -578,16 +578,25 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                                 End If
 
                                 ' STEG 6: Plasser dragget på ny rad
+                                ' VIKTIG: Bruk dragTekst og dragFarge, IKKE dragData (som er korrupt)
                                 For col = c.Column To sluttCol
                                     Set dragCel = Me.Cells(nyRad, col)
-                                    dragCel.Value = dragData(col, 1)
-                                    ' Bruk dragFarge for konsistent farge (ikke dragData som kan være blandet)
+
+                                    ' Første celle får teksten
+                                    If col = c.Column Then
+                                        dragCel.Value = dragTekst
+                                        dragCel.HorizontalAlignment = xlCenterAcrossSelection
+                                    Else
+                                        dragCel.Value = ""
+                                        dragCel.HorizontalAlignment = xlCenterAcrossSelection
+                                    End If
+
+                                    ' Alle celler får samme farge og formatering
                                     dragCel.Interior.Color = dragFarge
-                                    dragCel.Font.Bold = dragData(col, 3)
-                                    dragCel.Font.Color = dragData(col, 4)
-                                    dragCel.HorizontalAlignment = dragData(col, 5)
-                                    dragCel.VerticalAlignment = dragData(col, 6)
-                                    dragCel.WrapText = dragData(col, 7)
+                                    dragCel.Font.Bold = True
+                                    dragCel.Font.Color = RGB(255, 255, 255)
+                                    dragCel.VerticalAlignment = xlCenter
+                                    dragCel.WrapText = False
                                 Next col
 
                                 ' STEG 7: Sett borders for dragget
