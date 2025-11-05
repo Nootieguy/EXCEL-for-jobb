@@ -40,11 +40,15 @@ Private Const DEBUG_MODE As Boolean = False
 ' Rekursjons-beskyttelse
 Private behandlerEndring As Boolean
 
+' Cache for å huske kommentarer per aktivitet (for å kunne gjenopprette etter overlapper)
+Private blokkKommentarCache As Object
+
 ' ============================================================================
 ' EVENT: Når arket aktiveres
 ' ============================================================================
 Private Sub Worksheet_Activate()
     modDagensOutline.MarkerDagensDato_Bla
+    ByggKommentarCache
 End Sub
 
 ' ============================================================================
@@ -105,10 +109,25 @@ Private Sub Worksheet_Change(ByVal Target As Range)
     Dim behandledeCeller As Object
     Set behandledeCeller = CreateObject("Scripting.Dictionary")
 
+    ' Sørg for at kommentar-cache er initialisert
+    If blokkKommentarCache Is Nothing Then
+        Set blokkKommentarCache = CreateObject("Scripting.Dictionary")
+    End If
+
+    ' Track rader som må oppdatere kommentar-cache etter endringer
+    Dim raderForCache As Object
+    Set raderForCache = CreateObject("Scripting.Dictionary")
+
     For Each c In relevantEndring.Cells
         ' Hopp over celler som allerede er behandlet (paste multi-celle)
         If behandledeCeller.Exists(c.Address) Then
             GoTo NesteCelle
+        End If
+
+        Dim radKeyCache As String
+        radKeyCache = CStr(c.Row)
+        If Not raderForCache.Exists(radKeyCache) Then
+            raderForCache.Add radKeyCache, True
         End If
 
         ' Sjekk om cellen er tom
@@ -452,6 +471,21 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                                     debugMsg = debugMsg & "  Fant ikke navn for farge " & aktFarge & vbCrLf
                                 End If
 
+                                If Len(riktigTekst) > 0 Then
+                                    If Not harKommentar Then
+                                        harKommentar = HentKommentarFraCache(c.Row, riktigTekst, aktFarge, kommentarTekst, kommentarErThreaded)
+                                        If harKommentar And DEBUG_MODE Then
+                                            debugMsg = debugMsg & "  Kommentar hentet fra cache" & vbCrLf
+                                        End If
+                                    End If
+
+                                    If harKommentar Then
+                                        OppdaterKommentarCache c.Row, riktigTekst, aktFarge, kommentarTekst, kommentarErThreaded
+                                    Else
+                                        FjernKommentarFraCache c.Row, riktigTekst, aktFarge
+                                    End If
+                                End If
+
                                 ' ALLTID fiks formateringen for å isolere denne aktiviteten
                                 ' Selv om teksten er riktig, må vi sikre at xlCenterAcrossSelection
                                 ' ikke spreder seg utenfor denne aktivitetens område
@@ -460,7 +494,13 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                                 overlapScanCel.Value = riktigTekst
                                 overlapScanCel.HorizontalAlignment = xlCenterAcrossSelection
                                 FjernKommentarer overlapScanCel
-                                If harKommentar Then Call LeggTilKommentar(overlapScanCel, kommentarTekst, kommentarErThreaded)
+                                If harKommentar Then
+                                    Call LeggTilKommentar(overlapScanCel, kommentarTekst, kommentarErThreaded)
+
+                                    If Len(riktigTekst) > 0 Then
+                                        OppdaterKommentarCache c.Row, riktigTekst, aktFarge, kommentarTekst, kommentarErThreaded
+                                    End If
+                                End If
 
                                 ' Tøm teksten i resten av cellene i denne aktiviteten
                                 For col = aktStartCol + 1 To aktSluttCol
@@ -613,6 +653,12 @@ NesteCelle:
             End If
         End If
     Next radKeyCleanup
+
+    ' Oppdater kommentar-cache for alle berørte rader basert på endelig tilstand
+    Dim cacheRad As Variant
+    For Each cacheRad In raderForCache.Keys
+        OppdaterKommentarCacheForRad CLng(cacheRad), førsteDatoKol, datoRad
+    Next cacheRad
 
 Slutt:
     ' STEG 7: Re-enable events og fjern beskyttelsesflagg
@@ -1454,6 +1500,70 @@ Private Sub FjernKommentarer(ByVal cel As Range)
     On Error GoTo 0
 End Sub
 
+' ============================================================================'
+' KOMMENTAR-CACHE: Holder på siste kjente kommentar per aktivitet
+' ============================================================================'
+Private Function KommentarCacheKey(ByVal rad As Long, ByVal aktivitetTekst As String, _
+                                   ByVal aktivitetFarge As Long) As String
+    KommentarCacheKey = CStr(rad) & "|" & CStr(aktivitetFarge) & "|" & aktivitetTekst
+End Function
+
+Private Sub OppdaterKommentarCache(ByVal rad As Long, ByVal aktivitetTekst As String, _
+                                   ByVal aktivitetFarge As Long, ByVal kommentarTekst As String, _
+                                   ByVal erThreaded As Boolean)
+    If blokkKommentarCache Is Nothing Then Exit Sub
+    If Len(Trim$(aktivitetTekst)) = 0 Then Exit Sub
+
+    Dim nøkkel As String
+    nøkkel = KommentarCacheKey(rad, aktivitetTekst, aktivitetFarge)
+
+    Dim data(1) As Variant
+    data(0) = kommentarTekst
+    data(1) = erThreaded
+
+    blokkKommentarCache(nøkkel) = data
+End Sub
+
+Private Function HentKommentarFraCache(ByVal rad As Long, ByVal aktivitetTekst As String, _
+                                       ByVal aktivitetFarge As Long, ByRef kommentarTekst As String, _
+                                       ByRef erThreaded As Boolean) As Boolean
+    HentKommentarFraCache = False
+
+    If blokkKommentarCache Is Nothing Then Exit Function
+    If Len(Trim$(aktivitetTekst)) = 0 Then Exit Function
+
+    Dim nøkkel As String
+    nøkkel = KommentarCacheKey(rad, aktivitetTekst, aktivitetFarge)
+
+    If blokkKommentarCache.Exists(nøkkel) Then
+        Dim data As Variant
+        data = blokkKommentarCache(nøkkel)
+
+        If IsArray(data) Then
+            kommentarTekst = CStr(data(0))
+            erThreaded = CBool(data(1))
+            HentKommentarFraCache = (Len(kommentarTekst) > 0)
+
+            If Not HentKommentarFraCache Then
+                erThreaded = False
+            End If
+        End If
+    End If
+End Function
+
+Private Sub FjernKommentarFraCache(ByVal rad As Long, ByVal aktivitetTekst As String, _
+                                   ByVal aktivitetFarge As Long)
+    If blokkKommentarCache Is Nothing Then Exit Sub
+    If Len(Trim$(aktivitetTekst)) = 0 Then Exit Sub
+
+    Dim nøkkel As String
+    nøkkel = KommentarCacheKey(rad, aktivitetTekst, aktivitetFarge)
+
+    If blokkKommentarCache.Exists(nøkkel) Then
+        blokkKommentarCache.Remove nøkkel
+    End If
+End Sub
+
 Private Sub LeggTilKommentar(ByVal cel As Range, ByVal tekst As String, ByVal erThreaded As Boolean)
     On Error Resume Next
 
@@ -1474,6 +1584,249 @@ Private Sub LeggTilKommentar(ByVal cel As Range, ByVal tekst As String, ByVal er
     On Error GoTo 0
 End Sub
 
+' ============================================================================'
+' KOMMENTAR-CACHE: Holder på siste kjente kommentar per aktivitet
+' ============================================================================'
+Private Function KommentarCacheKey(ByVal rad As Long, ByVal aktivitetTekst As String, _
+                                   ByVal aktivitetFarge As Long) As String
+    KommentarCacheKey = CStr(rad) & | & CStr(aktivitetFarge) & | & aktivitetTekst
+End Function
+
+Private Sub OppdaterKommentarCache(ByVal rad As Long, ByVal aktivitetTekst As String, _
+                                   ByVal aktivitetFarge As Long, ByVal kommentarTekst As String, _
+                                   ByVal erThreaded As Boolean)
+    If blokkKommentarCache Is Nothing Then Exit Sub
+    If Len(Trim$(aktivitetTekst)) = 0 Then Exit Sub
+
+    Dim nøkkel As String
+    nøkkel = KommentarCacheKey(rad, aktivitetTekst, aktivitetFarge)
+
+    Dim data(1) As Variant
+    data(0) = kommentarTekst
+    data(1) = erThreaded
+
+    blokkKommentarCache(nøkkel) = data
+End Sub
+
+Private Function HentKommentarFraCache(ByVal rad As Long, ByVal aktivitetTekst As String, _
+                                       ByVal aktivitetFarge As Long, ByRef kommentarTekst As String, _
+                                       ByRef erThreaded As Boolean) As Boolean
+    HentKommentarFraCache = False
+
+    If blokkKommentarCache Is Nothing Then Exit Function
+    If Len(Trim$(aktivitetTekst)) = 0 Then Exit Function
+
+    Dim nøkkel As String
+    nøkkel = KommentarCacheKey(rad, aktivitetTekst, aktivitetFarge)
+
+    If blokkKommentarCache.Exists(nøkkel) Then
+        Dim data As Variant
+        data = blokkKommentarCache(nøkkel)
+
+        If IsArray(data) Then
+            kommentarTekst = CStr(data(0))
+            erThreaded = CBool(data(1))
+            HentKommentarFraCache = (Len(kommentarTekst) > 0)
+
+            If Not HentKommentarFraCache Then
+                erThreaded = False
+            End If
+        End If
+    End If
+End Function
+
+Private Sub FjernKommentarFraCache(ByVal rad As Long, ByVal aktivitetTekst As String, _
+                                   ByVal aktivitetFarge As Long)
+    If blokkKommentarCache Is Nothing Then Exit Sub
+    If Len(Trim$(aktivitetTekst)) = 0 Then Exit Sub
+
+    Dim nøkkel As String
+    nøkkel = KommentarCacheKey(rad, aktivitetTekst, aktivitetFarge)
+
+    If blokkKommentarCache.Exists(nøkkel) Then
+        blokkKommentarCache.Remove nøkkel
+    End If
+End Sub
+
+' ============================================================================
+
+' ============================================================================
+' KOMMENTAR-CACHE: Oppdatering av cache basert på eksisterende aktiviteter
+' ============================================================================
+Private Sub RegistrerAktiviteterIRad(ByVal rad As Long, ByVal førsteDatoKol As Long, _
+                                      ByVal lastCol As Long)
+    If blokkKommentarCache Is Nothing Then Exit Sub
+    If førsteDatoKol = 0 Or lastCol = 0 Then Exit Sub
+    If rad <= 0 Then Exit Sub
+
+    Dim prefix As String
+    prefix = CStr(rad) & "|"
+
+    Dim keysToCheck As Object
+    Set keysToCheck = CreateObject("Scripting.Dictionary")
+
+    Dim eksisterendeKey As Variant
+    For Each eksisterendeKey In blokkKommentarCache.Keys
+        If Left$(CStr(eksisterendeKey), Len(prefix)) = prefix Then
+            If Not keysToCheck.Exists(CStr(eksisterendeKey)) Then
+                keysToCheck.Add CStr(eksisterendeKey), True
+            End If
+        End If
+    Next eksisterendeKey
+
+    Dim col As Long
+    col = førsteDatoKol
+
+    Do While col <= lastCol
+        Dim cel As Range
+        Set cel = Me.Cells(rad, col)
+
+        Dim hoppet As Boolean
+        hoppet = False
+
+        If HarAktivitetsfarge(cel) Then
+            Dim erStart As Boolean
+            erStart = True
+
+            If col > førsteDatoKol Then
+                If HarAktivitetsfarge(Me.Cells(rad, col - 1)) Then
+                    If FargeAvstand(Me.Cells(rad, col - 1).Interior.Color, cel.Interior.Color) <= 10 Then
+                        erStart = False
+                    End If
+                End If
+            End If
+
+            If erStart Then
+                Dim aktFarge As Long
+                aktFarge = cel.Interior.Color
+                Dim aktStartCol As Long
+                aktStartCol = col
+                Dim aktSluttCol As Long
+                aktSluttCol = col
+                Dim eksisterendeTekst As String
+                eksisterendeTekst = Trim$(cel.Value)
+                Dim harKommentar As Boolean
+                Dim kommentarTekst As String
+                Dim kommentarErThreaded As Boolean
+                harKommentar = HentKommentarFraCelle(cel, kommentarTekst, kommentarErThreaded)
+
+                Dim scanCol As Long
+                For scanCol = col + 1 To lastCol
+                    Dim scanCel As Range
+                    Set scanCel = Me.Cells(rad, scanCol)
+                    If FargeAvstand(scanCel.Interior.Color, aktFarge) <= 10 Then
+                        aktSluttCol = scanCol
+                        If Len(eksisterendeTekst) = 0 Then
+                            Dim kandidatTekst As String
+                            kandidatTekst = Trim$(scanCel.Value)
+                            If Len(kandidatTekst) > 0 Then
+                                eksisterendeTekst = kandidatTekst
+                            End If
+                        End If
+                        If Not harKommentar Then
+                            harKommentar = HentKommentarFraCelle(scanCel, kommentarTekst, kommentarErThreaded)
+                        End If
+                    Else
+                        Exit For
+                    End If
+                Next scanCol
+
+                Dim riktigBeskrivelse As String
+                Dim riktigKode As String
+                Dim riktigTekst As String
+
+                If Len(eksisterendeTekst) > 0 Then
+                    riktigTekst = eksisterendeTekst
+                Else
+                    riktigKode = SlåOppAktivitetFraFarge(aktFarge, riktigBeskrivelse)
+                    If Len(riktigKode) > 0 Then
+                        If Len(riktigBeskrivelse) > 0 Then
+                            riktigTekst = riktigKode & " - " & riktigBeskrivelse
+                        Else
+                            riktigTekst = riktigKode
+                        End If
+                    Else
+                        riktigTekst = ""
+                    End If
+                End If
+
+                If Len(riktigTekst) > 0 Then
+                    Dim nøkkel As String
+                    nøkkel = KommentarCacheKey(rad, riktigTekst, aktFarge)
+
+                    If harKommentar Then
+                        OppdaterKommentarCache rad, riktigTekst, aktFarge, kommentarTekst, kommentarErThreaded
+                    Else
+                        FjernKommentarFraCache rad, riktigTekst, aktFarge
+                    End If
+
+                    If keysToCheck.Exists(nøkkel) Then keysToCheck.Remove nøkkel
+                End If
+
+                col = aktSluttCol + 1
+                hoppet = True
+            End If
+        End If
+
+        If Not hoppet Then
+            col = col + 1
+        End If
+    Loop
+
+    Dim restKey As Variant
+    For Each restKey In keysToCheck.Keys
+        blokkKommentarCache.Remove restKey
+    Next restKey
+End Sub
+
+Private Sub OppdaterKommentarCacheForRad(ByVal rad As Long, ByVal førsteDatoKol As Long, _
+                                         ByVal datoRad As Long)
+    If blokkKommentarCache Is Nothing Then Exit Sub
+    If førsteDatoKol = 0 Or datoRad = 0 Then Exit Sub
+
+    Dim lastCol As Long
+    lastCol = Me.Cells(datoRad, Me.Columns.Count).End(xlToLeft).Column
+
+    If lastCol < førsteDatoKol Then Exit Sub
+
+    Call RegistrerAktiviteterIRad(rad, førsteDatoKol, lastCol)
+End Sub
+
+Private Sub ByggKommentarCache()
+    On Error GoTo Avslutt
+
+    Dim førsteDatoKol As Long, datoRad As Long, førstePersonRad As Long
+
+    On Error Resume Next
+    førsteDatoKol = Me.Range("FirstDate").Column
+    datoRad = Me.Range("FirstDate").Row
+    førstePersonRad = Me.Range("PersonHeader").Row + 1
+    On Error GoTo Avslutt
+
+    If førsteDatoKol = 0 Or datoRad = 0 Or førstePersonRad = 0 Then GoTo Avslutt
+
+    Dim lastCol As Long
+    lastCol = Me.Cells(datoRad, Me.Columns.Count).End(xlToLeft).Column
+
+    If lastCol < førsteDatoKol Then GoTo Avslutt
+
+    Dim lastRow As Long
+    lastRow = Me.Cells(Me.Rows.Count, førsteDatoKol).End(xlUp).Row
+
+    If blokkKommentarCache Is Nothing Then
+        Set blokkKommentarCache = CreateObject("Scripting.Dictionary")
+    Else
+        blokkKommentarCache.RemoveAll
+    End If
+
+    Dim rad As Long
+    For rad = førstePersonRad To lastRow
+        Call RegistrerAktiviteterIRad(rad, førsteDatoKol, lastCol)
+    Next rad
+
+Avslutt:
+    On Error GoTo 0
+End Sub
 ' ============================================================================
 ' RESTAURERING: Sett aktivitetsnavn tilbake i cellen
 ' ============================================================================
