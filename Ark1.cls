@@ -360,12 +360,12 @@ Private Sub Worksheet_Change(ByVal Target As Range)
 
                     ' Skann hele raden fra førsteDatoKol til lastCol
                     ' For hver aktivitet: sjekk om fargen matcher navnet, hvis ikke - fiks det
-                    Dim scanCol As Long
-                    scanCol = førsteDatoKol
+                    Dim overlapScanCol As Long
+                    overlapScanCol = førsteDatoKol
 
-                    Do While scanCol <= lastCol
+                    Do While overlapScanCol <= lastCol
                         Dim scanCel As Range
-                        Set scanCel = Me.Cells(c.Row, scanCol)
+                        Set scanCel = Me.Cells(c.Row, overlapScanCol)
 
                         ' Hvis dette er start av en aktivitet (har tekst og aktivitetsfarge)
                         If HarAktivitetsfarge(scanCel) And Len(Trim$(scanCel.Value)) > 0 Then
@@ -376,7 +376,7 @@ Private Sub Worksheet_Change(ByVal Target As Range)
 
                             aktFarge = scanCel.Interior.Color
                             aktTekst = Trim$(scanCel.Value)
-                            aktStartCol = scanCol
+                            aktStartCol = overlapScanCol
 
                             ' Finn slutten av denne aktiviteten
                             aktSluttCol = aktStartCol
@@ -403,15 +403,15 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                                 If aktTekst <> riktigTekst Then
                                     scanCel.Value = riktigTekst
                                     If DEBUG_MODE Then
-                                        Debug.Print "  Fikset navn fra '" & aktTekst & "' til '" & riktigTekst & "' i kol " & scanCol
+                                        Debug.Print "  Fikset navn fra '" & aktTekst & "' til '" & riktigTekst & "' i kol " & overlapScanCol
                                     End If
                                 End If
                             End If
 
                             ' Hopp til slutten av denne aktiviteten
-                            scanCol = aktSluttCol + 1
+                            overlapScanCol = aktSluttCol + 1
                         Else
-                            scanCol = scanCol + 1
+                            overlapScanCol = overlapScanCol + 1
                         End If
                     Loop
                 End If
