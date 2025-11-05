@@ -358,6 +358,9 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                         Debug.Print "OVERLAPP DETEKTERT: Fikser navn på alle aktiviteter på raden"
                     End If
 
+                    Dim debugMsg As String
+                    debugMsg = "Overlapp detektert! Skanner rad " & c.Row & vbCrLf & vbCrLf
+
                     ' Skann hele raden fra førsteDatoKol til lastCol
                     ' For hver aktivitet: sjekk om fargen matcher navnet, hvis ikke - fiks det
                     Dim overlapScanCol As Long
@@ -378,6 +381,8 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                             aktTekst = Trim$(overlapScanCel.Value)
                             aktStartCol = overlapScanCol
 
+                            debugMsg = debugMsg & "Kol " & overlapScanCol & ": Farge=" & aktFarge & ", Tekst='" & aktTekst & "'" & vbCrLf
+
                             ' Finn slutten av denne aktiviteten
                             aktSluttCol = aktStartCol
                             For col = aktStartCol + 1 To lastCol
@@ -387,6 +392,8 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                                     Exit For
                                 End If
                             Next col
+
+                            debugMsg = debugMsg & "  Spenn: " & aktStartCol & "-" & aktSluttCol & vbCrLf
 
                             ' Slå opp riktig navn fra fargen
                             Dim riktigBeskrivelse As String, riktigKode As String
@@ -399,14 +406,18 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                                     riktigTekst = riktigKode
                                 End If
 
+                                debugMsg = debugMsg & "  Riktig navn: '" & riktigTekst & "'" & vbCrLf
+
                                 ' Hvis teksten er feil, fiks den
                                 If aktTekst <> riktigTekst Then
+                                    debugMsg = debugMsg & "  FIKSER: '" & aktTekst & "' -> '" & riktigTekst & "'" & vbCrLf
                                     overlapScanCel.Value = riktigTekst
-                                    If DEBUG_MODE Then
-                                        Debug.Print "  Fikset navn fra '" & aktTekst & "' til '" & riktigTekst & "' i kol " & overlapScanCol
-                                    End If
+                                Else
+                                    debugMsg = debugMsg & "  OK (ingen endring)" & vbCrLf
                                 End If
                             End If
+
+                            debugMsg = debugMsg & vbCrLf
 
                             ' Hopp til slutten av denne aktiviteten
                             overlapScanCol = aktSluttCol + 1
@@ -414,6 +425,8 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                             overlapScanCol = overlapScanCol + 1
                         End If
                     Loop
+
+                    MsgBox debugMsg, vbInformation
                 End If
 
                 ' Hvis vi fant flere celler med samme farge, fiks formateringen
