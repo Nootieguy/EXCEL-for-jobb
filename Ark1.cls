@@ -422,7 +422,7 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                                     dragCel.Font.Bold = True
                                     dragCel.Font.Color = RGB(255, 255, 255)
                                     dragCel.VerticalAlignment = xlCenter
-                                    dragCel.WrapText = False
+                                    dragCel.WrapText = True
                                 Next col
 
                                 ' STEG 7: Sett borders for dragget
@@ -462,15 +462,150 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                                 End If
 
                                 ' STEG 9: Tøm drag-området på original-raden (etter at draggen er plassert)
-                                For col = c.Column To sluttCol
-                                    Set ryddCel = Me.Cells(c.Row, col)
-                                    ryddCel.ClearContents
-                                    ryddCel.Interior.Color = RGB(255, 255, 255)  ' Hvit bakgrunn
-                                    ryddCel.Font.Bold = False
-                                    ryddCel.Font.Color = RGB(0, 0, 0)
-                                    ryddCel.HorizontalAlignment = xlGeneral
-                                    ryddCel.VerticalAlignment = xlCenter
-                                Next col
+                                ' Men IKKE hvis det overlapper med eksisterende aktivitet - da må vi rekonstruere
+                                Dim skalTømme As Boolean
+                                skalTømme = True
+
+                                ' Sjekk om det er en aktivitet til venstre som strekker seg inn i drag-området
+                                If c.Column > førsteDatoKol Then
+                                    Dim venstreCel As Range
+                                    Set venstreCel = Me.Cells(c.Row, c.Column - 1)
+                                    If HarAktivitetsfarge(venstreCel) Then
+                                        ' Det er en aktivitet til venstre - ikke tøm, rekonstruer istedenfor
+                                        skalTømme = False
+                                    End If
+                                End If
+
+                                ' Sjekk om det er en aktivitet til høyre som strekker seg inn i drag-området
+                                If sluttCol < lastCol Then
+                                    Dim høyreCel As Range
+                                    Set høyreCel = Me.Cells(c.Row, sluttCol + 1)
+                                    If HarAktivitetsfarge(høyreCel) Then
+                                        ' Det er en aktivitet til høyre - ikke tøm, rekonstruer istedenfor
+                                        skalTømme = False
+                                    End If
+                                End If
+
+                                If skalTømme Then
+                                    ' Ingen overlapp med eksisterende aktiviteter - bare tøm
+                                    For col = c.Column To sluttCol
+                                        Set ryddCel = Me.Cells(c.Row, col)
+                                        ryddCel.ClearContents
+                                        ryddCel.Interior.Color = RGB(255, 255, 255)
+                                        ryddCel.Font.Bold = False
+                                        ryddCel.Font.Color = RGB(0, 0, 0)
+                                        ryddCel.HorizontalAlignment = xlGeneral
+                                        ryddCel.VerticalAlignment = xlCenter
+                                        ' Fjern borders
+                                        ryddCel.Borders(xlEdgeLeft).LineStyle = xlLineStyleNone
+                                        ryddCel.Borders(xlEdgeRight).LineStyle = xlLineStyleNone
+                                        ryddCel.Borders(xlEdgeTop).LineStyle = xlLineStyleNone
+                                        ryddCel.Borders(xlEdgeBottom).LineStyle = xlLineStyleNone
+                                    Next col
+                                Else
+                                    ' Overlapp med eksisterende aktivitet - må rekonstruere
+                                    ' Finn aktiviteten fra naboene og rekonstruer
+                                    Dim rekFarge As Long
+                                    Dim rekTekst As String
+                                    Dim rekStartCol As Long, rekSluttCol As Long
+
+                                    ' Bruk samme logikk som tidligere for å finne aktiviteten
+                                    If c.Column > førsteDatoKol And HarAktivitetsfarge(venstreCel) Then
+                                        rekFarge = venstreCel.Interior.Color
+                                        rekSluttCol = c.Column - 1
+                                        rekStartCol = rekSluttCol
+                                        For col = rekSluttCol - 1 To førsteDatoKol Step -1
+                                            If FargeAvstand(Me.Cells(c.Row, col).Interior.Color, rekFarge) <= 10 Then
+                                                rekStartCol = col
+                                            Else
+                                                Exit For
+                                            End If
+                                        Next col
+
+                                        ' Finn teksten
+                                        For col = rekStartCol To rekSluttCol
+                                            If Me.Cells(c.Row, col).Font.Bold And Len(Trim$(Me.Cells(c.Row, col).Value)) > 0 Then
+                                                rekTekst = Trim$(Me.Cells(c.Row, col).Value)
+                                                Exit For
+                                            End If
+                                        Next col
+                                    ElseIf sluttCol < lastCol And HarAktivitetsfarge(høyreCel) Then
+                                        rekFarge = høyreCel.Interior.Color
+                                        rekStartCol = sluttCol + 1
+                                        rekSluttCol = rekStartCol
+                                        For col = rekStartCol + 1 To lastCol
+                                            If FargeAvstand(Me.Cells(c.Row, col).Interior.Color, rekFarge) <= 10 Then
+                                                rekSluttCol = col
+                                            Else
+                                                Exit For
+                                            End If
+                                        Next col
+
+                                        ' Finn teksten
+                                        For col = rekStartCol To rekSluttCol
+                                            If Me.Cells(c.Row, col).Font.Bold And Len(Trim$(Me.Cells(c.Row, col).Value)) > 0 Then
+                                                rekTekst = Trim$(Me.Cells(c.Row, col).Value)
+                                                Exit For
+                                            End If
+                                        Next col
+                                    End If
+
+                                    ' Hvis tekst mangler, slå opp fra AKTIVITETSTYPER
+                                    If Len(rekTekst) = 0 And rekFarge <> 0 Then
+                                        Dim rekBeskrivelse As String
+                                        Dim rekKode As String
+                                        rekKode = SlåOppAktivitetFraFarge(rekFarge, rekBeskrivelse)
+                                        If Len(rekKode) > 0 Then
+                                            If Len(rekBeskrivelse) > 0 Then
+                                                rekTekst = rekKode & " - " & rekBeskrivelse
+                                            Else
+                                                rekTekst = rekKode
+                                            End If
+                                        End If
+                                    End If
+
+                                    ' Rekonstruer aktiviteten i drag-området
+                                    For col = c.Column To sluttCol
+                                        Set ryddCel = Me.Cells(c.Row, col)
+                                        ryddCel.Interior.Color = rekFarge
+                                        ryddCel.Font.Bold = True
+                                        ryddCel.Font.Color = RGB(255, 255, 255)
+                                        ryddCel.VerticalAlignment = xlCenter
+
+                                        If col = c.Column Then
+                                            ryddCel.Value = rekTekst
+                                            ryddCel.HorizontalAlignment = xlCenterAcrossSelection
+                                        Else
+                                            ryddCel.Value = ""
+                                            ryddCel.HorizontalAlignment = xlCenterAcrossSelection
+                                        End If
+                                    Next col
+
+                                    ' Sett borders
+                                    Dim rekRng As Range
+                                    Set rekRng = Me.Range(Me.Cells(c.Row, c.Column), Me.Cells(c.Row, sluttCol))
+                                    rekRng.Borders.LineStyle = xlLineStyleNone
+                                    With rekRng.Borders(xlEdgeLeft)
+                                        .LineStyle = xlContinuous
+                                        .Weight = xlThick
+                                        .Color = RGB(0, 0, 0)
+                                    End With
+                                    With rekRng.Borders(xlEdgeRight)
+                                        .LineStyle = xlContinuous
+                                        .Weight = xlThick
+                                        .Color = RGB(0, 0, 0)
+                                    End With
+                                    With rekRng.Borders(xlEdgeTop)
+                                        .LineStyle = xlContinuous
+                                        .Weight = xlThick
+                                        .Color = RGB(0, 0, 0)
+                                    End With
+                                    With rekRng.Borders(xlEdgeBottom)
+                                        .LineStyle = xlContinuous
+                                        .Weight = xlThick
+                                        .Color = RGB(0, 0, 0)
+                                    End With
+                                End If
 
                                 GoTo NesteCelle
                             Else
