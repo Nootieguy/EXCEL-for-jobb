@@ -443,6 +443,23 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                         End If
                     End If
 
+                    ' Hvis aktivitet funnet men tekst mangler, slå opp fra AKTIVITETSTYPER basert på farge
+                    If orgAktivitetFunnet And Len(orgTekst) = 0 And orgFarge <> 0 Then
+                        Dim orgBeskrivelse As String
+                        Dim orgKode As String
+                        orgKode = SlåOppAktivitetFraFarge(orgFarge, orgBeskrivelse)
+                        If Len(orgKode) > 0 Then
+                            If Len(orgBeskrivelse) > 0 Then
+                                orgTekst = orgKode & " - " & orgBeskrivelse
+                            Else
+                                orgTekst = orgKode
+                            End If
+                            If DEBUG_MODE Then
+                                Debug.Print "  Tekst slått opp fra AKTIVITETSTYPER: '" & orgTekst & "'"
+                            End If
+                        End If
+                    End If
+
                     If orgAktivitetFunnet Then
                         ' STEG 2: Gjenopprett den originale aktiviteten i drag-området
                         For col = c.Column To sluttCol
@@ -532,7 +549,8 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                                 For col = c.Column To sluttCol
                                     Set dragCel = Me.Cells(nyRad, col)
                                     dragCel.Value = dragData(col, 1)
-                                    dragCel.Interior.Color = dragData(col, 2)
+                                    ' Bruk dragFarge for konsistent farge (ikke dragData som kan være blandet)
+                                    dragCel.Interior.Color = dragFarge
                                     dragCel.Font.Bold = dragData(col, 3)
                                     dragCel.Font.Color = dragData(col, 4)
                                     dragCel.HorizontalAlignment = dragData(col, 5)
