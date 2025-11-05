@@ -367,7 +367,13 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                 End If
 
                 ' Hvis det er overlapp, gjenopprett original og legg drag på ny rad
+                MsgBox "DEBUG 1: harOverlapp = " & harOverlapp & vbCrLf & _
+                       "dragFarge = " & dragFarge & vbCrLf & _
+                       "dragTekst = " & dragTekst, vbInformation
+
                 If harOverlapp Then
+                    MsgBox "DEBUG 2: Overlapp detektert! Starter rekonstruksjon...", vbInformation
+
                     If DEBUG_MODE Then
                         Debug.Print "OVERLAPP DETEKTERT: Gjenoppretter original aktivitet fra naboer"
                     End If
