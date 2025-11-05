@@ -549,6 +549,14 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                                 Debug.Print "  FinnEllerOpprettLedigRad returnerte: nyRad=" & nyRad
                             End If
 
+                            ' MIDLERTIDIG DEBUG: Vis hva som skjer
+                            MsgBox "Debug info:" & vbCrLf & _
+                                   "nyRad = " & nyRad & vbCrLf & _
+                                   "c.Row = " & c.Row & vbCrLf & _
+                                   "personHovedRad = " & personHovedRad & vbCrLf & _
+                                   "dragTekst = " & dragTekst & vbCrLf & _
+                                   "orgTekst = " & orgTekst, vbInformation
+
                             If nyRad > 0 And nyRad <> c.Row Then
                                 If DEBUG_MODE Then
                                     Debug.Print "  Legger dragget på rad " & nyRad & " (kolonner " & c.Column & "-" & sluttCol & ")"
