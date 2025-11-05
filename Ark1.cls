@@ -352,43 +352,68 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                     End If
                 End If
 
-                ' Hvis det er overlapp, fiks navnet på den avkortede aktiviteten
+                ' Hvis det er overlapp, fiks navn på ALLE aktiviteter på raden
                 If harOverlapp Then
                     If DEBUG_MODE Then
-                        Debug.Print "OVERLAPP DETEKTERT: Fikser navn på avkortet aktivitet"
+                        Debug.Print "OVERLAPP DETEKTERT: Fikser navn på alle aktiviteter på raden"
                     End If
 
-                    ' Sjekk venstre nabo - hvis den har annen farge, må vi fikse navnet der
-                    If c.Column > førsteDatoKol Then
-                        Dim venstreCel As Range
-                        Set venstreCel = Me.Cells(c.Row, c.Column - 1)
+                    ' Skann hele raden fra førsteDatoKol til lastCol
+                    ' For hver aktivitet: sjekk om fargen matcher navnet, hvis ikke - fiks det
+                    Dim scanCol As Long
+                    scanCol = førsteDatoKol
 
-                        If HarAktivitetsfarge(venstreCel) And FargeAvstand(venstreCel.Interior.Color, dragFarge) > 10 Then
-                            ' Venstre nabo har annen farge - finn start og sett riktig navn
-                            Dim vStartCol As Long
-                            vStartCol = c.Column - 1
-                            For col = vStartCol - 1 To førsteDatoKol Step -1
-                                If FargeAvstand(Me.Cells(c.Row, col).Interior.Color, venstreCel.Interior.Color) <= 10 Then
-                                    vStartCol = col
+                    Do While scanCol <= lastCol
+                        Dim scanCel As Range
+                        Set scanCel = Me.Cells(c.Row, scanCol)
+
+                        ' Hvis dette er start av en aktivitet (har tekst og aktivitetsfarge)
+                        If HarAktivitetsfarge(scanCel) And Len(Trim$(scanCel.Value)) > 0 Then
+                            Dim aktFarge As Long
+                            Dim aktTekst As String
+                            Dim aktStartCol As Long
+                            Dim aktSluttCol As Long
+
+                            aktFarge = scanCel.Interior.Color
+                            aktTekst = Trim$(scanCel.Value)
+                            aktStartCol = scanCol
+
+                            ' Finn slutten av denne aktiviteten
+                            aktSluttCol = aktStartCol
+                            For col = aktStartCol + 1 To lastCol
+                                If FargeAvstand(Me.Cells(c.Row, col).Interior.Color, aktFarge) <= 10 Then
+                                    aktSluttCol = col
                                 Else
                                     Exit For
                                 End If
                             Next col
 
-                            ' Slå opp riktig navn fra farge
-                            Dim vBeskrivelse As String, vKode As String
-                            vKode = SlåOppAktivitetFraFarge(venstreCel.Interior.Color, vBeskrivelse)
-                            If Len(vKode) > 0 Then
-                                Dim vTekst As String
-                                If Len(vBeskrivelse) > 0 Then
-                                    vTekst = vKode & " - " & vBeskrivelse
+                            ' Slå opp riktig navn fra fargen
+                            Dim riktigBeskrivelse As String, riktigKode As String
+                            riktigKode = SlåOppAktivitetFraFarge(aktFarge, riktigBeskrivelse)
+                            If Len(riktigKode) > 0 Then
+                                Dim riktigTekst As String
+                                If Len(riktigBeskrivelse) > 0 Then
+                                    riktigTekst = riktigKode & " - " & riktigBeskrivelse
                                 Else
-                                    vTekst = vKode
+                                    riktigTekst = riktigKode
                                 End If
-                                Me.Cells(c.Row, vStartCol).Value = vTekst
+
+                                ' Hvis teksten er feil, fiks den
+                                If aktTekst <> riktigTekst Then
+                                    scanCel.Value = riktigTekst
+                                    If DEBUG_MODE Then
+                                        Debug.Print "  Fikset navn fra '" & aktTekst & "' til '" & riktigTekst & "' i kol " & scanCol
+                                    End If
+                                End If
                             End If
+
+                            ' Hopp til slutten av denne aktiviteten
+                            scanCol = aktSluttCol + 1
+                        Else
+                            scanCol = scanCol + 1
                         End If
-                    End If
+                    Loop
                 End If
 
                 ' Hvis vi fant flere celler med samme farge, fiks formateringen
