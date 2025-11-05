@@ -408,12 +408,24 @@ Private Sub Worksheet_Change(ByVal Target As Range)
 
                                 debugMsg = debugMsg & "  Riktig navn: '" & riktigTekst & "'" & vbCrLf
 
-                                ' Hvis teksten er feil, fiks den
+                                ' ALLTID fiks formateringen for å isolere denne aktiviteten
+                                ' Selv om teksten er riktig, må vi sikre at xlCenterAcrossSelection
+                                ' ikke spreder seg utenfor denne aktivitetens område
+
+                                ' Sett riktig tekst i første celle
+                                overlapScanCel.Value = riktigTekst
+                                overlapScanCel.HorizontalAlignment = xlCenterAcrossSelection
+
+                                ' Tøm teksten i resten av cellene i denne aktiviteten
+                                For col = aktStartCol + 1 To aktSluttCol
+                                    Me.Cells(c.Row, col).Value = ""
+                                    Me.Cells(c.Row, col).HorizontalAlignment = xlCenterAcrossSelection
+                                Next col
+
                                 If aktTekst <> riktigTekst Then
-                                    debugMsg = debugMsg & "  FIKSER: '" & aktTekst & "' -> '" & riktigTekst & "'" & vbCrLf
-                                    overlapScanCel.Value = riktigTekst
+                                    debugMsg = debugMsg & "  FIKSET: '" & aktTekst & "' -> '" & riktigTekst & "'" & vbCrLf
                                 Else
-                                    debugMsg = debugMsg & "  OK (ingen endring)" & vbCrLf
+                                    debugMsg = debugMsg & "  Formatering fikset (tekst var riktig)" & vbCrLf
                                 End If
                             End If
 
