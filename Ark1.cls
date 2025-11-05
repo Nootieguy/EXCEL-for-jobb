@@ -393,6 +393,7 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                                 Dim eksisterendeTekst As String
                                 Dim harKommentar As Boolean
                                 Dim kommentarTekst As String
+                                Dim kommentarErThreaded As Boolean
 
                                 aktFarge = overlapScanCel.Interior.Color
                                 aktTekst = Trim$(overlapScanCel.Value)
@@ -400,10 +401,7 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                                 aktSluttCol = aktStartCol
                                 eksisterendeTekst = aktTekst
 
-                                If Not overlapScanCel.Comment Is Nothing Then
-                                    harKommentar = True
-                                    kommentarTekst = overlapScanCel.Comment.Text
-                                End If
+                                harKommentar = HentKommentarFraCelle(overlapScanCel, kommentarTekst, kommentarErThreaded)
 
                                 debugMsg = debugMsg & "Kol " & overlapScanCol & ": Farge=" & aktFarge & ", Tekst='" & aktTekst & "'" & vbCrLf
 
@@ -421,10 +419,7 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                                         End If
 
                                         If Not harKommentar Then
-                                            If Not Me.Cells(c.Row, col).Comment Is Nothing Then
-                                                harKommentar = True
-                                                kommentarTekst = Me.Cells(c.Row, col).Comment.Text
-                                            End If
+                                            harKommentar = HentKommentarFraCelle(Me.Cells(c.Row, col), kommentarTekst, kommentarErThreaded)
                                         End If
                                     Else
                                         Exit For
@@ -464,16 +459,17 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                                 ' Sett riktig tekst i første celle
                                 overlapScanCel.Value = riktigTekst
                                 overlapScanCel.HorizontalAlignment = xlCenterAcrossSelection
-                                overlapScanCel.ClearComments
-                                If harKommentar Then overlapScanCel.AddComment kommentarTekst
+                                FjernKommentarer overlapScanCel
+                                If harKommentar Then Call LeggTilKommentar(overlapScanCel, kommentarTekst, kommentarErThreaded)
 
                                 ' Tøm teksten i resten av cellene i denne aktiviteten
                                 For col = aktStartCol + 1 To aktSluttCol
-                                    With Me.Cells(c.Row, col)
+                                    Set gjenCel = Me.Cells(c.Row, col)
+                                    With gjenCel
                                         .Value = ""
                                         .HorizontalAlignment = xlCenterAcrossSelection
-                                        .ClearComments
                                     End With
+                                    FjernKommentarer gjenCel
                                 Next col
 
                                 If aktTekst <> riktigTekst Then
@@ -494,7 +490,7 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                         End If
                     Loop
 
-                    MsgBox debugMsg, vbInformation
+                    If DEBUG_MODE Then MsgBox debugMsg, vbInformation
                 End If
 
                 ' Hvis vi fant flere celler med samme farge, fiks formateringen
@@ -1414,6 +1410,69 @@ Private Function FargeAvstand(c1 As Long, c2 As Long) As Long
     FargeAvstand = Application.WorksheetFunction.Max( _
         Abs(r1 - r2), Abs(g1 - g2), Abs(b1 - b2))
 End Function
+
+' ============================================================================
+' KOMMENTAR-HJELPERE: Hent, fjern og legg til (støtter både Note og Threaded)
+' ============================================================================
+Private Function HentKommentarFraCelle(ByVal cel As Range, ByRef tekst As String, _
+                                       ByRef erThreaded As Boolean) As Boolean
+    Dim kommentarObj As Object
+
+    tekst = ""
+    erThreaded = False
+    HentKommentarFraCelle = False
+
+    On Error Resume Next
+    Set kommentarObj = cel.Comment
+    On Error GoTo 0
+
+    If Not kommentarObj Is Nothing Then
+        tekst = kommentarObj.Text
+        erThreaded = False
+        HentKommentarFraCelle = True
+        Exit Function
+    End If
+
+    On Error Resume Next
+    Set kommentarObj = cel.CommentThreaded
+    If Err.Number = 0 Then
+        If Not kommentarObj Is Nothing Then
+            tekst = kommentarObj.Text
+            erThreaded = True
+            HentKommentarFraCelle = True
+        End If
+    Else
+        Err.Clear
+    End If
+    On Error GoTo 0
+End Function
+
+Private Sub FjernKommentarer(ByVal cel As Range)
+    On Error Resume Next
+    cel.ClearComments
+    cel.DeleteThreadedComment
+    On Error GoTo 0
+End Sub
+
+Private Sub LeggTilKommentar(ByVal cel As Range, ByVal tekst As String, ByVal erThreaded As Boolean)
+    On Error Resume Next
+
+    If erThreaded Then
+        cel.AddCommentThreaded tekst
+        If Err.Number <> 0 Then
+            Err.Clear
+            cel.AddComment tekst
+        End If
+    Else
+        cel.AddComment tekst
+        If Err.Number <> 0 Then
+            Err.Clear
+            cel.AddCommentThreaded tekst
+        End If
+    End If
+
+    On Error GoTo 0
+End Sub
 
 ' ============================================================================
 ' RESTAURERING: Sett aktivitetsnavn tilbake i cellen
