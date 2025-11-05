@@ -40,15 +40,15 @@ Private Const DEBUG_MODE As Boolean = False
 ' Rekursjons-beskyttelse
 Private behandlerEndring As Boolean
 
-' Cache for å huske kommentarer per aktivitet (for å kunne gjenopprette etter overlapper)
-Private blokkKommentarCache As Object
+' Kommentar-cache for å bevare merknader gjennom overlapp
+Private kommentarCache As Object
 
 ' ============================================================================
 ' EVENT: Når arket aktiveres
 ' ============================================================================
 Private Sub Worksheet_Activate()
     modDagensOutline.MarkerDagensDato_Bla
-    ByggKommentarCache
+    RebuildKommentarCache
 End Sub
 
 ' ============================================================================
@@ -85,6 +85,9 @@ Private Sub Worksheet_Change(ByVal Target As Range)
     Set relevantEndring = Intersect(Target, datoOmråde)
 
     If relevantEndring Is Nothing Then Exit Sub
+
+    ' Sørg for at kommentar-cache eksisterer før vi starter
+    If kommentarCache Is Nothing Then RebuildKommentarCache
 
     ' STEG 5: Lagre undo-snapshot før endringer
     On Error Resume Next
@@ -737,14 +740,19 @@ NesteCelle:
     Next cacheRad
 
 Slutt:
-    ' STEG 7: Re-enable events og fjern beskyttelsesflagg
+    Dim errNum As Long, errDesc As String
+    errNum = Err.Number
+    errDesc = Err.Description
+
+    On Error Resume Next
+    RebuildKommentarCache
     Application.EnableEvents = True
     behandlerEndring = False
+    On Error GoTo 0
 
     ' Debug-logging ved feil
-    If Err.Number <> 0 Then
-        Debug.Print "Feil i Worksheet_Change (Ark1): " & Err.Description
-        Err.Clear
+    If errNum <> 0 Then
+        Debug.Print "Feil i Worksheet_Change (Ark1): " & errDesc
     End If
 End Sub
 
@@ -1293,6 +1301,127 @@ Private Sub FormaterSegment(ByVal rad As Long, ByVal startCol As Long, ByVal end
 End Sub
 
 ' ============================================================================
+' KOMMENTAR-CACHE: Bygg/vedlikehold siste kjente kommentarer per aktivitetsblokk
+' ============================================================================
+Private Sub RebuildKommentarCache()
+    Dim førsteDatoKol As Long, datoRad As Long, førstePersonRad As Long
+    Dim lastCol As Long, lastRad As Long
+    Dim rad As Long
+
+    On Error Resume Next
+    førsteDatoKol = Me.Range("FirstDate").Column
+    datoRad = Me.Range("FirstDate").Row
+    førstePersonRad = Me.Range("PersonHeader").Row + 1
+    On Error GoTo 0
+
+    If førsteDatoKol = 0 Or datoRad = 0 Or førstePersonRad = 0 Then Exit Sub
+
+    lastCol = Me.Cells(datoRad, Me.Columns.Count).End(xlToLeft).Column
+    lastRad = Me.Cells(Me.Rows.Count, førsteDatoKol).End(xlUp).Row
+
+    If kommentarCache Is Nothing Then
+        Set kommentarCache = CreateObject("Scripting.Dictionary")
+    Else
+        kommentarCache.RemoveAll
+    End If
+
+    For rad = førstePersonRad To lastRad
+        KommentarCacheRegistrerRad rad, førsteDatoKol, lastCol
+    Next rad
+End Sub
+
+Private Sub KommentarCacheRegistrerRad(ByVal rad As Long, ByVal startCol As Long, ByVal lastCol As Long)
+    If kommentarCache Is Nothing Then Exit Sub
+
+    Dim col As Long
+    Dim inBlokk As Boolean
+    Dim blokkStart As Long, blokkSlutt As Long
+    Dim blokkFarge As Long
+
+    inBlokk = False
+
+    For col = startCol To lastCol
+        If HarAktivitetsfarge(Me.Cells(rad, col)) Then
+            Dim celleFarge As Long
+            celleFarge = Me.Cells(rad, col).Interior.Color
+
+            If Not inBlokk Then
+                inBlokk = True
+                blokkStart = col
+                blokkFarge = celleFarge
+            ElseIf FargeAvstand(celleFarge, blokkFarge) > 10 Then
+                KommentarCacheRegistrerBlokk rad, blokkStart, blokkSlutt
+                blokkStart = col
+                blokkFarge = celleFarge
+            End If
+            blokkSlutt = col
+        ElseIf inBlokk Then
+            KommentarCacheRegistrerBlokk rad, blokkStart, blokkSlutt
+            inBlokk = False
+        Else
+            KommentarCacheFjernCelle rad, col
+        End If
+    Next col
+
+    If inBlokk Then
+        KommentarCacheRegistrerBlokk rad, blokkStart, blokkSlutt
+    End If
+
+    For col = startCol To lastCol
+        If Not HarAktivitetsfarge(Me.Cells(rad, col)) Then
+            KommentarCacheFjernCelle rad, col
+        End If
+    Next col
+End Sub
+
+Private Sub KommentarCacheRegistrerBlokk(ByVal rad As Long, ByVal startCol As Long, ByVal endCol As Long)
+    Dim kommentarTekst As String
+    Dim col As Long
+
+    kommentarTekst = HentKommentarSomTekst(Me.Cells(rad, startCol))
+
+    If Len(kommentarTekst) = 0 Then
+        For col = startCol To endCol
+            Dim eksisterende As String
+            eksisterende = KommentarCacheHent(rad, col)
+            If Len(eksisterende) > 0 Then
+                kommentarTekst = eksisterende
+                Exit For
+            End If
+        Next col
+    End If
+
+    For col = startCol To endCol
+        Dim key As String
+        key = KommentarCacheKey(rad, col)
+        kommentarCache(key) = kommentarTekst
+    Next col
+End Sub
+
+Private Sub KommentarCacheFjernCelle(ByVal rad As Long, ByVal col As Long)
+    If kommentarCache Is Nothing Then Exit Sub
+
+    Dim key As String
+    key = KommentarCacheKey(rad, col)
+    If kommentarCache.Exists(key) Then
+        kommentarCache.Remove key
+    End If
+End Sub
+
+Private Function KommentarCacheKey(ByVal rad As Long, ByVal col As Long) As String
+    KommentarCacheKey = CStr(rad) & "|" & CStr(col)
+End Function
+
+Private Function KommentarCacheHent(ByVal rad As Long, ByVal col As Long) As String
+    If kommentarCache Is Nothing Then Exit Function
+
+    Dim key As String
+    key = KommentarCacheKey(rad, col)
+    If kommentarCache.Exists(key) Then
+        KommentarCacheHent = kommentarCache(key)
+    End If
+End Function
+
 ' KOMMENTARHÅNDTERING: Finn første kommentar i en aktivitetsblokk
 ' ============================================================================
 Private Function FinnKommentarIBlokk(ByVal rad As Long, ByVal startCol As Long, _
@@ -1308,6 +1437,15 @@ Private Function FinnKommentarIBlokk(ByVal rad As Long, ByVal startCol As Long, 
                 FinnKommentarIBlokk = tekst
                 Exit Function
             End If
+        End If
+    Next col
+
+    For col = startCol To endCol
+        Dim cacheTekst As String
+        cacheTekst = KommentarCacheHent(rad, col)
+        If Len(cacheTekst) > 0 Then
+            FinnKommentarIBlokk = cacheTekst
+            Exit Function
         End If
     Next col
 End Function
