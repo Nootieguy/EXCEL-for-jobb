@@ -405,6 +405,8 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                             nyRad = FinnEllerOpprettLedigRad_UtenNavn(Me, personHovedRad, c.Column, sluttCol, aktivitetsFarger)
                             On Error GoTo NesteCelle
 
+                            MsgBox "nyRad = " & nyRad & vbCrLf & "c.Row = " & c.Row & vbCrLf & "personHovedRad = " & personHovedRad, vbInformation
+
                             If DEBUG_MODE Then
                                 Debug.Print "  FinnEllerOpprettLedigRad returnerte: nyRad=" & nyRad
                             End If
