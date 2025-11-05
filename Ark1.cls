@@ -466,10 +466,14 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                                 Dim skalTømme As Boolean
                                 skalTømme = True
 
+                                Dim debugNabo As String
+                                debugNabo = "Nabosjekk:" & vbCrLf
+
                                 ' Sjekk om det er en aktivitet til venstre som strekker seg inn i drag-området
                                 If c.Column > førsteDatoKol Then
                                     Dim venstreCel As Range
                                     Set venstreCel = Me.Cells(c.Row, c.Column - 1)
+                                    debugNabo = debugNabo & "Venstre (kol " & (c.Column - 1) & "): Farge=" & venstreCel.Interior.Color & ", HarAktFarge=" & HarAktivitetsfarge(venstreCel) & vbCrLf
                                     If HarAktivitetsfarge(venstreCel) Then
                                         ' Det er en aktivitet til venstre - ikke tøm, rekonstruer istedenfor
                                         skalTømme = False
@@ -480,11 +484,15 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                                 If sluttCol < lastCol Then
                                     Dim høyreCel As Range
                                     Set høyreCel = Me.Cells(c.Row, sluttCol + 1)
+                                    debugNabo = debugNabo & "Høyre (kol " & (sluttCol + 1) & "): Farge=" & høyreCel.Interior.Color & ", HarAktFarge=" & HarAktivitetsfarge(høyreCel) & vbCrLf
                                     If HarAktivitetsfarge(høyreCel) Then
                                         ' Det er en aktivitet til høyre - ikke tøm, rekonstruer istedenfor
                                         skalTømme = False
                                     End If
                                 End If
+
+                                debugNabo = debugNabo & "skalTømme = " & skalTømme
+                                MsgBox debugNabo, vbInformation
 
                                 If skalTømme Then
                                     ' Ingen overlapp med eksisterende aktiviteter - bare tøm
