@@ -364,18 +364,18 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                     overlapScanCol = førsteDatoKol
 
                     Do While overlapScanCol <= lastCol
-                        Dim scanCel As Range
-                        Set scanCel = Me.Cells(c.Row, overlapScanCol)
+                        Dim overlapScanCel As Range
+                        Set overlapScanCel = Me.Cells(c.Row, overlapScanCol)
 
                         ' Hvis dette er start av en aktivitet (har tekst og aktivitetsfarge)
-                        If HarAktivitetsfarge(scanCel) And Len(Trim$(scanCel.Value)) > 0 Then
+                        If HarAktivitetsfarge(overlapScanCel) And Len(Trim$(overlapScanCel.Value)) > 0 Then
                             Dim aktFarge As Long
                             Dim aktTekst As String
                             Dim aktStartCol As Long
                             Dim aktSluttCol As Long
 
-                            aktFarge = scanCel.Interior.Color
-                            aktTekst = Trim$(scanCel.Value)
+                            aktFarge = overlapScanCel.Interior.Color
+                            aktTekst = Trim$(overlapScanCel.Value)
                             aktStartCol = overlapScanCol
 
                             ' Finn slutten av denne aktiviteten
@@ -401,7 +401,7 @@ Private Sub Worksheet_Change(ByVal Target As Range)
 
                                 ' Hvis teksten er feil, fiks den
                                 If aktTekst <> riktigTekst Then
-                                    scanCel.Value = riktigTekst
+                                    overlapScanCel.Value = riktigTekst
                                     If DEBUG_MODE Then
                                         Debug.Print "  Fikset navn fra '" & aktTekst & "' til '" & riktigTekst & "' i kol " & overlapScanCol
                                     End If
