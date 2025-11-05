@@ -563,7 +563,8 @@ Private Sub Worksheet_Change(ByVal Target As Range)
 
                     If Not wsTyp Is Nothing Then
                         On Error Resume Next
-                        Set aktivitetsFarger = Application.Run("HentAktivitetsFarger", wsTyp)
+                        ' Kall funksjonen direkte istedenfor via Application.Run
+                        Set aktivitetsFarger = HentAktivitetsFarger(wsTyp)
                         On Error GoTo NesteCelle
 
                         MsgBox "DEBUG 4: aktivitetsFarger Is Nothing = " & (aktivitetsFarger Is Nothing), vbInformation
@@ -572,7 +573,8 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                             ' STEG 5: Finn ledig rad (oppretter ny hvis nødvendig)
                             Dim nyRad As Long
                             On Error Resume Next
-                            nyRad = Application.Run("FinnEllerOpprettLedigRad_UtenNavn", Me, personHovedRad, c.Column, sluttCol, aktivitetsFarger)
+                            ' Kall funksjonen direkte istedenfor via Application.Run
+                            nyRad = FinnEllerOpprettLedigRad_UtenNavn(Me, personHovedRad, c.Column, sluttCol, aktivitetsFarger)
                             On Error GoTo NesteCelle
 
                             If DEBUG_MODE Then
