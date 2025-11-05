@@ -397,12 +397,59 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                                 Dim celTilVenstre As Range
                                 Set celTilVenstre = Me.Cells(c.Row, overlapScanCol - 1)
 
+
+                            If overlapScanCol > førsteDatoKol Then
+                                Dim celTilVenstre As Range
+                                Set celTilVenstre = Me.Cells(c.Row, overlapScanCol - 1)
+
                                 If HarAktivitetsfarge(celTilVenstre) Then
                                     If FargeAvstand(celTilVenstre.Interior.Color, overlapScanCel.Interior.Color) <= 10 Then
                                         erStartAvBlokk = False
                                     End If
                                 End If
                             End If
+
+                            If erStartAvBlokk Then
+                                Dim aktFarge As Long
+                                Dim aktTekst As String
+                                Dim aktStartCol As Long
+                                Dim aktSluttCol As Long
+                                Dim eksisterendeTekst As String
+                                Dim harKommentar As Boolean
+                                Dim kommentarTekst As String
+                                Dim kommentarErThreaded As Boolean
+
+                                aktFarge = overlapScanCel.Interior.Color
+                                aktTekst = Trim$(overlapScanCel.Value)
+                                aktStartCol = overlapScanCol
+                                aktSluttCol = aktStartCol
+                                eksisterendeTekst = aktTekst
+
+                                harKommentar = HentKommentarFraCelle(overlapScanCel, kommentarTekst, kommentarErThreaded)
+
+                                debugMsg = debugMsg & "Kol " & overlapScanCol & ": Farge=" & aktFarge & ", Tekst='" & aktTekst & "'" & vbCrLf
+
+                                ' Finn slutten av denne aktiviteten og let etter eksisterende tekst/kommentar
+                                For col = aktStartCol + 1 To lastCol
+                                    If FargeAvstand(Me.Cells(c.Row, col).Interior.Color, aktFarge) <= 10 Then
+                                        aktSluttCol = col
+
+                                        If Len(eksisterendeTekst) = 0 Then
+                                            Dim kandidatTekst As String
+                                            kandidatTekst = Trim$(Me.Cells(c.Row, col).Value)
+                                            If Len(kandidatTekst) > 0 Then
+                                                eksisterendeTekst = kandidatTekst
+                                            End If
+                                        End If
+
+                                        If Not harKommentar Then
+                                            harKommentar = HentKommentarFraCelle(Me.Cells(c.Row, col), kommentarTekst, kommentarErThreaded)
+                                        End If
+                                    Else
+                                        Exit For
+                                    End If
+                                Next col
+
 
                             If erStartAvBlokk Then
                                 Dim aktFarge As Long
@@ -452,6 +499,26 @@ Private Sub Worksheet_Change(ByVal Target As Range)
 
                                 If Len(eksisterendeTekst) > 0 Then
                                     riktigTekst = eksisterendeTekst
+                                Else
+                                    riktigKode = SlåOppAktivitetFraFarge(aktFarge, riktigBeskrivelse)
+                                    If Len(riktigKode) > 0 Then
+                                        If Len(riktigBeskrivelse) > 0 Then
+                                            riktigTekst = riktigKode & " - " & riktigBeskrivelse
+                                        Else
+                                            riktigTekst = riktigKode
+                                        End If
+                                    Else
+                                        riktigTekst = ""
+                                    End If
+                                End If
+
+                                If Len(riktigTekst) > 0 Then
+                                    debugMsg = debugMsg & "  Riktig navn: '" & riktigTekst & "'" & vbCrLf
+                                Else
+                                    debugMsg = debugMsg & "  Fant ikke navn for farge " & aktFarge & vbCrLf
+                                End If
+
+                                If Len(riktigTekst) > 0 Then
                                 Else
                                     riktigKode = SlåOppAktivitetFraFarge(aktFarge, riktigBeskrivelse)
                                     If Len(riktigKode) > 0 Then
