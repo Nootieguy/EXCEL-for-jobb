@@ -507,6 +507,7 @@ Private Sub Worksheet_Change(ByVal Target As Range)
 
                         If DEBUG_MODE Then
                             Debug.Print "  ✓ Original aktivitet gjenopprettet i celle " & c.Column & "-" & sluttCol
+                            Debug.Print "  dragTekst='" & dragTekst & "', dragFarge=" & dragFarge
                         End If
                     End If
 
@@ -521,24 +522,32 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                         End If
                     Next r
 
+                    If DEBUG_MODE Then
+                        Debug.Print "  PersonHovedRad: " & personHovedRad & ", c.Row: " & c.Row
+                    End If
+
                     ' STEG 4: Hent aktivitetsfarger fra AKTIVITETSTYPER
                     Dim wsTyp As Worksheet
                     Dim aktivitetsFarger As Object
                     On Error Resume Next
                     Set wsTyp = ThisWorkbook.Worksheets("AKTIVITETSTYPER - OVERSIKT")
-                    On Error GoTo NesteCelle
+                    On Error GoTo 0
 
                     If Not wsTyp Is Nothing Then
                         On Error Resume Next
                         Set aktivitetsFarger = Application.Run("HentAktivitetsFarger", wsTyp)
-                        On Error GoTo NesteCelle
+                        On Error GoTo 0
 
                         If Not aktivitetsFarger Is Nothing Then
                             ' STEG 5: Finn ledig rad (oppretter ny hvis nødvendig)
                             Dim nyRad As Long
                             On Error Resume Next
                             nyRad = Application.Run("FinnEllerOpprettLedigRad_UtenNavn", Me, personHovedRad, c.Column, sluttCol, aktivitetsFarger)
-                            On Error GoTo NesteCelle
+                            On Error GoTo 0
+
+                            If DEBUG_MODE Then
+                                Debug.Print "  FinnEllerOpprettLedigRad returnerte: nyRad=" & nyRad
+                            End If
 
                             If nyRad > 0 And nyRad <> c.Row Then
                                 If DEBUG_MODE Then
@@ -595,7 +604,19 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                                 End If
 
                                 GoTo NesteCelle
+                            Else
+                                If DEBUG_MODE Then
+                                    Debug.Print "  FEIL: Kunne ikke plassere drag. nyRad=" & nyRad & ", c.Row=" & c.Row
+                                End If
                             End If
+                        Else
+                            If DEBUG_MODE Then
+                                Debug.Print "  FEIL: aktivitetsFarger er Nothing"
+                            End If
+                        End If
+                    Else
+                        If DEBUG_MODE Then
+                            Debug.Print "  FEIL: wsTyp er Nothing"
                         End If
                     End If
                 End If
