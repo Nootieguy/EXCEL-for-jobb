@@ -1407,7 +1407,7 @@ Private Sub KommentarCacheRegistrerBlokk(ByVal rad As Long, ByVal startCol As Lo
 
     For col = startCol To endCol
         Dim key As String
-        key = KommentarCacheKey(rad, col)
+        key = AktivitetCacheKey(rad, col)
         kommentarCache(key) = kommentarTekst
     Next col
 End Sub
@@ -1416,21 +1416,21 @@ Private Sub KommentarCacheFjernCelle(ByVal rad As Long, ByVal col As Long)
     If kommentarCache Is Nothing Then Exit Sub
 
     Dim key As String
-    key = KommentarCacheKey(rad, col)
+    key = AktivitetCacheKey(rad, col)
     If kommentarCache.Exists(key) Then
         kommentarCache.Remove key
     End If
 End Sub
 
-Private Function KommentarCacheKey(ByVal rad As Long, ByVal col As Long) As String
-    KommentarCacheKey = CStr(rad) & "|" & CStr(col)
+Private Function AktivitetCacheKey(ByVal rad As Long, ByVal col As Long) As String
+    AktivitetCacheKey = CStr(rad) & "|" & CStr(col)
 End Function
 
 Private Function KommentarCacheHent(ByVal rad As Long, ByVal col As Long) As String
     If kommentarCache Is Nothing Then Exit Function
 
     Dim key As String
-    key = KommentarCacheKey(rad, col)
+    key = AktivitetCacheKey(rad, col)
     If kommentarCache.Exists(key) Then
         KommentarCacheHent = kommentarCache(key)
     End If
@@ -1454,7 +1454,7 @@ Private Sub TekstCacheRegistrerBlokk(ByVal rad As Long, ByVal startCol As Long, 
 
     For col = startCol To endCol
         Dim key As String
-        key = KommentarCacheKey(rad, col)
+        key = AktivitetCacheKey(rad, col)
         tekstCache(key) = segmentTekst
     Next col
 End Sub
@@ -1463,7 +1463,7 @@ Private Sub TekstCacheFjernCelle(ByVal rad As Long, ByVal col As Long)
     If tekstCache Is Nothing Then Exit Sub
 
     Dim key As String
-    key = KommentarCacheKey(rad, col)
+    key = AktivitetCacheKey(rad, col)
     If tekstCache.Exists(key) Then
         tekstCache.Remove key
     End If
@@ -1473,7 +1473,7 @@ Private Function TekstCacheHent(ByVal rad As Long, ByVal col As Long) As String
     If tekstCache Is Nothing Then Exit Function
 
     Dim key As String
-    key = KommentarCacheKey(rad, col)
+    key = AktivitetCacheKey(rad, col)
     If tekstCache.Exists(key) Then
         TekstCacheHent = tekstCache(key)
     End If
