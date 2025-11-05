@@ -631,7 +631,7 @@ NesteCelle:
     ' Behandle hver rad kun ÉN gang
     Dim radNr As Variant
     For Each radNr In splittRader.Keys
-        Call HåndterAlleAktiviteterMedSplitIRad(CLng(radNr), førsteDatoKol, datoRad, cellerÅFjerne)
+        Call HåndterAlleAktiviteterMedSplitIRad(CLng(radNr), førsteDatoKol, datoRad, cellerÅFjerne, relevantEndring)
     Next radNr
 
     ' STEG 6C: Rydd opp celler som er markert for sletting men ikke ble håndtert av split-logikk
@@ -806,7 +806,8 @@ End Sub
 ' Kan kalles både internt (fra Worksheet_Change) og eksternt (fra FjernMarkert)
 ' ============================================================================
 Public Sub HåndterAlleAktiviteterMedSplitIRad(ByVal rad As Long, ByVal førsteDatoKol As Long, _
-                                                ByVal datoRad As Long, ByVal cellerÅFjerne As Object)
+                                                ByVal datoRad As Long, ByVal cellerÅFjerne As Object, _
+                                                Optional ByVal endretOmråde As Range)
     ' Valider parameter (kan være Nothing når kalt eksternt)
     If cellerÅFjerne Is Nothing Then
         Set cellerÅFjerne = CreateObject("Scripting.Dictionary")
@@ -907,7 +908,7 @@ Public Sub HåndterAlleAktiviteterMedSplitIRad(ByVal rad As Long, ByVal førsteD
 
         ' Hvis blokken har split, håndter den
         If harSplit Then
-            Call HåndterEnkeltAktivitetSplit(rad, bStart, bSlutt, bFarge, førsteDatoKol, datoRad, cellerÅFjerne)
+            Call HåndterEnkeltAktivitetSplit(rad, bStart, bSlutt, bFarge, førsteDatoKol, datoRad, cellerÅFjerne, endretOmråde)
         End If
     Next k
 End Sub
@@ -918,7 +919,7 @@ End Sub
 Private Sub HåndterEnkeltAktivitetSplit(ByVal rad As Long, ByVal blokkStart As Long, _
                                          ByVal blokkSlutt As Long, ByVal aktivFarge As Long, _
                                          ByVal førsteDatoKol As Long, ByVal datoRad As Long, _
-                                         ByVal cellerÅFjerne As Object)
+                                         ByVal cellerÅFjerne As Object, Optional ByVal endretOmråde As Range)
     Dim aktivKode As String, aktivBeskr As String
     Dim blokkKommentar As String
     Dim c As Long
@@ -1046,10 +1047,10 @@ Private Sub HåndterEnkeltAktivitetSplit(ByVal rad As Long, ByVal blokkStart As 
         Me.Cells(rad, c).HorizontalAlignment = xlGeneral
     Next c
 
-    ' STEG 4: Skann blokken og identifiser segmenter
-    Dim inSegment As Boolean
-    Dim segmentStart As Long, segmentEnd As Long
-    Dim segmentNr As Integer
+    ' STEG 4: Bygg segmentliste og formater hver del for seg
+    Dim segmentListe As Collection
+    Set segmentListe = ByggSegmentListe(rad, blokkStart, blokkSlutt, aktivFarge, aktivKode, _
+                                        aktivBeskr, blokkKommentar, cellerÅFjerne, endretOmråde)
 
     segmentNr = 0
     inSegment = False
@@ -1173,16 +1174,15 @@ Public Sub HåndterAktivitetSplitForRad(ByVal rad As Long, ByVal førsteDatoKol 
     Next c
 
     ' STEG 4: Skann hele raden og identifiser alle segmenter
-    Dim inSegment As Boolean
-    Dim segmentStart As Long, segmentEnd As Long
-    Dim segmentNr As Integer
+    Dim segmentListe As Collection
+    Set segmentListe = ByggSegmentListe(rad, førsteDatoKol, lastCol, aktivFarge, aktivKode, _
+                                        aktivBeskr, blokkKommentar)
 
-    segmentNr = 0
-    inSegment = False
+    Dim segmentNr As Long
+    Dim segmentData As Object
 
-    For c = førsteDatoKol To lastCol
-        Dim celFarge As Long
-        celFarge = Me.Cells(rad, c).Interior.Color
+    For segmentNr = 1 To segmentListe.Count
+        Set segmentData = segmentListe(segmentNr)
 
         ' Sjekk om denne cellen er del av aktiviteten
         If FargeAvstand(celFarge, aktivFarge) <= 10 Then
@@ -1207,7 +1207,6 @@ Public Sub HåndterAktivitetSplitForRad(ByVal rad As Long, ByVal førsteDatoKol 
                 inSegment = False
             End If
         End If
-    Next c
 
     ' Håndter siste segment hvis vi fortsatt er i et
     If inSegment Then
@@ -1254,9 +1253,12 @@ Private Sub FormaterSegment(ByVal rad As Long, ByVal startCol As Long, ByVal end
     End If
 
     ' Lag visningstekst
-    visTekst = aktivKode
-    If Len(aktivBeskr) > 0 Then
-        visTekst = visTekst & " - " & aktivBeskr
+    visTekst = Trim$(segmentTekst)
+    If Len(visTekst) = 0 Then
+        visTekst = aktivKode
+        If Len(aktivBeskr) > 0 Then
+            visTekst = visTekst & " - " & aktivBeskr
+        End If
     End If
 
     ' VIKTIG: Sett tekst i ALLE celler i segmentet først (for å tømme gamle verdier)
