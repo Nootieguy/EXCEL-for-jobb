@@ -531,19 +531,19 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                     Dim aktivitetsFarger As Object
                     On Error Resume Next
                     Set wsTyp = ThisWorkbook.Worksheets("AKTIVITETSTYPER - OVERSIKT")
-                    On Error GoTo 0
+                    On Error GoTo NesteCelle
 
                     If Not wsTyp Is Nothing Then
                         On Error Resume Next
                         Set aktivitetsFarger = Application.Run("HentAktivitetsFarger", wsTyp)
-                        On Error GoTo 0
+                        On Error GoTo NesteCelle
 
                         If Not aktivitetsFarger Is Nothing Then
                             ' STEG 5: Finn ledig rad (oppretter ny hvis nødvendig)
                             Dim nyRad As Long
                             On Error Resume Next
                             nyRad = Application.Run("FinnEllerOpprettLedigRad_UtenNavn", Me, personHovedRad, c.Column, sluttCol, aktivitetsFarger)
-                            On Error GoTo 0
+                            On Error GoTo NesteCelle
 
                             If DEBUG_MODE Then
                                 Debug.Print "  FinnEllerOpprettLedigRad returnerte: nyRad=" & nyRad
