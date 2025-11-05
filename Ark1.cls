@@ -479,7 +479,7 @@ NesteCelle:
     ' Behandle hver rad kun ÉN gang
     Dim radNr As Variant
     For Each radNr In splittRader.Keys
-        Call HåndterAlleAktiviteterMedSplitIRad(CLng(radNr), førsteDatoKol, datoRad, cellerÅFjerne)
+        Call HåndterAlleAktiviteterMedSplitIRad(CLng(radNr), førsteDatoKol, datoRad, cellerÅFjerne, relevantEndring)
     Next radNr
 
     ' STEG 6C: Rydd opp celler som er markert for sletting men ikke ble håndtert av split-logikk
@@ -648,7 +648,8 @@ End Sub
 ' Kan kalles både internt (fra Worksheet_Change) og eksternt (fra FjernMarkert)
 ' ============================================================================
 Public Sub HåndterAlleAktiviteterMedSplitIRad(ByVal rad As Long, ByVal førsteDatoKol As Long, _
-                                                ByVal datoRad As Long, ByVal cellerÅFjerne As Object)
+                                                ByVal datoRad As Long, ByVal cellerÅFjerne As Object, _
+                                                Optional ByVal endretOmråde As Range)
     ' Valider parameter (kan være Nothing når kalt eksternt)
     If cellerÅFjerne Is Nothing Then
         Set cellerÅFjerne = CreateObject("Scripting.Dictionary")
@@ -749,7 +750,7 @@ Public Sub HåndterAlleAktiviteterMedSplitIRad(ByVal rad As Long, ByVal førsteD
 
         ' Hvis blokken har split, håndter den
         If harSplit Then
-            Call HåndterEnkeltAktivitetSplit(rad, bStart, bSlutt, bFarge, førsteDatoKol, datoRad, cellerÅFjerne)
+            Call HåndterEnkeltAktivitetSplit(rad, bStart, bSlutt, bFarge, førsteDatoKol, datoRad, cellerÅFjerne, endretOmråde)
         End If
     Next k
 End Sub
@@ -760,7 +761,7 @@ End Sub
 Private Sub HåndterEnkeltAktivitetSplit(ByVal rad As Long, ByVal blokkStart As Long, _
                                          ByVal blokkSlutt As Long, ByVal aktivFarge As Long, _
                                          ByVal førsteDatoKol As Long, ByVal datoRad As Long, _
-                                         ByVal cellerÅFjerne As Object)
+                                         ByVal cellerÅFjerne As Object, Optional ByVal endretOmråde As Range)
     Dim aktivKode As String, aktivBeskr As String
     Dim blokkKommentar As String
     Dim c As Long
@@ -891,7 +892,7 @@ Private Sub HåndterEnkeltAktivitetSplit(ByVal rad As Long, ByVal blokkStart As 
     ' STEG 4: Bygg segmentliste og formater hver del for seg
     Dim segmentListe As Collection
     Set segmentListe = ByggSegmentListe(rad, blokkStart, blokkSlutt, aktivFarge, aktivKode, _
-                                        aktivBeskr, blokkKommentar, cellerÅFjerne)
+                                        aktivBeskr, blokkKommentar, cellerÅFjerne, endretOmråde)
 
     Dim segmentNr As Long
     Dim segmentData As Object
@@ -1114,7 +1115,8 @@ End Sub
 Private Function ByggSegmentListe(ByVal rad As Long, ByVal startCol As Long, ByVal endCol As Long, _
                                   ByVal aktivFarge As Long, ByVal aktivKode As String, _
                                   ByVal aktivBeskr As String, ByVal blokkKommentar As String, _
-                                  Optional ByVal cellerÅFjerne As Variant) As Collection
+                                  Optional ByVal cellerÅFjerne As Variant, _
+                                  Optional ByVal endretOmråde As Range) As Collection
     Dim segmenter As Collection
     Dim inSegment As Boolean
     Dim segmentStart As Long, segmentEnd As Long
@@ -1161,7 +1163,7 @@ Private Function ByggSegmentListe(ByVal rad As Long, ByVal startCol As Long, ByV
             ElseIf Len(celTekst) > 0 And col <> segmentStart Then
                 segmentEnd = col - 1
                 Call LeggSegmentTilListe(segmenter, rad, segmentStart, segmentEnd, aktivFarge, _
-                                          aktivKode, aktivBeskr, blokkKommentar)
+                                          aktivKode, aktivBeskr, blokkKommentar, endretOmråde)
                 segmentStart = col
             End If
 
@@ -1169,7 +1171,7 @@ Private Function ByggSegmentListe(ByVal rad As Long, ByVal startCol As Long, ByV
         Else
             If inSegment Then
                 Call LeggSegmentTilListe(segmenter, rad, segmentStart, segmentEnd, aktivFarge, _
-                                          aktivKode, aktivBeskr, blokkKommentar)
+                                          aktivKode, aktivBeskr, blokkKommentar, endretOmråde)
                 inSegment = False
             End If
         End If
@@ -1177,7 +1179,7 @@ Private Function ByggSegmentListe(ByVal rad As Long, ByVal startCol As Long, ByV
 
     If inSegment Then
         Call LeggSegmentTilListe(segmenter, rad, segmentStart, segmentEnd, aktivFarge, _
-                                  aktivKode, aktivBeskr, blokkKommentar)
+                                  aktivKode, aktivBeskr, blokkKommentar, endretOmråde)
     End If
 
     Set ByggSegmentListe = segmenter
@@ -1186,7 +1188,7 @@ End Function
 Private Sub LeggSegmentTilListe(ByRef segmenter As Collection, ByVal rad As Long, _
                                  ByVal startCol As Long, ByVal endCol As Long, ByVal aktivFarge As Long, _
                                  ByVal aktivKode As String, ByVal aktivBeskr As String, _
-                                 ByVal blokkKommentar As String)
+                                 ByVal blokkKommentar As String, Optional ByVal endretOmråde As Range)
     If startCol > endCol Then Exit Sub
 
     Dim info As Object
@@ -1194,15 +1196,46 @@ Private Sub LeggSegmentTilListe(ByRef segmenter As Collection, ByVal rad As Long
 
     info.Add "start", startCol
     info.Add "slutt", endCol
-    info.Add "tekst", FinnSegmentTekst(rad, startCol, endCol, aktivKode, aktivBeskr)
-    info.Add "kommentar", FinnKommentarISegment(rad, startCol, endCol, aktivFarge, blokkKommentar)
+
+    Dim segmentBerørt As Boolean
+    segmentBerørt = SegmentBerørtAvEndring(rad, startCol, endCol, endretOmråde)
+    info.Add "berørt", segmentBerørt
+    info.Add "tekst", FinnSegmentTekst(rad, startCol, endCol, aktivKode, aktivBeskr, segmentBerørt)
+    info.Add "kommentar", FinnKommentarISegment(rad, startCol, endCol, aktivFarge, blokkKommentar, segmentBerørt)
 
     segmenter.Add info
 End Sub
 
+Private Function SegmentBerørtAvEndring(ByVal rad As Long, ByVal startCol As Long, ByVal endCol As Long, _
+                                        ByVal endretOmråde As Range) As Boolean
+    If endretOmråde Is Nothing Then Exit Function
+
+    Dim segmentRange As Range
+    Set segmentRange = Me.Range(Me.Cells(rad, startCol), Me.Cells(rad, endCol))
+
+    Dim overlapp As Range
+    On Error Resume Next
+    Set overlapp = Intersect(segmentRange, endretOmråde)
+    On Error GoTo 0
+
+    SegmentBerørtAvEndring = Not overlapp Is Nothing
+End Function
+
 Private Function FinnSegmentTekst(ByVal rad As Long, ByVal startCol As Long, ByVal endCol As Long, _
-                                  ByVal aktivKode As String, ByVal aktivBeskr As String) As String
+                                  ByVal aktivKode As String, ByVal aktivBeskr As String, _
+                                  ByVal segmentBerørt As Boolean) As String
     Dim col As Long
+
+    If Not segmentBerørt Then
+        For col = startCol To endCol
+            Dim cacheFørEndring As String
+            cacheFørEndring = TekstCacheHent(rad, col)
+            If Len(cacheFørEndring) > 0 Then
+                FinnSegmentTekst = cacheFørEndring
+                Exit Function
+            End If
+        Next col
+    End If
 
     For col = startCol To endCol
         Dim tekst As String
@@ -1232,8 +1265,20 @@ Private Function FinnSegmentTekst(ByVal rad As Long, ByVal startCol As Long, ByV
 End Function
 
 Private Function FinnKommentarISegment(ByVal rad As Long, ByVal startCol As Long, ByVal endCol As Long, _
-                                       ByVal forventetFarge As Long, ByVal fallbackKommentar As String) As String
+                                       ByVal forventetFarge As Long, ByVal fallbackKommentar As String, _
+                                       ByVal segmentBerørt As Boolean) As String
     Dim col As Long
+
+    If Not segmentBerørt Then
+        For col = startCol To endCol
+            Dim cacheFørEndring As String
+            cacheFørEndring = KommentarCacheHent(rad, col)
+            If Len(cacheFørEndring) > 0 Then
+                FinnKommentarISegment = cacheFørEndring
+                Exit Function
+            End If
+        Next col
+    End If
 
     For col = startCol To endCol
         If FargeAvstand(Me.Cells(rad, col).Interior.Color, forventetFarge) <= 10 Then
