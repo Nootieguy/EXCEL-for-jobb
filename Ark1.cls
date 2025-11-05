@@ -352,24 +352,13 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                     End If
                 End If
 
-                ' Hvis det er overlapp, tøm drag-området og legg drag på ny rad
+                ' Hvis det er overlapp, legg drag på ny rad
                 If harOverlapp Then
                     If DEBUG_MODE Then
-                        Debug.Print "OVERLAPP DETEKTERT: Tømmer drag-område og plasserer på ny rad"
+                        Debug.Print "OVERLAPP DETEKTERT: Plasserer drag på ny rad"
                     End If
 
-                    ' STEG 1: Tøm drag-området (fjern den draggede aktiviteten fra original-raden)
-                    For col = c.Column To sluttCol
-                        Set ryddCel = Me.Cells(c.Row, col)
-                        ryddCel.ClearContents
-                        ryddCel.Interior.Color = RGB(255, 255, 255)  ' Hvit bakgrunn
-                        ryddCel.Font.Bold = False
-                        ryddCel.Font.Color = RGB(0, 0, 0)
-                        ryddCel.HorizontalAlignment = xlGeneral
-                        ryddCel.VerticalAlignment = xlCenter
-                    Next col
-
-                    ' STEG 2: Finn hovedrad for personen
+                    ' STEG 1: Finn hovedrad for personen
                     Dim personHovedRad As Long
                     personHovedRad = c.Row
                     Dim r As Long
@@ -404,8 +393,6 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                             ' Kall funksjonen direkte istedenfor via Application.Run
                             nyRad = FinnEllerOpprettLedigRad_UtenNavn(Me, personHovedRad, c.Column, sluttCol, aktivitetsFarger)
                             On Error GoTo NesteCelle
-
-                            MsgBox "nyRad = " & nyRad & vbCrLf & "c.Row = " & c.Row & vbCrLf & "personHovedRad = " & personHovedRad, vbInformation
 
                             If DEBUG_MODE Then
                                 Debug.Print "  FinnEllerOpprettLedigRad returnerte: nyRad=" & nyRad
@@ -473,6 +460,17 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                                 If DEBUG_MODE Then
                                     Debug.Print "  ✓ Dragget plassert på ny rad " & nyRad
                                 End If
+
+                                ' STEG 9: Tøm drag-området på original-raden (etter at draggen er plassert)
+                                For col = c.Column To sluttCol
+                                    Set ryddCel = Me.Cells(c.Row, col)
+                                    ryddCel.ClearContents
+                                    ryddCel.Interior.Color = RGB(255, 255, 255)  ' Hvit bakgrunn
+                                    ryddCel.Font.Bold = False
+                                    ryddCel.Font.Color = RGB(0, 0, 0)
+                                    ryddCel.HorizontalAlignment = xlGeneral
+                                    ryddCel.VerticalAlignment = xlCenter
+                                Next col
 
                                 GoTo NesteCelle
                             Else
