@@ -311,6 +311,7 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                 Dim høyreNabo As Range
                 Dim venstreNabo As Range
                 Dim dragRng As Range
+                Dim dragCel As Range
                 Dim gjenCel As Range
                 Dim gjenRng As Range
                 harOverlapp = False
