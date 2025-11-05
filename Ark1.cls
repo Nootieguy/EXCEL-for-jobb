@@ -318,8 +318,13 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                 dragTekst = c.Value
 
                 ' Lagre komplett formatering for hele drag-spannet
+                ' PROBLEM: På dette tidspunktet er cellene allerede i mixed state!
+                ' Vi lagrer derfor dragTekst og dragFarge separat for å rekonstruere senere
                 Dim dragData() As Variant
                 ReDim dragData(c.Column To sluttCol, 1 To 10)
+
+                Dim debugMsg As String
+                debugMsg = "LAGRER DRAGDATA:" & vbCrLf
 
                 For col = c.Column To sluttCol
                     Dim dragCel As Range
@@ -332,7 +337,11 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                     dragData(col, 5) = dragCel.HorizontalAlignment
                     dragData(col, 6) = dragCel.VerticalAlignment
                     dragData(col, 7) = dragCel.WrapText
+
+                    debugMsg = debugMsg & "Col " & col & ": Val='" & dragCel.Value & "', Farge=" & dragCel.Interior.Color & vbCrLf
                 Next col
+
+                MsgBox debugMsg, vbInformation
 
                 ' Sjekk HØYRE nabo: Er det en annen aktivitet der?
                 ' Dette skjer når brukeren drar en aktivitet inn i første celle av en annen aktivitet
