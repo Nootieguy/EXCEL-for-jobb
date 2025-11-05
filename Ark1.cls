@@ -317,31 +317,7 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                 dragFarge = c.Interior.Color
                 dragTekst = c.Value
 
-                ' Lagre komplett formatering for hele drag-spannet
-                ' PROBLEM: På dette tidspunktet er cellene allerede i mixed state!
-                ' Vi lagrer derfor dragTekst og dragFarge separat for å rekonstruere senere
-                Dim dragData() As Variant
-                ReDim dragData(c.Column To sluttCol, 1 To 10)
-
-                Dim debugMsg As String
-                debugMsg = "LAGRER DRAGDATA:" & vbCrLf
-
-                For col = c.Column To sluttCol
-                    Dim dragCel As Range
-                    Set dragCel = Me.Cells(c.Row, col)
-
-                    dragData(col, 1) = dragCel.Value
-                    dragData(col, 2) = dragCel.Interior.Color
-                    dragData(col, 3) = dragCel.Font.Bold
-                    dragData(col, 4) = dragCel.Font.Color
-                    dragData(col, 5) = dragCel.HorizontalAlignment
-                    dragData(col, 6) = dragCel.VerticalAlignment
-                    dragData(col, 7) = dragCel.WrapText
-
-                    debugMsg = debugMsg & "Col " & col & ": Val='" & dragCel.Value & "', Farge=" & dragCel.Interior.Color & vbCrLf
-                Next col
-
-                MsgBox debugMsg, vbInformation
+                ' MERK: dragData er ikke lenger brukt, bruker dragTekst og dragFarge istedenfor
 
                 ' Sjekk HØYRE nabo: Er det en annen aktivitet der?
                 ' Dette skjer når brukeren drar en aktivitet inn i første celle av en annen aktivitet
@@ -375,168 +351,24 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                     End If
                 End If
 
-                ' Hvis det er overlapp, gjenopprett original og legg drag på ny rad
-                MsgBox "DEBUG 1: harOverlapp = " & harOverlapp & vbCrLf & _
-                       "dragFarge = " & dragFarge & vbCrLf & _
-                       "dragTekst = " & dragTekst, vbInformation
-
+                ' Hvis det er overlapp, tøm drag-området og legg drag på ny rad
                 If harOverlapp Then
-                    MsgBox "DEBUG 2: Overlapp detektert! Starter rekonstruksjon...", vbInformation
-
                     If DEBUG_MODE Then
-                        Debug.Print "OVERLAPP DETEKTERT: Gjenoppretter original aktivitet fra naboer"
+                        Debug.Print "OVERLAPP DETEKTERT: Tømmer drag-område og plasserer på ny rad"
                     End If
 
-                    ' STEG 1: Finn hele den originale aktiviteten ved å skanne naboer
-                    Dim orgStartCol As Long, orgSluttCol As Long
-                    Dim orgFarge As Long, orgTekst As String
-                    Dim orgAktivitetFunnet As Boolean
+                    ' STEG 1: Tøm drag-området (fjern den draggede aktiviteten fra original-raden)
+                    For col = c.Column To sluttCol
+                        Set ryddCel = Me.Cells(c.Row, col)
+                        ryddCel.ClearContents
+                        ryddCel.Interior.Color = RGB(255, 255, 255)  ' Hvit bakgrunn
+                        ryddCel.Font.Bold = False
+                        ryddCel.Font.Color = RGB(0, 0, 0)
+                        ryddCel.HorizontalAlignment = xlGeneral
+                        ryddCel.VerticalAlignment = xlCenter
+                    Next col
 
-                    orgAktivitetFunnet = False
-
-                    ' Sjekk høyre nabo først
-                    If sluttCol < lastCol Then
-                        If HarAktivitetsfarge(høyreNabo) Then
-                            orgFarge = høyreNabo.Interior.Color
-                            orgStartCol = sluttCol + 1
-
-                            ' Skann videre til høyre for å finne hele aktiviteten
-                            orgSluttCol = orgStartCol
-                            For col = orgStartCol + 1 To lastCol
-                                If FargeAvstand(Me.Cells(c.Row, col).Interior.Color, orgFarge) <= 10 Then
-                                    orgSluttCol = col
-                                Else
-                                    Exit For
-                                End If
-                            Next col
-
-                            ' Finn teksten fra første fete celle i denne aktiviteten
-                            For col = orgStartCol To orgSluttCol
-                                If Me.Cells(c.Row, col).Font.Bold And Len(Trim$(Me.Cells(c.Row, col).Value)) > 0 Then
-                                    orgTekst = Trim$(Me.Cells(c.Row, col).Value)
-                                    Exit For
-                                End If
-                            Next col
-
-                            orgAktivitetFunnet = True
-
-                            If DEBUG_MODE Then
-                                Debug.Print "  Original aktivitet funnet til høyre: '" & orgTekst & "' (kol " & orgStartCol & "-" & orgSluttCol & ")"
-                            End If
-                        End If
-                    End If
-
-                    ' Hvis ikke funnet til høyre, sjekk venstre
-                    If Not orgAktivitetFunnet And c.Column > førsteDatoKol Then
-                        If HarAktivitetsfarge(venstreNabo) Then
-                            orgFarge = venstreNabo.Interior.Color
-                            orgSluttCol = c.Column - 1
-
-                            ' Skann videre til venstre for å finne hele aktiviteten
-                            orgStartCol = orgSluttCol
-                            For col = orgSluttCol - 1 To førsteDatoKol Step -1
-                                If FargeAvstand(Me.Cells(c.Row, col).Interior.Color, orgFarge) <= 10 Then
-                                    orgStartCol = col
-                                Else
-                                    Exit For
-                                End If
-                            Next col
-
-                            ' Finn teksten
-                            For col = orgStartCol To orgSluttCol
-                                If Me.Cells(c.Row, col).Font.Bold And Len(Trim$(Me.Cells(c.Row, col).Value)) > 0 Then
-                                    orgTekst = Trim$(Me.Cells(c.Row, col).Value)
-                                    Exit For
-                                End If
-                            Next col
-
-                            orgAktivitetFunnet = True
-
-                            If DEBUG_MODE Then
-                                Debug.Print "  Original aktivitet funnet til venstre: '" & orgTekst & "' (kol " & orgStartCol & "-" & orgSluttCol & ")"
-                            End If
-                        End If
-                    End If
-
-                    ' Hvis aktivitet funnet men tekst mangler, slå opp fra AKTIVITETSTYPER basert på farge
-                    If orgAktivitetFunnet And Len(orgTekst) = 0 And orgFarge <> 0 Then
-                        Dim orgBeskrivelse As String
-                        Dim orgKode As String
-                        orgKode = SlåOppAktivitetFraFarge(orgFarge, orgBeskrivelse)
-                        If Len(orgKode) > 0 Then
-                            If Len(orgBeskrivelse) > 0 Then
-                                orgTekst = orgKode & " - " & orgBeskrivelse
-                            Else
-                                orgTekst = orgKode
-                            End If
-                            If DEBUG_MODE Then
-                                Debug.Print "  Tekst slått opp fra AKTIVITETSTYPER: '" & orgTekst & "'"
-                            End If
-                        End If
-                    End If
-
-                    MsgBox "DEBUG 2.5: orgAktivitetFunnet = " & orgAktivitetFunnet & vbCrLf & _
-                           "orgTekst = '" & orgTekst & "'" & vbCrLf & _
-                           "orgFarge = " & orgFarge, vbInformation
-
-                    If orgAktivitetFunnet Then
-                        ' STEG 2: Gjenopprett den originale aktiviteten i drag-området
-                        For col = c.Column To sluttCol
-                            Set gjenCel = Me.Cells(c.Row, col)
-
-                            ' Sett samme farge og formatering som original
-                            gjenCel.Interior.Color = orgFarge
-                            gjenCel.Font.Bold = True
-                            gjenCel.Font.Color = RGB(255, 255, 255)
-                            gjenCel.VerticalAlignment = xlCenter
-
-                            ' Første celle får teksten
-                            If col = c.Column Then
-                                gjenCel.Value = orgTekst
-                                gjenCel.HorizontalAlignment = xlCenterAcrossSelection
-                            Else
-                                gjenCel.Value = ""
-                                gjenCel.HorizontalAlignment = xlCenterAcrossSelection
-                            End If
-                        Next col
-
-                        ' Sett borders for den gjenopprettede aktiviteten
-                        Set gjenRng = Me.Range(Me.Cells(c.Row, c.Column), Me.Cells(c.Row, sluttCol))
-                        gjenRng.Borders.LineStyle = xlLineStyleNone
-                        With gjenRng.Borders(xlEdgeLeft)
-                            .LineStyle = xlContinuous
-                            .Weight = xlThick
-                            .Color = RGB(0, 0, 0)
-                        End With
-                        With gjenRng.Borders(xlEdgeRight)
-                            .LineStyle = xlContinuous
-                            .Weight = xlThick
-                            .Color = RGB(0, 0, 0)
-                        End With
-                        With gjenRng.Borders(xlEdgeTop)
-                            .LineStyle = xlContinuous
-                            .Weight = xlThick
-                            .Color = RGB(0, 0, 0)
-                        End With
-                        With gjenRng.Borders(xlEdgeBottom)
-                            .LineStyle = xlContinuous
-                            .Weight = xlThick
-                            .Color = RGB(0, 0, 0)
-                        End With
-
-                        If DEBUG_MODE Then
-                            Debug.Print "  ✓ Original aktivitet gjenopprettet i celle " & c.Column & "-" & sluttCol
-                            Debug.Print "  dragTekst='" & dragTekst & "', dragFarge=" & dragFarge
-                        End If
-
-                        MsgBox "DEBUG 2.8: Rekonstruksjon ferdig!" & vbCrLf & _
-                               "Original gjenopprettet: '" & orgTekst & "'" & vbCrLf & _
-                               "Skal nå plassere drag: '" & dragTekst & "'", vbInformation
-                    Else
-                        MsgBox "DEBUG 2.9: orgAktivitetFunnet = False, hopper over rekonstruksjon", vbExclamation
-                    End If
-
-                    ' STEG 3: Finn hovedrad for personen
+                    ' STEG 2: Finn hovedrad for personen
                     Dim personHovedRad As Long
                     personHovedRad = c.Row
                     Dim r As Long
@@ -558,19 +390,14 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                     Set wsTyp = ThisWorkbook.Worksheets("AKTIVITETSTYPER - OVERSIKT")
                     On Error GoTo NesteCelle
 
-                    MsgBox "DEBUG 3: personHovedRad = " & personHovedRad & vbCrLf & _
-                           "wsTyp Is Nothing = " & (wsTyp Is Nothing), vbInformation
-
                     If Not wsTyp Is Nothing Then
                         On Error Resume Next
                         ' Kall funksjonen direkte istedenfor via Application.Run
                         Set aktivitetsFarger = HentAktivitetsFarger(wsTyp)
                         On Error GoTo NesteCelle
 
-                        MsgBox "DEBUG 4: aktivitetsFarger Is Nothing = " & (aktivitetsFarger Is Nothing), vbInformation
-
                         If Not aktivitetsFarger Is Nothing Then
-                            ' STEG 5: Finn ledig rad (oppretter ny hvis nødvendig)
+                            ' STEG 3: Finn ledig rad (oppretter ny hvis nødvendig)
                             Dim nyRad As Long
                             On Error Resume Next
                             ' Kall funksjonen direkte istedenfor via Application.Run
@@ -580,14 +407,6 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                             If DEBUG_MODE Then
                                 Debug.Print "  FinnEllerOpprettLedigRad returnerte: nyRad=" & nyRad
                             End If
-
-                            ' MIDLERTIDIG DEBUG: Vis hva som skjer
-                            MsgBox "Debug info:" & vbCrLf & _
-                                   "nyRad = " & nyRad & vbCrLf & _
-                                   "c.Row = " & c.Row & vbCrLf & _
-                                   "personHovedRad = " & personHovedRad & vbCrLf & _
-                                   "dragTekst = " & dragTekst & vbCrLf & _
-                                   "orgTekst = " & orgTekst, vbInformation
 
                             If nyRad > 0 And nyRad <> c.Row Then
                                 If DEBUG_MODE Then
