@@ -352,14 +352,43 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                     End If
                 End If
 
-                ' Hvis det er overlapp, bare la draggen overskrive (enkel løsning)
-                ' Ingen ny rad opprettes - aktivitetene deles på samme rad
+                ' Hvis det er overlapp, fiks navnet på den avkortede aktiviteten
                 If harOverlapp Then
                     If DEBUG_MODE Then
-                        Debug.Print "OVERLAPP DETEKTERT: Lar drag overskrive (ingen ny rad)"
+                        Debug.Print "OVERLAPP DETEKTERT: Fikser navn på avkortet aktivitet"
                     End If
-                    ' Gjør ingenting - la Excel's normale drag-and-drop oppførsel skje
-                    ' Dette vil automatisk splitte/avkorte den underliggende aktiviteten
+
+                    ' Sjekk venstre nabo - hvis den har annen farge, må vi fikse navnet der
+                    If c.Column > førsteDatoKol Then
+                        Dim venstreCel As Range
+                        Set venstreCel = Me.Cells(c.Row, c.Column - 1)
+
+                        If HarAktivitetsfarge(venstreCel) And FargeAvstand(venstreCel.Interior.Color, dragFarge) > 10 Then
+                            ' Venstre nabo har annen farge - finn start og sett riktig navn
+                            Dim vStartCol As Long
+                            vStartCol = c.Column - 1
+                            For col = vStartCol - 1 To førsteDatoKol Step -1
+                                If FargeAvstand(Me.Cells(c.Row, col).Interior.Color, venstreCel.Interior.Color) <= 10 Then
+                                    vStartCol = col
+                                Else
+                                    Exit For
+                                End If
+                            Next col
+
+                            ' Slå opp riktig navn fra farge
+                            Dim vBeskrivelse As String, vKode As String
+                            vKode = SlåOppAktivitetFraFarge(venstreCel.Interior.Color, vBeskrivelse)
+                            If Len(vKode) > 0 Then
+                                Dim vTekst As String
+                                If Len(vBeskrivelse) > 0 Then
+                                    vTekst = vKode & " - " & vBeskrivelse
+                                Else
+                                    vTekst = vKode
+                                End If
+                                Me.Cells(c.Row, vStartCol).Value = vTekst
+                            End If
+                        End If
+                    End If
                 End If
 
                 ' Hvis vi fant flere celler med samme farge, fiks formateringen
