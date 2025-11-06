@@ -200,7 +200,8 @@ Private Sub Worksheet_Change(ByVal Target As Range)
             targetCell.Interior.Color = tempValues(i, 3)
             targetCell.Font.Bold = tempValues(i, 4)
             ' KRITISK: Beregn korrekt tekstfarge basert på bakgrunnsfarge
-            If ErLysFarge(tempValues(i, 3)) Then
+            ' Cast til Long for å unngå ByRef type mismatch
+            If ErLysFarge(CLng(tempValues(i, 3))) Then
                 targetCell.Font.Color = RGB(0, 0, 0)  ' Sort tekst på lys bakgrunn
             Else
                 targetCell.Font.Color = RGB(255, 255, 255)  ' Hvit tekst på mørk bakgrunn
