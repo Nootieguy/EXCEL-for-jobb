@@ -198,7 +198,14 @@ Private Sub Worksheet_Change(ByVal Target As Range)
             targetCell.Value = tempValues(i, 2)
             targetCell.Interior.Color = tempValues(i, 3)
             targetCell.Font.Bold = tempValues(i, 4)
-            targetCell.Font.Color = tempValues(i, 5)
+            ' KRITISK: Beregn korrekt tekstfarge basert på bakgrunnsfarge
+            If ErLysFarge(tempValues(i, 3)) Then
+                targetCell.Font.Color = RGB(0, 0, 0)  ' Sort tekst på lys bakgrunn
+            Else
+                targetCell.Font.Color = RGB(255, 255, 255)  ' Hvit tekst på mørk bakgrunn
+            End If
+            ' KRITISK: Sett HorizontalAlignment for å vise tekst over flere celler
+            targetCell.HorizontalAlignment = xlCenterAcrossSelection
             Debug.Print "  [" & i & "] Satt " & targetCell.Address & " = '" & tempValues(i, 2) & "' (farge " & tempValues(i, 3) & ")"
         Next i
     End If
