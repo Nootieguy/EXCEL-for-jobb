@@ -193,7 +193,6 @@ Private Sub Worksheet_Change(ByVal Target As Range)
         ' NY aktivitet - bare re-appliser uten snapshot/tømming
         Debug.Print "NY aktivitet - bare re-appliser endringer uten snapshot"
         For i = 1 To UBound(tempValues, 1)
-            Dim targetCell As Range
             Set targetCell = Me.Range(tempValues(i, 1))
             targetCell.Value = tempValues(i, 2)
             targetCell.Interior.Color = tempValues(i, 3)
