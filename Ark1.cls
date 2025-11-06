@@ -103,9 +103,10 @@ Private Sub Worksheet_Change(ByVal Target As Range)
         End If
     Next tempCell
 
-    ' Først: Lagre ENDREDE verdier (etter drag & drop) for HELE snapshotRange
+    ' VIKTIG: Lagre BARE destination-cellene (relevantEndring), ikke hele snapshotRange!
+    ' Dette forhindrer at vi re-appliserer tomme source-celler
     Dim tempRange As Range
-    Set tempRange = snapshotRange
+    Set tempRange = relevantEndring
 
     ReDim tempValues(1 To tempRange.Cells.Count, 1 To 5) As Variant
     Dim i As Long
@@ -129,7 +130,30 @@ Private Sub Worksheet_Change(ByVal Target As Range)
     ' Ta snapshot av ORIGINAL data for HELE raden (fanger både source og destination!)
     LagUndoSnapshot snapshotRange
 
-    ' Redo ved å re-applisere de ENDREDE verdiene manuelt
+    ' Bygg Dictionary av destination-adresser for rask lookup
+    Dim destAdresser As Object
+    Set destAdresser = CreateObject("Scripting.Dictionary")
+    For i = 1 To UBound(tempValues, 1)
+        destAdresser.Add tempValues(i, 1), True
+    Next i
+
+    ' STEG 1: Først tøm ALLE celler i snapshotRange som IKKE er destination
+    ' Dette tømmer source-cellene (som Excel skulle ha tømt i en MOVE operation)
+    For Each tempCell In snapshotRange.Cells
+        If Not destAdresser.Exists(tempCell.Address) Then
+            ' Dette er en source-celle som skal tømmes
+            If tempCell.Interior.Color <> RGB(255, 255, 255) And _
+               tempCell.Interior.Color <> xlNone Then
+                ' Hadde farge, må tømmes
+                tempCell.Value = ""
+                tempCell.Interior.Color = RGB(255, 255, 255)
+                tempCell.Font.Bold = False
+                tempCell.Font.Color = RGB(0, 0, 0)
+            End If
+        End If
+    Next tempCell
+
+    ' STEG 2: Så appliser destination-cellene
     For i = 1 To UBound(tempValues, 1)
         Dim targetCell As Range
         Set targetCell = Me.Range(tempValues(i, 1))
