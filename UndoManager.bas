@@ -451,7 +451,7 @@ Public Function HentOriginalVerdi(ByVal celleAdresse As String) As Variant
 End Function
 
 ' Hent original tekst og farge for aktiviteter fra snapshot
-' Returnerer Dictionary: Key = farge (Long), Value = tekst (String)
+' Returnerer Dictionary: Key = celle-adresse (String), Value = Array(tekst, farge, rad, kolonne)
 ' Kun aktiviteter med bold tekst inkluderes
 Public Function HentOriginalAktiviteter() As Object
     Dim result As Object
@@ -473,11 +473,14 @@ Public Function HentOriginalAktiviteter() As Object
                 Dim farge As Long
                 farge = undoStack(i).InteriorColor
 
-                ' Lagre denne aktiviteten (hvis ikke allerede lagret)
-                ' Ved duplikater, behold første forekomst
-                If Not result.Exists(farge) Then
-                    result.Add farge, tekst
-                End If
+                Dim adresse As String
+                adresse = undoStack(i).Address
+
+                ' Lagre denne aktiviteten med full info
+                ' Key = celle-adresse (unikt), Value = Array(tekst, farge)
+                result.Add adresse, Array(tekst, farge)
+
+                Debug.Print "UNDO CACHE: Lagret " & adresse & " = '" & tekst & "' (farge " & farge & ")"
             End If
         End If
     Next i

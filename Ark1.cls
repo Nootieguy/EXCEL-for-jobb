@@ -36,7 +36,7 @@
 Option Explicit
 
 ' Debug-modus (sett til True for logging til Immediate Window)
-Private Const DEBUG_MODE As Boolean = False
+Private Const DEBUG_MODE As Boolean = True
 
 ' Rekursjons-beskyttelse
 Private behandlerEndring As Boolean
@@ -1843,7 +1843,9 @@ Private Sub RestaurerKommentarerOgSeparerAktiviteter(ByVal rad As Long, ByVal f�
         Debug.Print "  Fant " & originalAktiviteter.Count & " originale aktiviteter i cache"
         Dim cacheKey As Variant
         For Each cacheKey In originalAktiviteter.Keys
-            Debug.Print "    Farge " & cacheKey & " = '" & originalAktiviteter(cacheKey) & "'"
+            Dim cacheData As Variant
+            cacheData = originalAktiviteter(cacheKey)
+            Debug.Print "    " & cacheKey & " = '" & cacheData(0) & "' (farge " & cacheData(1) & ")"
         Next cacheKey
     End If
 
@@ -1940,19 +1942,58 @@ End Sub
 ' ============================================================================
 Private Sub RestaurerOgSettBorder(ByVal rad As Long, ByVal startCol As Long, ByVal sluttCol As Long, _
                                    ByVal farge As Long, ByVal originalAktiviteter As Object)
-    ' STEG 1: Sjekk om det finnes original tekst i cache for denne fargen
+    ' STEG 1: Søk gjennom cache etter aktiviteter med matchende farge i samme rad
+    ' Vi må sjekke flere entries fordi det kan være flere aktiviteter med samme farge
     Dim skalRestaurere As Boolean
     Dim originalTekst As String
+    Dim besteMatch As String
+    Dim besteMatchAvstand As Long
 
     skalRestaurere = False
+    besteMatch = ""
+    besteMatchAvstand = 9999
 
     If Not originalAktiviteter Is Nothing Then
-        If originalAktiviteter.Exists(farge) Then
-            originalTekst = originalAktiviteter(farge)
-            skalRestaurere = True
+        Dim adresse As Variant
+        For Each adresse In originalAktiviteter.Keys
+            Dim cacheData As Variant
+            cacheData = originalAktiviteter(adresse)
 
+            Dim cacheTekst As String
+            Dim cacheFarge As Long
+            cacheTekst = cacheData(0)
+            cacheFarge = cacheData(1)
+
+            ' Sjekk om denne cachen matcher fargen vi leter etter
+            If FargeAvstand(cacheFarge, farge) <= 10 Then
+                ' Ekstrahér rad og kolonne fra adresse (f.eks. "$C$5" -> rad=5, kol=3)
+                Dim cacheRad As Long, cacheKol As Long
+                Call ParseCelleAdresse(CStr(adresse), cacheRad, cacheKol)
+
+                ' Sjekk om det er samme rad
+                If cacheRad = rad Then
+                    ' Beregn avstand mellom cache-posisjon og vår start-kolonne
+                    Dim avstand As Long
+                    avstand = Abs(cacheKol - startCol)
+
+                    ' Velg den nærmeste matchen
+                    If avstand < besteMatchAvstand Then
+                        besteMatch = cacheTekst
+                        besteMatchAvstand = avstand
+                        skalRestaurere = True
+
+                        If DEBUG_MODE Then
+                            Debug.Print "    Fant kandidat: " & adresse & " = '" & cacheTekst & "' (avstand=" & avstand & ")"
+                        End If
+                    End If
+                End If
+            End If
+        Next adresse
+
+        If skalRestaurere Then
+            originalTekst = besteMatch
             If DEBUG_MODE Then
-                Debug.Print "    Fant original tekst i cache: '" & originalTekst & "'"
+                Debug.Print "    Beste match: '" & originalTekst & "' (avstand=" & besteMatchAvstand & ")"
             End If
         End If
     End If
@@ -1982,6 +2023,31 @@ Private Sub RestaurerOgSettBorder(ByVal rad As Long, ByVal startCol As Long, ByV
 
     ' STEG 3: Sett thick border på aktiviteten
     Call SettThickBorderPåAktivitet(rad, startCol, sluttCol, farge)
+End Sub
+
+' ============================================================================
+' HJELPER: Parse celle-adresse til rad og kolonne
+' ============================================================================
+Private Sub ParseCelleAdresse(ByVal adresse As String, ByRef rad As Long, ByRef kol As Long)
+    On Error Resume Next
+
+    ' Fjern $ tegn (f.eks. "$C$5" -> "C5")
+    Dim cleanAddr As String
+    cleanAddr = Replace(adresse, "$", "")
+
+    ' Bruk Range for å parse
+    Dim tempRng As Range
+    Set tempRng = Me.Range(cleanAddr)
+
+    If Not tempRng Is Nothing Then
+        rad = tempRng.Row
+        kol = tempRng.Column
+    Else
+        rad = 0
+        kol = 0
+    End If
+
+    On Error GoTo 0
 End Sub
 
 ' ============================================================================
