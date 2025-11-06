@@ -544,13 +544,23 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                                 Else
                                     ' Ingen eksisterende tekst funnet
                                     ' Dette kan skje når Excel tømmer celler under drag & drop
-                                    ' HOPP OVER denne aktiviteten - ikke endre den
-                                    debugMsg = debugMsg & "  Hopper over (ingen tekst funnet)" & vbCrLf
-                                    debugMsg = debugMsg & vbCrLf
+                                    ' RESTAURER standard navn fra farge isteden for å hoppe over
+                                    If Len(riktigKode) > 0 Then
+                                        If Len(riktigBeskrivelse) > 0 Then
+                                            riktigTekst = riktigKode & " - " & riktigBeskrivelse
+                                        Else
+                                            riktigTekst = riktigKode
+                                        End If
+                                        debugMsg = debugMsg & "  Ingen tekst funnet - restaurerer standard: '" & riktigTekst & "'" & vbCrLf
+                                    Else
+                                        ' Fant ikke kode for farge - hopp over denne aktiviteten
+                                        debugMsg = debugMsg & "  Hopper over (ingen tekst + ukjent farge)" & vbCrLf
+                                        debugMsg = debugMsg & vbCrLf
 
-                                    ' Hopp til slutten av denne aktiviteten
-                                    overlapScanCol = aktSluttCol + 1
-                                    GoTo SkipActivity
+                                        ' Hopp til slutten av denne aktiviteten
+                                        overlapScanCol = aktSluttCol + 1
+                                        GoTo SkipActivity
+                                    End If
                                 End If
 
                                 If Len(riktigTekst) > 0 Then
