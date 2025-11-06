@@ -51,7 +51,7 @@ Private tekstCache As Object
 ' ============================================================================
 Private Sub Worksheet_Activate()
     modDagensOutline.MarkerDagensDato_Bla
-    RebuildKommentarCache
+    OppdaterSegmentCaches
 End Sub
 
 ' ============================================================================
@@ -89,8 +89,8 @@ Private Sub Worksheet_Change(ByVal Target As Range)
 
     If relevantEndring Is Nothing Then Exit Sub
 
-    ' Sørg for at kommentar-cache eksisterer før vi starter
-    If kommentarCache Is Nothing Then RebuildKommentarCache
+    ' Sørg for at cache alltid er oppdatert før vi analyserer endringen
+    OppdaterSegmentCaches
 
     ' STEG 5: Lagre undo-snapshot før endringer
     On Error Resume Next
@@ -587,7 +587,7 @@ Slutt:
     errDesc = Err.Description
 
     On Error Resume Next
-    RebuildKommentarCache
+    OppdaterSegmentCaches
     Application.EnableEvents = True
     behandlerEndring = False
     On Error GoTo 0
@@ -1411,6 +1411,11 @@ Private Sub KommentarCacheRegistrerBlokk(ByVal rad As Long, ByVal startCol As Lo
     For col = startCol To endCol
         radDict(CStr(col)) = kommentarTekst
     Next col
+End Sub
+
+Public Sub OppdaterSegmentCaches()
+    ' Gjør tilgjengelig for andre makroer slik at de kan oppdatere cache manuelt
+    RebuildKommentarCache
 End Sub
 
 Private Sub KommentarCacheFjernCelle(ByVal rad As Long, ByVal col As Long)
