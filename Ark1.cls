@@ -1,3 +1,4 @@
+
 ' ============================================================================
 ' ARK1: PLANLEGGER - WORKSHEET EVENT HANDLER
 ' ============================================================================
@@ -9,8 +10,8 @@
 '
 ' FUNKSJONALITET:
 '   Auto-restaurering av aktivitetsnavn:
-'   - Hvis bruker sletter FØRSTE celle i aktivitet → auto-restaurer navnet
-'   - Hvis bruker sletter MIDT i aktivitet → fjerner farge (lager split)
+'   - Hvis bruker sletter FØRSTE celle i aktivitet ? auto-restaurer navnet
+'   - Hvis bruker sletter MIDT i aktivitet ? fjerner farge (lager split)
 '   - Fungerer med Delete, "Fjern markert område", Cut, og markerte områder
 '
 '   Delete-oppførsel (forbedret):
@@ -40,15 +41,11 @@ Private Const DEBUG_MODE As Boolean = False
 ' Rekursjons-beskyttelse
 Private behandlerEndring As Boolean
 
-' Kommentar-cache for å bevare merknader gjennom overlapp
-Private kommentarCache As Object
-
 ' ============================================================================
 ' EVENT: Når arket aktiveres
 ' ============================================================================
 Private Sub Worksheet_Activate()
     modDagensOutline.MarkerDagensDato_Bla
-    RebuildKommentarCache
 End Sub
 
 ' ============================================================================
@@ -86,9 +83,6 @@ Private Sub Worksheet_Change(ByVal Target As Range)
 
     If relevantEndring Is Nothing Then Exit Sub
 
-    ' Sørg for at kommentar-cache eksisterer før vi starter
-    If kommentarCache Is Nothing Then RebuildKommentarCache
-
     ' STEG 5: Lagre undo-snapshot før endringer
     On Error Resume Next
     LagUndoSnapshot relevantEndring
@@ -112,25 +106,10 @@ Private Sub Worksheet_Change(ByVal Target As Range)
     Dim behandledeCeller As Object
     Set behandledeCeller = CreateObject("Scripting.Dictionary")
 
-    ' Sørg for at kommentar-cache er initialisert
-    If blokkKommentarCache Is Nothing Then
-        Set blokkKommentarCache = CreateObject("Scripting.Dictionary")
-    End If
-
-    ' Track rader som må oppdatere kommentar-cache etter endringer
-    Dim raderForCache As Object
-    Set raderForCache = CreateObject("Scripting.Dictionary")
-
     For Each c In relevantEndring.Cells
         ' Hopp over celler som allerede er behandlet (paste multi-celle)
         If behandledeCeller.Exists(c.Address) Then
             GoTo NesteCelle
-        End If
-
-        Dim radKeyCache As String
-        radKeyCache = CStr(c.Row)
-        If Not raderForCache.Exists(radKeyCache) Then
-            raderForCache.Add radKeyCache, True
         End If
 
         ' Sjekk om cellen er tom
@@ -167,10 +146,8 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                     Application.Undo
                     Dim hadTekst As Boolean
                     Dim originalTekst As String
-                    Dim originalKommentar As String
                     hadTekst = (Len(Trim$(c.Value)) > 0)
                     originalTekst = c.Value
-                    originalKommentar = HentKommentarSomTekst(c)
 
                     ' Slett på nytt
                     c.ClearContents
@@ -239,13 +216,6 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                             ' Hvis det finnes en neste celle, kopier teksten dit
                             If Not nesteCelleIAktivitet Is Nothing Then
                                 nesteCelleIAktivitet.Value = originalTekst
-                                If Len(originalKommentar) > 0 Then
-                                    SettKommentar nesteCelleIAktivitet, originalKommentar
-                                End If
-                            End If
-
-                            If Len(originalKommentar) > 0 Then
-                                FjernKommentar c
                             End If
 
                             ' Marker denne cellen for fjerning (cleanup vil fjerne fargen osv)
@@ -258,7 +228,7 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                             cellerÅFjerne(radKey).Add c.Column, c.Column
                         End If
                     Else
-                        ' Celle hadde IKKE tekst → hele aktiviteten slettes
+                        ' Celle hadde IKKE tekst ? hele aktiviteten slettes
                         If DEBUG_MODE Then
                             Debug.Print "Hele aktiviteten slettes (celle 1 var tom): " & c.Address
                         End If
@@ -409,59 +379,12 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                                 Dim celTilVenstre As Range
                                 Set celTilVenstre = Me.Cells(c.Row, overlapScanCol - 1)
 
-
-                            If overlapScanCol > førsteDatoKol Then
-                                Dim celTilVenstre As Range
-                                Set celTilVenstre = Me.Cells(c.Row, overlapScanCol - 1)
-
                                 If HarAktivitetsfarge(celTilVenstre) Then
                                     If FargeAvstand(celTilVenstre.Interior.Color, overlapScanCel.Interior.Color) <= 10 Then
                                         erStartAvBlokk = False
                                     End If
                                 End If
                             End If
-
-                            If erStartAvBlokk Then
-                                Dim aktFarge As Long
-                                Dim aktTekst As String
-                                Dim aktStartCol As Long
-                                Dim aktSluttCol As Long
-                                Dim eksisterendeTekst As String
-                                Dim harKommentar As Boolean
-                                Dim kommentarTekst As String
-                                Dim kommentarErThreaded As Boolean
-
-                                aktFarge = overlapScanCel.Interior.Color
-                                aktTekst = Trim$(overlapScanCel.Value)
-                                aktStartCol = overlapScanCol
-                                aktSluttCol = aktStartCol
-                                eksisterendeTekst = aktTekst
-
-                                harKommentar = HentKommentarFraCelle(overlapScanCel, kommentarTekst, kommentarErThreaded)
-
-                                debugMsg = debugMsg & "Kol " & overlapScanCol & ": Farge=" & aktFarge & ", Tekst='" & aktTekst & "'" & vbCrLf
-
-                                ' Finn slutten av denne aktiviteten og let etter eksisterende tekst/kommentar
-                                For col = aktStartCol + 1 To lastCol
-                                    If FargeAvstand(Me.Cells(c.Row, col).Interior.Color, aktFarge) <= 10 Then
-                                        aktSluttCol = col
-
-                                        If Len(eksisterendeTekst) = 0 Then
-                                            Dim kandidatTekst As String
-                                            kandidatTekst = Trim$(Me.Cells(c.Row, col).Value)
-                                            If Len(kandidatTekst) > 0 Then
-                                                eksisterendeTekst = kandidatTekst
-                                            End If
-                                        End If
-
-                                        If Not harKommentar Then
-                                            harKommentar = HentKommentarFraCelle(Me.Cells(c.Row, col), kommentarTekst, kommentarErThreaded)
-                                        End If
-                                    Else
-                                        Exit For
-                                    End If
-                                Next col
-
 
                             If erStartAvBlokk Then
                                 Dim aktFarge As Long
@@ -530,41 +453,6 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                                     debugMsg = debugMsg & "  Fant ikke navn for farge " & aktFarge & vbCrLf
                                 End If
 
-                                If Len(riktigTekst) > 0 Then
-                                Else
-                                    riktigKode = SlåOppAktivitetFraFarge(aktFarge, riktigBeskrivelse)
-                                    If Len(riktigKode) > 0 Then
-                                        If Len(riktigBeskrivelse) > 0 Then
-                                            riktigTekst = riktigKode & " - " & riktigBeskrivelse
-                                        Else
-                                            riktigTekst = riktigKode
-                                        End If
-                                    Else
-                                        riktigTekst = ""
-                                    End If
-                                End If
-
-                                If Len(riktigTekst) > 0 Then
-                                    debugMsg = debugMsg & "  Riktig navn: '" & riktigTekst & "'" & vbCrLf
-                                Else
-                                    debugMsg = debugMsg & "  Fant ikke navn for farge " & aktFarge & vbCrLf
-                                End If
-
-                                If Len(riktigTekst) > 0 Then
-                                    If Not harKommentar Then
-                                        harKommentar = HentKommentarFraCache(c.Row, riktigTekst, aktFarge, kommentarTekst, kommentarErThreaded)
-                                        If harKommentar And DEBUG_MODE Then
-                                            debugMsg = debugMsg & "  Kommentar hentet fra cache" & vbCrLf
-                                        End If
-                                    End If
-
-                                    If harKommentar Then
-                                        OppdaterKommentarCache c.Row, riktigTekst, aktFarge, kommentarTekst, kommentarErThreaded
-                                    Else
-                                        FjernKommentarFraCache c.Row, riktigTekst, aktFarge
-                                    End If
-                                End If
-
                                 ' ALLTID fiks formateringen for å isolere denne aktiviteten
                                 ' Selv om teksten er riktig, må vi sikre at xlCenterAcrossSelection
                                 ' ikke spreder seg utenfor denne aktivitetens område
@@ -573,13 +461,7 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                                 overlapScanCel.Value = riktigTekst
                                 overlapScanCel.HorizontalAlignment = xlCenterAcrossSelection
                                 FjernKommentarer overlapScanCel
-                                If harKommentar Then
-                                    Call LeggTilKommentar(overlapScanCel, kommentarTekst, kommentarErThreaded)
-
-                                    If Len(riktigTekst) > 0 Then
-                                        OppdaterKommentarCache c.Row, riktigTekst, aktFarge, kommentarTekst, kommentarErThreaded
-                                    End If
-                                End If
+                                If harKommentar Then Call LeggTilKommentar(overlapScanCel, kommentarTekst, kommentarErThreaded)
 
                                 ' Tøm teksten i resten av cellene i denne aktiviteten
                                 For col = aktStartCol + 1 To aktSluttCol
@@ -631,7 +513,7 @@ NesteCelle:
     ' Behandle hver rad kun ÉN gang
     Dim radNr As Variant
     For Each radNr In splittRader.Keys
-        Call HåndterAlleAktiviteterMedSplitIRad(CLng(radNr), førsteDatoKol, datoRad, cellerÅFjerne, relevantEndring)
+        Call HåndterAlleAktiviteterMedSplitIRad(CLng(radNr), førsteDatoKol, datoRad, cellerÅFjerne)
     Next radNr
 
     ' STEG 6C: Rydd opp celler som er markert for sletting men ikke ble håndtert av split-logikk
@@ -653,7 +535,7 @@ NesteCelle:
                 End If
 
                 ' Rydd helt som FjernMarkert gjør
-                FjernKommentar celCleanup
+                celCleanup.ClearComments
                 celCleanup.ClearContents
                 celCleanup.Font.Bold = False
                 celCleanup.Font.ColorIndex = xlColorIndexAutomatic
@@ -733,26 +615,15 @@ NesteCelle:
         End If
     Next radKeyCleanup
 
-    ' Oppdater kommentar-cache for alle berørte rader basert på endelig tilstand
-    Dim cacheRad As Variant
-    For Each cacheRad In raderForCache.Keys
-        OppdaterKommentarCacheForRad CLng(cacheRad), førsteDatoKol, datoRad
-    Next cacheRad
-
 Slutt:
-    Dim errNum As Long, errDesc As String
-    errNum = Err.Number
-    errDesc = Err.Description
-
-    On Error Resume Next
-    RebuildKommentarCache
+    ' STEG 7: Re-enable events og fjern beskyttelsesflagg
     Application.EnableEvents = True
     behandlerEndring = False
-    On Error GoTo 0
 
     ' Debug-logging ved feil
-    If errNum <> 0 Then
-        Debug.Print "Feil i Worksheet_Change (Ark1): " & errDesc
+    If Err.Number <> 0 Then
+        Debug.Print "Feil i Worksheet_Change (Ark1): " & Err.Description
+        Err.Clear
     End If
 End Sub
 
@@ -769,7 +640,7 @@ Private Sub BehandleSlettetCelle(ByVal cel As Range, ByVal førsteDatoKol As Lon
 
     ' KRITERIE 3: Cellen må være FØRSTE celle i blokken
     If Not ErFørsteCelleIBlokk(cel, førsteDatoKol) Then
-        If DEBUG_MODE Then Debug.Print "  → Ikke første celle - tillater split/gap"
+        If DEBUG_MODE Then Debug.Print "  ? Ikke første celle - tillater split/gap"
         Exit Sub
     End If
 
@@ -784,19 +655,19 @@ Private Sub BehandleSlettetCelle(ByVal cel As Range, ByVal førsteDatoKol As Lon
     aktivKode = SlåOppAktivitetFraFarge(cel.Interior.Color, aktivBeskr)
 
     If Len(aktivKode) = 0 Then
-        If DEBUG_MODE Then Debug.Print "  → Fant ikke aktivitetskode for farge " & cel.Interior.Color
+        If DEBUG_MODE Then Debug.Print "  ? Fant ikke aktivitetskode for farge " & cel.Interior.Color
         Exit Sub
     End If
 
     If DEBUG_MODE Then
-        Debug.Print "  → Funnet aktivitet: " & aktivKode & " - " & aktivBeskr
+        Debug.Print "  ? Funnet aktivitet: " & aktivKode & " - " & aktivBeskr
     End If
 
     ' STEG 2: Restaurer navnet i cellen
     Call RestaurerAktivitetsNavn(cel, aktivKode, aktivBeskr)
 
     If DEBUG_MODE Then
-        Debug.Print "  ✓ Navn restaurert!"
+        Debug.Print "  ? Navn restaurert!"
         Debug.Print String(80, "=")
     End If
 End Sub
@@ -806,8 +677,7 @@ End Sub
 ' Kan kalles både internt (fra Worksheet_Change) og eksternt (fra FjernMarkert)
 ' ============================================================================
 Public Sub HåndterAlleAktiviteterMedSplitIRad(ByVal rad As Long, ByVal førsteDatoKol As Long, _
-                                                ByVal datoRad As Long, ByVal cellerÅFjerne As Object, _
-                                                Optional ByVal endretOmråde As Range)
+                                                ByVal datoRad As Long, ByVal cellerÅFjerne As Object)
     ' Valider parameter (kan være Nothing når kalt eksternt)
     If cellerÅFjerne Is Nothing Then
         Set cellerÅFjerne = CreateObject("Scripting.Dictionary")
@@ -908,7 +778,7 @@ Public Sub HåndterAlleAktiviteterMedSplitIRad(ByVal rad As Long, ByVal førsteD
 
         ' Hvis blokken har split, håndter den
         If harSplit Then
-            Call HåndterEnkeltAktivitetSplit(rad, bStart, bSlutt, bFarge, førsteDatoKol, datoRad, cellerÅFjerne, endretOmråde)
+            Call HåndterEnkeltAktivitetSplit(rad, bStart, bSlutt, bFarge, førsteDatoKol, datoRad, cellerÅFjerne)
         End If
     Next k
 End Sub
@@ -919,14 +789,12 @@ End Sub
 Private Sub HåndterEnkeltAktivitetSplit(ByVal rad As Long, ByVal blokkStart As Long, _
                                          ByVal blokkSlutt As Long, ByVal aktivFarge As Long, _
                                          ByVal førsteDatoKol As Long, ByVal datoRad As Long, _
-                                         ByVal cellerÅFjerne As Object, Optional ByVal endretOmråde As Range)
+                                         ByVal cellerÅFjerne As Object)
     Dim aktivKode As String, aktivBeskr As String
-    Dim blokkKommentar As String
     Dim c As Long
     Dim lastCol As Long
 
     lastCol = Me.Cells(datoRad, Me.Columns.Count).End(xlToLeft).Column
-    blokkKommentar = FinnKommentarIBlokk(rad, blokkStart, blokkSlutt, aktivFarge)
 
     ' STEG 0: Fjern farger fra markerte celler FØRST
     Dim radKeyFjern As String
@@ -938,14 +806,14 @@ Private Sub HåndterEnkeltAktivitetSplit(ByVal rad As Long, ByVal blokkStart As 
         For c = blokkStart To blokkSlutt
             If colDictFjern.Exists(c) Then
                 If DEBUG_MODE Then
-                    Debug.Print "  → Fjerner farge fra celle kolonne " & c
+                    Debug.Print "  ? Fjerner farge fra celle kolonne " & c
                 End If
 
                 Dim celFjern As Range
                 Set celFjern = Me.Cells(rad, c)
 
                 ' Rydd celle fullstendig
-                FjernKommentar celFjern
+                celFjern.ClearComments
                 celFjern.ClearContents
                 celFjern.Interior.ColorIndex = xlColorIndexNone
                 celFjern.Font.Bold = False
@@ -1039,7 +907,7 @@ Private Sub HåndterEnkeltAktivitetSplit(ByVal rad As Long, ByVal blokkStart As 
     If DEBUG_MODE Then
         Debug.Print String(80, "=")
         Debug.Print "SPLIT FOR BLOKK " & blokkStart & "-" & blokkSlutt & " [" & Now & "]"
-        Debug.Print "  → Aktivitet: " & aktivKode & " - " & aktivBeskr
+        Debug.Print "  ? Aktivitet: " & aktivKode & " - " & aktivBeskr
     End If
 
     ' STEG 3: Nullstill alignment på DENNE blokken
@@ -1047,10 +915,10 @@ Private Sub HåndterEnkeltAktivitetSplit(ByVal rad As Long, ByVal blokkStart As 
         Me.Cells(rad, c).HorizontalAlignment = xlGeneral
     Next c
 
-    ' STEG 4: Bygg segmentliste og formater hver del for seg
-    Dim segmentListe As Collection
-    Set segmentListe = ByggSegmentListe(rad, blokkStart, blokkSlutt, aktivFarge, aktivKode, _
-                                        aktivBeskr, blokkKommentar, cellerÅFjerne, endretOmråde)
+    ' STEG 4: Skann blokken og identifiser segmenter
+    Dim inSegment As Boolean
+    Dim segmentStart As Long, segmentEnd As Long
+    Dim segmentNr As Integer
 
     segmentNr = 0
     inSegment = False
@@ -1066,7 +934,7 @@ Private Sub HåndterEnkeltAktivitetSplit(ByVal rad As Long, ByVal blokkStart As 
         Else
             If inSegment Then
                 Call FormaterSegment(rad, segmentStart, segmentEnd, aktivFarge, aktivKode, _
-                                     aktivBeskr, segmentNr, blokkKommentar)
+                                     aktivBeskr, segmentNr)
                 inSegment = False
             End If
         End If
@@ -1074,24 +942,21 @@ Private Sub HåndterEnkeltAktivitetSplit(ByVal rad As Long, ByVal blokkStart As 
 
     If inSegment Then
         Call FormaterSegment(rad, segmentStart, segmentEnd, aktivFarge, aktivKode, _
-                             aktivBeskr, segmentNr, blokkKommentar)
+                             aktivBeskr, segmentNr)
     End If
 
     ' STEG 5: Nullstill hvite celler i blokken
     For c = blokkStart To blokkSlutt
         If Not HarAktivitetsfarge(Me.Cells(rad, c)) Then
-            Dim hvitCel As Range
-            Set hvitCel = Me.Cells(rad, c)
-            With hvitCel
+            With Me.Cells(rad, c)
                 .Value = ""
                 .Font.Bold = False
             End With
-            FjernKommentar hvitCel
         End If
     Next c
 
     If DEBUG_MODE Then
-        Debug.Print "  ✓ Blokk håndtert!"
+        Debug.Print "  ? Blokk håndtert!"
         Debug.Print String(80, "=")
     End If
 End Sub
@@ -1104,7 +969,6 @@ Public Sub HåndterAktivitetSplitForRad(ByVal rad As Long, ByVal førsteDatoKol 
                                          ByVal datoRad As Long)
     Dim aktivFarge As Long
     Dim aktivKode As String, aktivBeskr As String
-    Dim blokkKommentar As String
     Dim c As Long
     Dim lastCol As Long
 
@@ -1127,7 +991,6 @@ Public Sub HåndterAktivitetSplitForRad(ByVal rad As Long, ByVal førsteDatoKol 
     Next c
 
     If aktivFarge = 0 Then Exit Sub  ' Ingen aktivitetsfarge funnet i raden
-    blokkKommentar = FinnKommentarIBlokk(rad, førsteDatoKol, lastCol, aktivFarge)
 
     ' STEG 2: Hent aktivitetskode og beskrivelse
     Dim fullTekst As String
@@ -1159,13 +1022,13 @@ Public Sub HåndterAktivitetSplitForRad(ByVal rad As Long, ByVal førsteDatoKol 
     If DEBUG_MODE Then
         Debug.Print String(80, "=")
         Debug.Print "SPLIT HÅNDTERING FOR RAD " & rad & " [" & Now & "]"
-        Debug.Print "  → Aktivitet: " & aktivKode & " - " & aktivBeskr
-        Debug.Print "  → Aktivfarge: " & aktivFarge
+        Debug.Print "  ? Aktivitet: " & aktivKode & " - " & aktivBeskr
+        Debug.Print "  ? Aktivfarge: " & aktivFarge
     End If
 
     ' STEG 3A: FØRST - Nullstill alignment på ALLE celler i raden
     ' Dette fjerner den gamle xlCenterAcrossSelection som "blør" over
-    If DEBUG_MODE Then Debug.Print "  → Nullstiller alignment på hele raden først..."
+    If DEBUG_MODE Then Debug.Print "  ? Nullstiller alignment på hele raden først..."
 
     For c = førsteDatoKol To lastCol
         With Me.Cells(rad, c)
@@ -1174,15 +1037,16 @@ Public Sub HåndterAktivitetSplitForRad(ByVal rad As Long, ByVal førsteDatoKol 
     Next c
 
     ' STEG 4: Skann hele raden og identifiser alle segmenter
-    Dim segmentListe As Collection
-    Set segmentListe = ByggSegmentListe(rad, førsteDatoKol, lastCol, aktivFarge, aktivKode, _
-                                        aktivBeskr, blokkKommentar)
+    Dim inSegment As Boolean
+    Dim segmentStart As Long, segmentEnd As Long
+    Dim segmentNr As Integer
 
-    Dim segmentNr As Long
-    Dim segmentData As Object
+    segmentNr = 0
+    inSegment = False
 
-    For segmentNr = 1 To segmentListe.Count
-        Set segmentData = segmentListe(segmentNr)
+    For c = førsteDatoKol To lastCol
+        Dim celFarge As Long
+        celFarge = Me.Cells(rad, c).Interior.Color
 
         ' Sjekk om denne cellen er del av aktiviteten
         If FargeAvstand(celFarge, aktivFarge) <= 10 Then
@@ -1194,7 +1058,7 @@ Public Sub HåndterAktivitetSplitForRad(ByVal rad As Long, ByVal førsteDatoKol 
                 segmentNr = segmentNr + 1
 
                 If DEBUG_MODE Then
-                    Debug.Print "  → Segment " & segmentNr & " starter i kolonne " & segmentStart
+                    Debug.Print "  ? Segment " & segmentNr & " starter i kolonne " & segmentStart
                 End If
             End If
             segmentEnd = c
@@ -1203,32 +1067,30 @@ Public Sub HåndterAktivitetSplitForRad(ByVal rad As Long, ByVal førsteDatoKol 
             If inSegment Then
                 ' Avslutt segment og formater det
                 Call FormaterSegment(rad, segmentStart, segmentEnd, aktivFarge, aktivKode, _
-                                     aktivBeskr, segmentNr, blokkKommentar)
+                                     aktivBeskr, segmentNr)
                 inSegment = False
             End If
         End If
+    Next c
 
     ' Håndter siste segment hvis vi fortsatt er i et
     If inSegment Then
         Call FormaterSegment(rad, segmentStart, segmentEnd, aktivFarge, aktivKode, _
-                             aktivBeskr, segmentNr, blokkKommentar)
+                             aktivBeskr, segmentNr)
     End If
 
     ' STEG 5: Nullstill hvite celler fullstendig (sikre ingen tekst eller formatering)
     For c = førsteDatoKol To lastCol
         If Not HarAktivitetsfarge(Me.Cells(rad, c)) Then
-            Dim hvitCel2 As Range
-            Set hvitCel2 = Me.Cells(rad, c)
-            With hvitCel2
+            With Me.Cells(rad, c)
                 .Value = ""  ' Sikre ingen tekst
                 .Font.Bold = False
             End With
-            FjernKommentar hvitCel2
         End If
     Next c
 
     If DEBUG_MODE Then
-        Debug.Print "  ✓ Rad " & rad & " håndtert!"
+        Debug.Print "  ? Rad " & rad & " håndtert!"
         Debug.Print String(80, "=")
     End If
 End Sub
@@ -1238,8 +1100,7 @@ End Sub
 ' ============================================================================
 Private Sub FormaterSegment(ByVal rad As Long, ByVal startCol As Long, ByVal endCol As Long, _
                              ByVal aktivFarge As Long, ByVal aktivKode As String, _
-                             ByVal aktivBeskr As String, ByVal segmentNr As Integer, _
-                             ByVal kommentarTekst As String)
+                             ByVal aktivBeskr As String, ByVal segmentNr As Integer)
     Dim rng As Range
     Dim førsteCelle As Range
     Dim visTekst As String
@@ -1248,17 +1109,14 @@ Private Sub FormaterSegment(ByVal rad As Long, ByVal startCol As Long, ByVal end
     Set førsteCelle = Me.Cells(rad, startCol)
 
     If DEBUG_MODE Then
-        Debug.Print "  → Formaterer segment " & segmentNr & ": " & _
+        Debug.Print "  ? Formaterer segment " & segmentNr & ": " & _
                     Me.Cells(1, startCol).Address & "-" & Me.Cells(1, endCol).Address
     End If
 
     ' Lag visningstekst
-    visTekst = Trim$(segmentTekst)
-    If Len(visTekst) = 0 Then
-        visTekst = aktivKode
-        If Len(aktivBeskr) > 0 Then
-            visTekst = visTekst & " - " & aktivBeskr
-        End If
+    visTekst = aktivKode
+    If Len(aktivBeskr) > 0 Then
+        visTekst = visTekst & " - " & aktivBeskr
     End If
 
     ' VIKTIG: Sett tekst i ALLE celler i segmentet først (for å tømme gamle verdier)
@@ -1271,12 +1129,9 @@ Private Sub FormaterSegment(ByVal rad As Long, ByVal startCol As Long, ByVal end
             ' ANDRE celler: Tøm (kun første celle skal ha tekst)
             Me.Cells(rad, col).Value = ""
         End If
-        If col <> startCol Then
-            FjernKommentar Me.Cells(rad, col)
-        End If
     Next col
 
-    If DEBUG_MODE Then Debug.Print "    → Aktivitetsnavn satt i segment " & segmentNr
+    If DEBUG_MODE Then Debug.Print "    ? Aktivitetsnavn satt i segment " & segmentNr
 
     ' Sett alignment KUN over dette segmentet
     With rng
@@ -1294,238 +1149,6 @@ Private Sub FormaterSegment(ByVal rad As Long, ByVal startCol As Long, ByVal end
             .Color = RGB(255, 255, 255)  ' Hvit på mørk bakgrunn
         End If
     End With
-
-    If Len(kommentarTekst) > 0 Then
-        SettKommentar førsteCelle, kommentarTekst
-    Else
-        FjernKommentar førsteCelle
-    End If
-End Sub
-
-' ============================================================================
-' KOMMENTAR-CACHE: Bygg/vedlikehold siste kjente kommentarer per aktivitetsblokk
-' ============================================================================
-Private Sub RebuildKommentarCache()
-    Dim førsteDatoKol As Long, datoRad As Long, førstePersonRad As Long
-    Dim lastCol As Long, lastRad As Long
-    Dim rad As Long
-
-    On Error Resume Next
-    førsteDatoKol = Me.Range("FirstDate").Column
-    datoRad = Me.Range("FirstDate").Row
-    førstePersonRad = Me.Range("PersonHeader").Row + 1
-    On Error GoTo 0
-
-    If førsteDatoKol = 0 Or datoRad = 0 Or førstePersonRad = 0 Then Exit Sub
-
-    lastCol = Me.Cells(datoRad, Me.Columns.Count).End(xlToLeft).Column
-    lastRad = Me.Cells(Me.Rows.Count, førsteDatoKol).End(xlUp).Row
-
-    If kommentarCache Is Nothing Then
-        Set kommentarCache = CreateObject("Scripting.Dictionary")
-    Else
-        kommentarCache.RemoveAll
-    End If
-
-    For rad = førstePersonRad To lastRad
-        KommentarCacheRegistrerRad rad, førsteDatoKol, lastCol
-    Next rad
-End Sub
-
-Private Sub KommentarCacheRegistrerRad(ByVal rad As Long, ByVal startCol As Long, ByVal lastCol As Long)
-    If kommentarCache Is Nothing Then Exit Sub
-
-    Dim col As Long
-    Dim inBlokk As Boolean
-    Dim blokkStart As Long, blokkSlutt As Long
-    Dim blokkFarge As Long
-
-    inBlokk = False
-
-    For col = startCol To lastCol
-        If HarAktivitetsfarge(Me.Cells(rad, col)) Then
-            Dim celleFarge As Long
-            celleFarge = Me.Cells(rad, col).Interior.Color
-
-            If Not inBlokk Then
-                inBlokk = True
-                blokkStart = col
-                blokkFarge = celleFarge
-            ElseIf FargeAvstand(celleFarge, blokkFarge) > 10 Then
-                KommentarCacheRegistrerBlokk rad, blokkStart, blokkSlutt
-                blokkStart = col
-                blokkFarge = celleFarge
-            End If
-            blokkSlutt = col
-        ElseIf inBlokk Then
-            KommentarCacheRegistrerBlokk rad, blokkStart, blokkSlutt
-            inBlokk = False
-        Else
-            KommentarCacheFjernCelle rad, col
-        End If
-    Next col
-
-    If inBlokk Then
-        KommentarCacheRegistrerBlokk rad, blokkStart, blokkSlutt
-    End If
-
-    For col = startCol To lastCol
-        If Not HarAktivitetsfarge(Me.Cells(rad, col)) Then
-            KommentarCacheFjernCelle rad, col
-        End If
-    Next col
-End Sub
-
-Private Sub KommentarCacheRegistrerBlokk(ByVal rad As Long, ByVal startCol As Long, ByVal endCol As Long)
-    Dim kommentarTekst As String
-    Dim col As Long
-
-    kommentarTekst = HentKommentarSomTekst(Me.Cells(rad, startCol))
-
-    If Len(kommentarTekst) = 0 Then
-        For col = startCol To endCol
-            Dim eksisterende As String
-            eksisterende = KommentarCacheHent(rad, col)
-            If Len(eksisterende) > 0 Then
-                kommentarTekst = eksisterende
-                Exit For
-            End If
-        Next col
-    End If
-
-    For col = startCol To endCol
-        Dim key As String
-        key = KommentarCacheKey(rad, col)
-        kommentarCache(key) = kommentarTekst
-    Next col
-End Sub
-
-Private Sub KommentarCacheFjernCelle(ByVal rad As Long, ByVal col As Long)
-    If kommentarCache Is Nothing Then Exit Sub
-
-    Dim key As String
-    key = KommentarCacheKey(rad, col)
-    If kommentarCache.Exists(key) Then
-        kommentarCache.Remove key
-    End If
-End Sub
-
-Private Function KommentarCacheKey(ByVal rad As Long, ByVal col As Long) As String
-    KommentarCacheKey = CStr(rad) & "|" & CStr(col)
-End Function
-
-Private Function KommentarCacheHent(ByVal rad As Long, ByVal col As Long) As String
-    If kommentarCache Is Nothing Then Exit Function
-
-    Dim key As String
-    key = KommentarCacheKey(rad, col)
-    If kommentarCache.Exists(key) Then
-        KommentarCacheHent = kommentarCache(key)
-    End If
-End Function
-
-' KOMMENTARHÅNDTERING: Finn første kommentar i en aktivitetsblokk
-' ============================================================================
-Private Function FinnKommentarIBlokk(ByVal rad As Long, ByVal startCol As Long, _
-                                     ByVal endCol As Long, Optional ByVal forventetFarge As Variant) As String
-    Dim col As Long
-
-    For col = startCol To endCol
-        If IsMissing(forventetFarge) Or _
-           FargeAvstand(Me.Cells(rad, col).Interior.Color, CLng(forventetFarge)) <= 10 Then
-            Dim tekst As String
-            tekst = HentKommentarSomTekst(Me.Cells(rad, col))
-            If Len(tekst) > 0 Then
-                FinnKommentarIBlokk = tekst
-                Exit Function
-            End If
-        End If
-    Next col
-
-    For col = startCol To endCol
-        Dim cacheTekst As String
-        cacheTekst = KommentarCacheHent(rad, col)
-        If Len(cacheTekst) > 0 Then
-            FinnKommentarIBlokk = cacheTekst
-            Exit Function
-        End If
-    Next col
-End Function
-
-' ============================================================================
-' KOMMENTARHÅNDTERING: Hent kommentartekst (støtter både notater og trådede)
-' ============================================================================
-Private Function HentKommentarSomTekst(ByVal cel As Range) As String
-    Dim tekst As String
-
-    If cel Is Nothing Then Exit Function
-
-    On Error Resume Next
-    If Not cel.Comment Is Nothing Then
-        tekst = cel.Comment.Text
-    End If
-
-    If Len(tekst) = 0 Then
-        Dim threadObj As Object
-        Set threadObj = Nothing
-        Err.Clear
-        Set threadObj = cel.CommentThreaded
-        If Err.Number = 0 Then
-            If Not threadObj Is Nothing Then
-                tekst = threadObj.Text
-            End If
-        End If
-    End If
-    On Error GoTo 0
-
-    HentKommentarSomTekst = tekst
-End Function
-
-' ============================================================================
-' KOMMENTARHÅNDTERING: Fjern kommentar/notat hvis det finnes
-' ============================================================================
-Private Sub FjernKommentar(ByVal cel As Range)
-    If cel Is Nothing Then Exit Sub
-
-    On Error Resume Next
-    If Not cel.Comment Is Nothing Then
-        cel.Comment.Delete
-    End If
-
-    Dim threadObj As Object
-    Set threadObj = Nothing
-    Err.Clear
-    Set threadObj = cel.CommentThreaded
-    If Err.Number = 0 Then
-        If Not threadObj Is Nothing Then
-            threadObj.Delete
-        End If
-    End If
-    On Error GoTo 0
-End Sub
-
-' ============================================================================
-' KOMMENTARHÅNDTERING: Legg til kommentartekst på celle
-' ============================================================================
-Private Sub SettKommentar(ByVal cel As Range, ByVal tekst As String)
-    If cel Is Nothing Then Exit Sub
-
-    If Len(tekst) = 0 Then
-        FjernKommentar cel
-        Exit Sub
-    End If
-
-    FjernKommentar cel
-
-    On Error Resume Next
-    cel.AddComment tekst
-    If Not cel.Comment Is Nothing Then
-        cel.Comment.Visible = False
-    Else
-        Err.Clear
-        cel.AddCommentThreaded tekst
-    End If
-    On Error GoTo 0
 End Sub
 
 ' ============================================================================
@@ -1559,7 +1182,7 @@ Private Function ErFørsteCelleIBlokk(ByVal cel As Range, ByVal førsteDatoKol A
 
     celFarge = cel.Interior.Color
 
-    ' Hvis vi er i første datokolonne → automatisk første celle
+    ' Hvis vi er i første datokolonne ? automatisk første celle
     If cel.Column <= førsteDatoKol Then
         ErFørsteCelleIBlokk = True
         Exit Function
@@ -1570,16 +1193,16 @@ Private Function ErFørsteCelleIBlokk(ByVal cel As Range, ByVal førsteDatoKol A
 
     ' Sjekk om venstre celle har ANNEN farge
     If venstreCelle.Interior.ColorIndex = xlColorIndexNone Then
-        ' Venstre er hvit → vi er første celle
+        ' Venstre er hvit ? vi er første celle
         ErFørsteCelleIBlokk = True
     ElseIf venstreCelle.Interior.Color = RGB(255, 255, 255) Then
-        ' Venstre er hvit → vi er første celle
+        ' Venstre er hvit ? vi er første celle
         ErFørsteCelleIBlokk = True
     ElseIf venstreCelle.Interior.Color <> celFarge Then
-        ' Venstre har annen farge → vi er første celle
+        ' Venstre har annen farge ? vi er første celle
         ErFørsteCelleIBlokk = True
     Else
-        ' Venstre har samme farge → vi er IKKE første celle
+        ' Venstre har samme farge ? vi er IKKE første celle
         ErFørsteCelleIBlokk = False
     End If
 End Function
@@ -1672,12 +1295,12 @@ Private Function ErStandaloneCelle(ByVal cel As Range, ByVal førsteDatoKol As L
             ' Kun tell som nabo hvis IKKE markert for sletting
             If Not høyreMarkert Then
                 If HarAktivitetsfarge(høyreCelle) And FargeAvstand(høyreCelle.Interior.Color, celFarge) <= 10 Then
-                    ' Har nabo til høyre med samme farge → ikke standalone
+                    ' Har nabo til høyre med samme farge ? ikke standalone
                     Exit Function
                 End If
             End If
         End If
-        ' Ingen nabo til høyre → standalone
+        ' Ingen nabo til høyre ? standalone
         ErStandaloneCelle = True
         Exit Function
     End If
@@ -1832,70 +1455,6 @@ Private Sub FjernKommentarer(ByVal cel As Range)
     On Error GoTo 0
 End Sub
 
-' ============================================================================'
-' KOMMENTAR-CACHE: Holder på siste kjente kommentar per aktivitet
-' ============================================================================'
-Private Function KommentarCacheKey(ByVal rad As Long, ByVal aktivitetTekst As String, _
-                                   ByVal aktivitetFarge As Long) As String
-    KommentarCacheKey = CStr(rad) & "|" & CStr(aktivitetFarge) & "|" & aktivitetTekst
-End Function
-
-Private Sub OppdaterKommentarCache(ByVal rad As Long, ByVal aktivitetTekst As String, _
-                                   ByVal aktivitetFarge As Long, ByVal kommentarTekst As String, _
-                                   ByVal erThreaded As Boolean)
-    If blokkKommentarCache Is Nothing Then Exit Sub
-    If Len(Trim$(aktivitetTekst)) = 0 Then Exit Sub
-
-    Dim nøkkel As String
-    nøkkel = KommentarCacheKey(rad, aktivitetTekst, aktivitetFarge)
-
-    Dim data(1) As Variant
-    data(0) = kommentarTekst
-    data(1) = erThreaded
-
-    blokkKommentarCache(nøkkel) = data
-End Sub
-
-Private Function HentKommentarFraCache(ByVal rad As Long, ByVal aktivitetTekst As String, _
-                                       ByVal aktivitetFarge As Long, ByRef kommentarTekst As String, _
-                                       ByRef erThreaded As Boolean) As Boolean
-    HentKommentarFraCache = False
-
-    If blokkKommentarCache Is Nothing Then Exit Function
-    If Len(Trim$(aktivitetTekst)) = 0 Then Exit Function
-
-    Dim nøkkel As String
-    nøkkel = KommentarCacheKey(rad, aktivitetTekst, aktivitetFarge)
-
-    If blokkKommentarCache.Exists(nøkkel) Then
-        Dim data As Variant
-        data = blokkKommentarCache(nøkkel)
-
-        If IsArray(data) Then
-            kommentarTekst = CStr(data(0))
-            erThreaded = CBool(data(1))
-            HentKommentarFraCache = (Len(kommentarTekst) > 0)
-
-            If Not HentKommentarFraCache Then
-                erThreaded = False
-            End If
-        End If
-    End If
-End Function
-
-Private Sub FjernKommentarFraCache(ByVal rad As Long, ByVal aktivitetTekst As String, _
-                                   ByVal aktivitetFarge As Long)
-    If blokkKommentarCache Is Nothing Then Exit Sub
-    If Len(Trim$(aktivitetTekst)) = 0 Then Exit Sub
-
-    Dim nøkkel As String
-    nøkkel = KommentarCacheKey(rad, aktivitetTekst, aktivitetFarge)
-
-    If blokkKommentarCache.Exists(nøkkel) Then
-        blokkKommentarCache.Remove nøkkel
-    End If
-End Sub
-
 Private Sub LeggTilKommentar(ByVal cel As Range, ByVal tekst As String, ByVal erThreaded As Boolean)
     On Error Resume Next
 
@@ -1916,249 +1475,6 @@ Private Sub LeggTilKommentar(ByVal cel As Range, ByVal tekst As String, ByVal er
     On Error GoTo 0
 End Sub
 
-' ============================================================================'
-' KOMMENTAR-CACHE: Holder på siste kjente kommentar per aktivitet
-' ============================================================================'
-Private Function KommentarCacheKey(ByVal rad As Long, ByVal aktivitetTekst As String, _
-                                   ByVal aktivitetFarge As Long) As String
-    KommentarCacheKey = CStr(rad) & | & CStr(aktivitetFarge) & | & aktivitetTekst
-End Function
-
-Private Sub OppdaterKommentarCache(ByVal rad As Long, ByVal aktivitetTekst As String, _
-                                   ByVal aktivitetFarge As Long, ByVal kommentarTekst As String, _
-                                   ByVal erThreaded As Boolean)
-    If blokkKommentarCache Is Nothing Then Exit Sub
-    If Len(Trim$(aktivitetTekst)) = 0 Then Exit Sub
-
-    Dim nøkkel As String
-    nøkkel = KommentarCacheKey(rad, aktivitetTekst, aktivitetFarge)
-
-    Dim data(1) As Variant
-    data(0) = kommentarTekst
-    data(1) = erThreaded
-
-    blokkKommentarCache(nøkkel) = data
-End Sub
-
-Private Function HentKommentarFraCache(ByVal rad As Long, ByVal aktivitetTekst As String, _
-                                       ByVal aktivitetFarge As Long, ByRef kommentarTekst As String, _
-                                       ByRef erThreaded As Boolean) As Boolean
-    HentKommentarFraCache = False
-
-    If blokkKommentarCache Is Nothing Then Exit Function
-    If Len(Trim$(aktivitetTekst)) = 0 Then Exit Function
-
-    Dim nøkkel As String
-    nøkkel = KommentarCacheKey(rad, aktivitetTekst, aktivitetFarge)
-
-    If blokkKommentarCache.Exists(nøkkel) Then
-        Dim data As Variant
-        data = blokkKommentarCache(nøkkel)
-
-        If IsArray(data) Then
-            kommentarTekst = CStr(data(0))
-            erThreaded = CBool(data(1))
-            HentKommentarFraCache = (Len(kommentarTekst) > 0)
-
-            If Not HentKommentarFraCache Then
-                erThreaded = False
-            End If
-        End If
-    End If
-End Function
-
-Private Sub FjernKommentarFraCache(ByVal rad As Long, ByVal aktivitetTekst As String, _
-                                   ByVal aktivitetFarge As Long)
-    If blokkKommentarCache Is Nothing Then Exit Sub
-    If Len(Trim$(aktivitetTekst)) = 0 Then Exit Sub
-
-    Dim nøkkel As String
-    nøkkel = KommentarCacheKey(rad, aktivitetTekst, aktivitetFarge)
-
-    If blokkKommentarCache.Exists(nøkkel) Then
-        blokkKommentarCache.Remove nøkkel
-    End If
-End Sub
-
-' ============================================================================
-
-' ============================================================================
-' KOMMENTAR-CACHE: Oppdatering av cache basert på eksisterende aktiviteter
-' ============================================================================
-Private Sub RegistrerAktiviteterIRad(ByVal rad As Long, ByVal førsteDatoKol As Long, _
-                                      ByVal lastCol As Long)
-    If blokkKommentarCache Is Nothing Then Exit Sub
-    If førsteDatoKol = 0 Or lastCol = 0 Then Exit Sub
-    If rad <= 0 Then Exit Sub
-
-    Dim prefix As String
-    prefix = CStr(rad) & "|"
-
-    Dim keysToCheck As Object
-    Set keysToCheck = CreateObject("Scripting.Dictionary")
-
-    Dim eksisterendeKey As Variant
-    For Each eksisterendeKey In blokkKommentarCache.Keys
-        If Left$(CStr(eksisterendeKey), Len(prefix)) = prefix Then
-            If Not keysToCheck.Exists(CStr(eksisterendeKey)) Then
-                keysToCheck.Add CStr(eksisterendeKey), True
-            End If
-        End If
-    Next eksisterendeKey
-
-    Dim col As Long
-    col = førsteDatoKol
-
-    Do While col <= lastCol
-        Dim cel As Range
-        Set cel = Me.Cells(rad, col)
-
-        Dim hoppet As Boolean
-        hoppet = False
-
-        If HarAktivitetsfarge(cel) Then
-            Dim erStart As Boolean
-            erStart = True
-
-            If col > førsteDatoKol Then
-                If HarAktivitetsfarge(Me.Cells(rad, col - 1)) Then
-                    If FargeAvstand(Me.Cells(rad, col - 1).Interior.Color, cel.Interior.Color) <= 10 Then
-                        erStart = False
-                    End If
-                End If
-            End If
-
-            If erStart Then
-                Dim aktFarge As Long
-                aktFarge = cel.Interior.Color
-                Dim aktStartCol As Long
-                aktStartCol = col
-                Dim aktSluttCol As Long
-                aktSluttCol = col
-                Dim eksisterendeTekst As String
-                eksisterendeTekst = Trim$(cel.Value)
-                Dim harKommentar As Boolean
-                Dim kommentarTekst As String
-                Dim kommentarErThreaded As Boolean
-                harKommentar = HentKommentarFraCelle(cel, kommentarTekst, kommentarErThreaded)
-
-                Dim scanCol As Long
-                For scanCol = col + 1 To lastCol
-                    Dim scanCel As Range
-                    Set scanCel = Me.Cells(rad, scanCol)
-                    If FargeAvstand(scanCel.Interior.Color, aktFarge) <= 10 Then
-                        aktSluttCol = scanCol
-                        If Len(eksisterendeTekst) = 0 Then
-                            Dim kandidatTekst As String
-                            kandidatTekst = Trim$(scanCel.Value)
-                            If Len(kandidatTekst) > 0 Then
-                                eksisterendeTekst = kandidatTekst
-                            End If
-                        End If
-                        If Not harKommentar Then
-                            harKommentar = HentKommentarFraCelle(scanCel, kommentarTekst, kommentarErThreaded)
-                        End If
-                    Else
-                        Exit For
-                    End If
-                Next scanCol
-
-                Dim riktigBeskrivelse As String
-                Dim riktigKode As String
-                Dim riktigTekst As String
-
-                If Len(eksisterendeTekst) > 0 Then
-                    riktigTekst = eksisterendeTekst
-                Else
-                    riktigKode = SlåOppAktivitetFraFarge(aktFarge, riktigBeskrivelse)
-                    If Len(riktigKode) > 0 Then
-                        If Len(riktigBeskrivelse) > 0 Then
-                            riktigTekst = riktigKode & " - " & riktigBeskrivelse
-                        Else
-                            riktigTekst = riktigKode
-                        End If
-                    Else
-                        riktigTekst = ""
-                    End If
-                End If
-
-                If Len(riktigTekst) > 0 Then
-                    Dim nøkkel As String
-                    nøkkel = KommentarCacheKey(rad, riktigTekst, aktFarge)
-
-                    If harKommentar Then
-                        OppdaterKommentarCache rad, riktigTekst, aktFarge, kommentarTekst, kommentarErThreaded
-                    Else
-                        FjernKommentarFraCache rad, riktigTekst, aktFarge
-                    End If
-
-                    If keysToCheck.Exists(nøkkel) Then keysToCheck.Remove nøkkel
-                End If
-
-                col = aktSluttCol + 1
-                hoppet = True
-            End If
-        End If
-
-        If Not hoppet Then
-            col = col + 1
-        End If
-    Loop
-
-    Dim restKey As Variant
-    For Each restKey In keysToCheck.Keys
-        blokkKommentarCache.Remove restKey
-    Next restKey
-End Sub
-
-Private Sub OppdaterKommentarCacheForRad(ByVal rad As Long, ByVal førsteDatoKol As Long, _
-                                         ByVal datoRad As Long)
-    If blokkKommentarCache Is Nothing Then Exit Sub
-    If førsteDatoKol = 0 Or datoRad = 0 Then Exit Sub
-
-    Dim lastCol As Long
-    lastCol = Me.Cells(datoRad, Me.Columns.Count).End(xlToLeft).Column
-
-    If lastCol < førsteDatoKol Then Exit Sub
-
-    Call RegistrerAktiviteterIRad(rad, førsteDatoKol, lastCol)
-End Sub
-
-Private Sub ByggKommentarCache()
-    On Error GoTo Avslutt
-
-    Dim førsteDatoKol As Long, datoRad As Long, førstePersonRad As Long
-
-    On Error Resume Next
-    førsteDatoKol = Me.Range("FirstDate").Column
-    datoRad = Me.Range("FirstDate").Row
-    førstePersonRad = Me.Range("PersonHeader").Row + 1
-    On Error GoTo Avslutt
-
-    If førsteDatoKol = 0 Or datoRad = 0 Or førstePersonRad = 0 Then GoTo Avslutt
-
-    Dim lastCol As Long
-    lastCol = Me.Cells(datoRad, Me.Columns.Count).End(xlToLeft).Column
-
-    If lastCol < førsteDatoKol Then GoTo Avslutt
-
-    Dim lastRow As Long
-    lastRow = Me.Cells(Me.Rows.Count, førsteDatoKol).End(xlUp).Row
-
-    If blokkKommentarCache Is Nothing Then
-        Set blokkKommentarCache = CreateObject("Scripting.Dictionary")
-    Else
-        blokkKommentarCache.RemoveAll
-    End If
-
-    Dim rad As Long
-    For rad = førstePersonRad To lastRow
-        Call RegistrerAktiviteterIRad(rad, førsteDatoKol, lastCol)
-    Next rad
-
-Avslutt:
-    On Error GoTo 0
-End Sub
 ' ============================================================================
 ' RESTAURERING: Sett aktivitetsnavn tilbake i cellen
 ' ============================================================================
@@ -2355,3 +1671,10 @@ Public Sub ResetEventHandler()
     Application.EnableEvents = True
     Debug.Print "Event handler reset - Ark1 (Planlegger med aktivitetsbeskyttelse)"
 End Sub
+
+
+
+
+
+
+
