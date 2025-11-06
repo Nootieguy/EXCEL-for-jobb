@@ -85,16 +85,32 @@ Private Sub Worksheet_Change(ByVal Target As Range)
 
     ' STEG 5: Lagre undo-snapshot av ORIGINAL tilstand (før Excel endret cellene)
     ' Vi må bruke Application.Undo midlertidig for å få tilbake original data
+    ' VIKTIG: For MOVE operations må vi fange HELE raden (både source og destination)
     On Error Resume Next
 
-    ' Først: Lagre ENDREDE verdier (etter drag & drop)
+    ' Bygg expanded range som dekker hele rader (fra førsteDatoKol til lastCol)
+    Dim snapshotRange As Range
+    Dim tempCell As Range
+
+    For Each tempCell In relevantEndring.Cells
+        Dim radRange As Range
+        Set radRange = Me.Range(Me.Cells(tempCell.Row, førsteDatoKol), Me.Cells(tempCell.Row, lastCol))
+
+        If snapshotRange Is Nothing Then
+            Set snapshotRange = radRange
+        Else
+            Set snapshotRange = Application.Union(snapshotRange, radRange)
+        End If
+    Next tempCell
+
+    ' Først: Lagre ENDREDE verdier (etter drag & drop) for HELE snapshotRange
     Dim tempRange As Range
-    Set tempRange = relevantEndring
+    Set tempRange = snapshotRange
 
     ReDim tempValues(1 To tempRange.Cells.Count, 1 To 5) As Variant
     Dim i As Long
     i = 1
-    Dim tempCell As Range
+
     For Each tempCell In tempRange.Cells
         tempValues(i, 1) = tempCell.Address
         tempValues(i, 2) = tempCell.Value
@@ -110,8 +126,8 @@ Private Sub Worksheet_Change(ByVal Target As Range)
     ' KRITISK FIX: Undo for å få ORIGINAL tilstand
     Application.Undo
 
-    ' Ta snapshot av ORIGINAL data (nå har cellene sine original custom kommentarer!)
-    LagUndoSnapshot relevantEndring
+    ' Ta snapshot av ORIGINAL data for HELE raden (fanger både source og destination!)
+    LagUndoSnapshot snapshotRange
 
     ' Redo ved å re-applisere de ENDREDE verdiene manuelt
     For i = 1 To UBound(tempValues, 1)
