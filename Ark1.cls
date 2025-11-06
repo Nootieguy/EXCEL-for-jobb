@@ -598,152 +598,6 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                                 debugMsg = debugMsg & vbCrLf
 
 SkipActivity:
-                                ' ANTI-MERGE FIX: Sjekk om neste celle starter en NY aktivitet
-                                ' Dette skjer når brukeren drar/paster en aktivitet og den merger med naboen
-                                ' Gjelder både samme type (samme farge) og forskjellige typer (forskjellige farger)
-                                If aktSluttCol < lastCol Then
-                                    Dim nesteCelleEtterAktivitet As Range
-                                    Set nesteCelleEtterAktivitet = Me.Cells(c.Row, aktSluttCol + 1)
-
-                                    ' Sjekk om neste celle har aktivitetsfarge og er start av ny aktivitet
-                                    If HarAktivitetsfarge(nesteCelleEtterAktivitet) Then
-                                        Dim erSammeFarge As Boolean
-                                        erSammeFarge = (FargeAvstand(nesteCelleEtterAktivitet.Interior.Color, aktFarge) <= 10)
-
-                                        ' Sjekk om det er en NY aktivitet (bold tekst)
-                                        ' For samme farge: krever bold tekst
-                                        ' For forskjellige farger: alltid en ny aktivitet
-                                        Dim erNyAktivitet As Boolean
-                                        If erSammeFarge Then
-                                            ' Samme farge - sjekk om det er en NY aktivitet (bold tekst)
-                                            erNyAktivitet = (nesteCelleEtterAktivitet.Font.Bold And Len(Trim$(nesteCelleEtterAktivitet.Value)) > 0)
-                                        Else
-                                            ' Forskjellig farge - alltid en ny aktivitet
-                                            erNyAktivitet = True
-                                        End If
-
-                                        If erNyAktivitet Then
-                                                ' Dette er to separate aktiviteter som har merged!
-                                                ' Legg inn et hvitt gap mellom dem
-
-                                                ' EDGE CASE: Hvis første aktivitet bare er én celle bred,
-                                                ' må vi konvertere FØRSTE celle av ANDRE aktivitet til gap istedenfor
-                                                Dim skalKonvertereNeste As Boolean
-                                                skalKonvertereNeste = (aktSluttCol = aktStartCol)
-
-                                                If DEBUG_MODE Then
-                                                    Dim fargeForskjell As String
-                                                    If erSammeFarge Then
-                                                        fargeForskjell = "samme farge"
-                                                    Else
-                                                        fargeForskjell = "forskjellige farger"
-                                                    End If
-
-                                                    If skalKonvertereNeste Then
-                                                        Debug.Print "  ANTI-MERGE (" & fargeForskjell & "): Legger inn gap ved å konvertere første celle av andre aktivitet (kol " & (aktSluttCol + 1) & ")"
-                                                    Else
-                                                        Debug.Print "  ANTI-MERGE (" & fargeForskjell & "): Legger inn gap mellom kol " & aktSluttCol & " og " & (aktSluttCol + 1)
-                                                    End If
-                                                End If
-
-                                                ' Velg hvilken celle som skal konverteres til gap
-                                                Dim gapCelle As Range
-                                                If skalKonvertereNeste Then
-                                                    ' Konverter første celle av andre aktivitet til gap
-                                                    Set gapCelle = Me.Cells(c.Row, aktSluttCol + 1)
-                                                Else
-                                                    ' Konverter siste celle av første aktivitet til gap
-                                                    Set gapCelle = Me.Cells(c.Row, aktSluttCol)
-                                                End If
-
-                                                ' Rydd celle fullstendig
-                                                gapCelle.ClearComments
-                                                gapCelle.ClearContents
-                                                gapCelle.Font.Bold = False
-                                                gapCelle.Font.ColorIndex = xlColorIndexAutomatic
-                                                gapCelle.HorizontalAlignment = xlGeneral
-                                                gapCelle.VerticalAlignment = xlCenter
-                                                gapCelle.WrapText = False
-
-                                                ' Sett hvit bakgrunn
-                                                With gapCelle.Interior
-                                                    .Pattern = xlSolid
-                                                    .TintAndShade = 0
-                                                    .Color = RGB(255, 255, 255)
-                                                    .PatternTintAndShade = 0
-                                                End With
-
-                                                ' Nullstill borders
-                                                gapCelle.Borders(xlDiagonalDown).LineStyle = xlLineStyleNone
-                                                gapCelle.Borders(xlDiagonalUp).LineStyle = xlLineStyleNone
-                                                gapCelle.Borders(xlEdgeLeft).LineStyle = xlLineStyleNone
-                                                gapCelle.Borders(xlEdgeRight).LineStyle = xlLineStyleNone
-                                                gapCelle.Borders(xlEdgeTop).LineStyle = xlLineStyleNone
-                                                gapCelle.Borders(xlEdgeBottom).LineStyle = xlLineStyleNone
-
-                                                ' Sett standard rutenett
-                                                With gapCelle.Borders(xlEdgeLeft)
-                                                    .LineStyle = xlContinuous
-                                                    .Weight = xlThin
-                                                    .Color = RGB(0, 0, 0)
-                                                End With
-                                                With gapCelle.Borders(xlEdgeRight)
-                                                    .LineStyle = xlContinuous
-                                                    .Weight = xlThin
-                                                    .Color = RGB(0, 0, 0)
-                                                End With
-                                                With gapCelle.Borders(xlEdgeTop)
-                                                    .LineStyle = xlContinuous
-                                                    .Weight = xlThin
-                                                    .Color = RGB(0, 0, 0)
-                                                End With
-                                                With gapCelle.Borders(xlEdgeBottom)
-                                                    .LineStyle = xlContinuous
-                                                    .Weight = xlThin
-                                                    .Color = RGB(0, 0, 0)
-                                                End With
-
-                                                ' Juster første aktivitet til å slutte én celle tidligere (hvis vi ikke konverterte neste)
-                                                If Not skalKonvertereNeste Then
-                                                    aktSluttCol = aktSluttCol - 1
-
-                                                    ' Re-formater første aktivitet med ny slutt-kolonne
-                                                    If aktSluttCol >= aktStartCol Then
-                                                        Dim aktivRng As Range
-                                                        Set aktivRng = Me.Range(Me.Cells(c.Row, aktStartCol), Me.Cells(c.Row, aktSluttCol))
-
-                                                        ' Sett thick border rundt aktiviteten
-                                                        aktivRng.Borders.LineStyle = xlLineStyleNone
-                                                        With aktivRng.Borders(xlEdgeLeft)
-                                                            .LineStyle = xlContinuous
-                                                            .Weight = xlThick
-                                                            .Color = RGB(0, 0, 0)
-                                                        End With
-                                                        With aktivRng.Borders(xlEdgeRight)
-                                                            .LineStyle = xlContinuous
-                                                            .Weight = xlThick
-                                                            .Color = RGB(0, 0, 0)
-                                                        End With
-                                                        With aktivRng.Borders(xlEdgeTop)
-                                                            .LineStyle = xlContinuous
-                                                            .Weight = xlThick
-                                                            .Color = RGB(0, 0, 0)
-                                                        End With
-                                                        With aktivRng.Borders(xlEdgeBottom)
-                                                            .LineStyle = xlContinuous
-                                                            .Weight = xlThick
-                                                            .Color = RGB(0, 0, 0)
-                                                        End With
-                                                        aktivRng.Borders(xlInsideVertical).LineStyle = xlLineStyleNone
-                                                        aktivRng.Borders(xlInsideHorizontal).LineStyle = xlLineStyleNone
-                                                    End If
-                                                End If
-
-                                                debugMsg = debugMsg & "  GAP lagt inn mellom aktiviteter!" & vbCrLf & vbCrLf
-                                        End If
-                                    End If
-                                End If
-
                                 ' Hopp til slutten av denne aktiviteten
                                 overlapScanCol = aktSluttCol + 1
                             Else
@@ -756,9 +610,9 @@ SkipActivity:
 
                     If DEBUG_MODE Then MsgBox debugMsg, vbInformation
 
-                    ' ANTI-MERGE POST-PROCESSING: Skann hele raden og legg inn gap mellom merged aktiviteter
-                    ' Dette må kjøres ETTER at vi har fikset navnene, for å håndtere tilfeller hvor
-                    ' en aktivitet har overwritten en annen og de har merged sammen
+                    ' ANTI-MERGE POST-PROCESSING: Sett thick borders på hver separat aktivitet
+                    ' Dette må kjøres ETTER at vi har fikset navnene, for å gi visuell separasjon
+                    ' mellom aktiviteter som har merged sammen under drag & drop
                     Call SeparerMergedeAktiviteterIRad(c.Row, førsteDatoKol, lastCol)
                 End If
 
@@ -1965,164 +1819,130 @@ Public Sub ResetEventHandler()
 End Sub
 
 ' ============================================================================
-' ANTI-MERGE: Separer aktiviteter som har merged sammen i en rad
+' ANTI-MERGE: Sett thick borders på hver aktivitet for visuell separasjon
 ' ============================================================================
 Private Sub SeparerMergedeAktiviteterIRad(ByVal rad As Long, ByVal førsteDatoKol As Long, ByVal lastCol As Long)
     If DEBUG_MODE Then
         Debug.Print String(80, "=")
-        Debug.Print "ANTI-MERGE SCAN FOR RAD " & rad & " [" & Now & "]"
+        Debug.Print "ANTI-MERGE: Setter thick borders på aktiviteter i rad " & rad & " [" & Now & "]"
     End If
 
     Dim col As Long
     Dim inAktivitet As Boolean
     Dim aktivitetStartCol As Long
+    Dim aktivitetSluttCol As Long
     Dim aktivitetFarge As Long
-    Dim forrigeCelleHaddeBold As Boolean
 
     inAktivitet = False
-    forrigeCelleHaddeBold = False
 
-    For col = førsteDatoKol To lastCol
+    ' Skann gjennom raden og finn hver aktivitetsblokk
+    For col = førsteDatoKol To lastCol + 1
         Dim cel As Range
-        Set cel = Me.Cells(rad, col)
 
-        If HarAktivitetsfarge(cel) Then
+        If col <= lastCol Then
+            Set cel = Me.Cells(rad, col)
+        End If
+
+        ' Sjekk om vi er i eller utenfor en aktivitet
+        If col <= lastCol And HarAktivitetsfarge(cel) Then
             If Not inAktivitet Then
                 ' Start av ny aktivitet
                 inAktivitet = True
                 aktivitetStartCol = col
+                aktivitetSluttCol = col
                 aktivitetFarge = cel.Interior.Color
-                forrigeCelleHaddeBold = (cel.Font.Bold And Len(Trim$(cel.Value)) > 0)
 
                 If DEBUG_MODE Then
                     Debug.Print "  Aktivitet starter i kol " & col & ", farge=" & aktivitetFarge
                 End If
             Else
-                ' Vi er inne i en aktivitet - sjekk om denne cellen markerer en NY aktivitet
+                ' Sjekk om dette er en NY aktivitet (forskjellig farge eller bold tekst)
                 Dim erSammeFarge As Boolean
                 erSammeFarge = (FargeAvstand(cel.Interior.Color, aktivitetFarge) <= 10)
 
-                Dim denneCelleHarBold As Boolean
-                denneCelleHarBold = (cel.Font.Bold And Len(Trim$(cel.Value)) > 0)
+                Dim harBoldTekst As Boolean
+                harBoldTekst = (cel.Font.Bold And Len(Trim$(cel.Value)) > 0)
 
-                ' SAMME FARGE + BOLD = to aktiviteter av samme type har merged!
-                ' FORSKJELLIG FARGE = to aktiviteter av forskjellig type har merged!
-                If (erSammeFarge And denneCelleHarBold) Or (Not erSammeFarge) Then
-                    ' To aktiviteter har merged! Legg inn gap FORAN denne cellen
+                If (erSammeFarge And harBoldTekst) Or (Not erSammeFarge) Then
+                    ' Dette er en NY aktivitet - avslutt forrige og start ny
                     If DEBUG_MODE Then
-                        If erSammeFarge Then
-                            Debug.Print "  MERGE DETEKTERT (samme type): kol " & col & " har bold tekst"
-                        Else
-                            Debug.Print "  MERGE DETEKTERT (forskjellig type): kol " & col & " har farge " & cel.Interior.Color
-                        End If
-                        Debug.Print "    Konverterer kol " & (col - 1) & " til gap"
+                        Debug.Print "  Aktivitet sluttet i kol " & aktivitetSluttCol & ", setter thick border"
                     End If
 
-                    ' Konverter FORRIGE celle til gap (skaper separator mellom aktivitetene)
-                    Dim gapCel As Range
-                    Set gapCel = Me.Cells(rad, col - 1)
+                    ' Sett thick border på forrige aktivitet
+                    Call SettThickBorderPåAktivitet(rad, aktivitetStartCol, aktivitetSluttCol, aktivitetFarge)
 
-                    ' Rydd celle fullstendig
-                    gapCel.ClearComments
-                    gapCel.ClearContents
-                    gapCel.Font.Bold = False
-                    gapCel.Font.ColorIndex = xlColorIndexAutomatic
-                    gapCel.HorizontalAlignment = xlGeneral
-                    gapCel.VerticalAlignment = xlCenter
-                    gapCel.WrapText = False
-
-                    ' Sett hvit bakgrunn
-                    With gapCel.Interior
-                        .Pattern = xlSolid
-                        .TintAndShade = 0
-                        .Color = RGB(255, 255, 255)
-                        .PatternTintAndShade = 0
-                    End With
-
-                    ' Nullstill borders
-                    gapCel.Borders(xlDiagonalDown).LineStyle = xlLineStyleNone
-                    gapCel.Borders(xlDiagonalUp).LineStyle = xlLineStyleNone
-                    gapCel.Borders(xlEdgeLeft).LineStyle = xlLineStyleNone
-                    gapCel.Borders(xlEdgeRight).LineStyle = xlLineStyleNone
-                    gapCel.Borders(xlEdgeTop).LineStyle = xlLineStyleNone
-                    gapCel.Borders(xlEdgeBottom).LineStyle = xlLineStyleNone
-
-                    ' Sett standard rutenett
-                    With gapCel.Borders(xlEdgeLeft)
-                        .LineStyle = xlContinuous
-                        .Weight = xlThin
-                        .Color = RGB(0, 0, 0)
-                    End With
-                    With gapCel.Borders(xlEdgeRight)
-                        .LineStyle = xlContinuous
-                        .Weight = xlThin
-                        .Color = RGB(0, 0, 0)
-                    End With
-                    With gapCel.Borders(xlEdgeTop)
-                        .LineStyle = xlContinuous
-                        .Weight = xlThin
-                        .Color = RGB(0, 0, 0)
-                    End With
-                    With gapCel.Borders(xlEdgeBottom)
-                        .LineStyle = xlContinuous
-                        .Weight = xlThin
-                        .Color = RGB(0, 0, 0)
-                    End With
-
-                    ' Re-formater første aktivitet (fra aktivitetStartCol til col-2)
-                    If col - 2 >= aktivitetStartCol Then
-                        Dim førstAktRng As Range
-                        Set førstAktRng = Me.Range(Me.Cells(rad, aktivitetStartCol), Me.Cells(rad, col - 2))
-
-                        ' Sett thick border rundt første aktivitet
-                        førstAktRng.Borders.LineStyle = xlLineStyleNone
-                        With førstAktRng.Borders(xlEdgeLeft)
-                            .LineStyle = xlContinuous
-                            .Weight = xlThick
-                            .Color = RGB(0, 0, 0)
-                        End With
-                        With førstAktRng.Borders(xlEdgeRight)
-                            .LineStyle = xlContinuous
-                            .Weight = xlThick
-                            .Color = RGB(0, 0, 0)
-                        End With
-                        With førstAktRng.Borders(xlEdgeTop)
-                            .LineStyle = xlContinuous
-                            .Weight = xlThick
-                            .Color = RGB(0, 0, 0)
-                        End With
-                        With førstAktRng.Borders(xlEdgeBottom)
-                            .LineStyle = xlContinuous
-                            .Weight = xlThick
-                            .Color = RGB(0, 0, 0)
-                        End With
-                        førstAktRng.Borders(xlInsideVertical).LineStyle = xlLineStyleNone
-                        førstAktRng.Borders(xlInsideHorizontal).LineStyle = xlLineStyleNone
-                    End If
-
-                    ' Start ny aktivitet tracking
+                    ' Start ny aktivitet
                     aktivitetStartCol = col
+                    aktivitetSluttCol = col
                     aktivitetFarge = cel.Interior.Color
-                    forrigeCelleHaddeBold = denneCelleHarBold
+
+                    If DEBUG_MODE Then
+                        Debug.Print "  NY aktivitet starter i kol " & col & ", farge=" & aktivitetFarge
+                    End If
                 Else
                     ' Samme aktivitet fortsetter
-                    forrigeCelleHaddeBold = denneCelleHarBold
+                    aktivitetSluttCol = col
                 End If
             End If
         Else
-            ' Hvit celle - aktivitet sluttet
+            ' Hvit celle eller slutt på rad
             If inAktivitet Then
+                ' Avslutt aktivitet og sett thick border
                 If DEBUG_MODE Then
-                    Debug.Print "  Aktivitet sluttet i kol " & (col - 1)
+                    Debug.Print "  Aktivitet sluttet i kol " & aktivitetSluttCol & ", setter thick border"
                 End If
+
+                Call SettThickBorderPåAktivitet(rad, aktivitetStartCol, aktivitetSluttCol, aktivitetFarge)
                 inAktivitet = False
             End If
         End If
     Next col
 
     If DEBUG_MODE Then
-        Debug.Print "ANTI-MERGE SCAN FERDIG"
+        Debug.Print "ANTI-MERGE: Ferdig med rad " & rad
         Debug.Print String(80, "=")
+    End If
+End Sub
+
+' ============================================================================
+' HJELPER: Sett thick border rundt en aktivitet
+' ============================================================================
+Private Sub SettThickBorderPåAktivitet(ByVal rad As Long, ByVal startCol As Long, ByVal sluttCol As Long, ByVal farge As Long)
+    Dim rng As Range
+    Set rng = Me.Range(Me.Cells(rad, startCol), Me.Cells(rad, sluttCol))
+
+    ' Fjern alle borders først
+    rng.Borders.LineStyle = xlLineStyleNone
+
+    ' Sett thick border rundt aktiviteten
+    With rng.Borders(xlEdgeLeft)
+        .LineStyle = xlContinuous
+        .Weight = xlThick
+        .Color = RGB(0, 0, 0)
+    End With
+    With rng.Borders(xlEdgeRight)
+        .LineStyle = xlContinuous
+        .Weight = xlThick
+        .Color = RGB(0, 0, 0)
+    End With
+    With rng.Borders(xlEdgeTop)
+        .LineStyle = xlContinuous
+        .Weight = xlThick
+        .Color = RGB(0, 0, 0)
+    End With
+    With rng.Borders(xlEdgeBottom)
+        .LineStyle = xlContinuous
+        .Weight = xlThick
+        .Color = RGB(0, 0, 0)
+    End With
+
+    ' Fjern inside borders
+    rng.Borders(xlInsideVertical).LineStyle = xlLineStyleNone
+    rng.Borders(xlInsideHorizontal).LineStyle = xlLineStyleNone
+
+    If DEBUG_MODE Then
+        Debug.Print "    Thick border satt på " & rng.Address & " (farge " & farge & ")"
     End If
 End Sub
 
