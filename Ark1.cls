@@ -619,10 +619,9 @@ SkipActivity:
 
                     If DEBUG_MODE Then MsgBox debugMsg, vbInformation
 
-                    ' ANTI-MERGE POST-PROCESSING: Sett thick borders på hver separat aktivitet
-                    ' Dette må kjøres ETTER at vi har fikset navnene, for å gi visuell separasjon
-                    ' mellom aktiviteter som har merged sammen under drag & drop
-                    Call SeparerMergedeAktiviteterIRad(c.Row, førsteDatoKol, lastCol)
+                    ' ANTI-MERGE POST-PROCESSING: Restaurer custom kommentarer fra undo cache
+                    ' og sett thick borders på hver separat aktivitet
+                    Call RestaurerKommentarerOgSeparerAktiviteter(c.Row, førsteDatoKol, lastCol)
                 End If
 
                 ' Hvis vi fant flere celler med samme farge, fiks formateringen
@@ -1828,14 +1827,41 @@ Public Sub ResetEventHandler()
 End Sub
 
 ' ============================================================================
-' ANTI-MERGE: Sett thick borders på hver aktivitet for visuell separasjon
+' ANTI-MERGE: Restaurer custom kommentarer fra cache og separer aktiviteter
 ' ============================================================================
-Private Sub SeparerMergedeAktiviteterIRad(ByVal rad As Long, ByVal førsteDatoKol As Long, ByVal lastCol As Long)
+Private Sub RestaurerKommentarerOgSeparerAktiviteter(ByVal rad As Long, ByVal førsteDatoKol As Long, ByVal lastCol As Long)
     If DEBUG_MODE Then
         Debug.Print String(80, "=")
-        Debug.Print "ANTI-MERGE: Setter thick borders på aktiviteter i rad " & rad & " [" & Now & "]"
+        Debug.Print "ANTI-MERGE: Restaurerer kommentarer og separerer rad " & rad & " [" & Now & "]"
     End If
 
+    ' STEG 1: Hent original aktiviteter fra undo cache
+    Dim originalAktiviteter As Object
+    Set originalAktiviteter = HentOriginalAktiviteter()
+
+    If DEBUG_MODE Then
+        Debug.Print "  Fant " & originalAktiviteter.Count & " originale aktiviteter i cache"
+        Dim cacheKey As Variant
+        For Each cacheKey In originalAktiviteter.Keys
+            Debug.Print "    Farge " & cacheKey & " = '" & originalAktiviteter(cacheKey) & "'"
+        Next cacheKey
+    End If
+
+    ' STEG 2: Skann raden og restaurer custom kommentarer + sett borders
+    Call SeparerMergedeAktiviteterIRad(rad, førsteDatoKol, lastCol, originalAktiviteter)
+
+    If DEBUG_MODE Then
+        Debug.Print "ANTI-MERGE: Ferdig med rad " & rad
+        Debug.Print String(80, "=")
+    End If
+End Sub
+
+' ============================================================================
+' ANTI-MERGE: Sett thick borders på hver aktivitet for visuell separasjon
+' (Med støtte for å restaure custom kommentarer fra cache)
+' ============================================================================
+Private Sub SeparerMergedeAktiviteterIRad(ByVal rad As Long, ByVal førsteDatoKol As Long, ByVal lastCol As Long, _
+                                           Optional ByVal originalAktiviteter As Object = Nothing)
     Dim col As Long
     Dim inAktivitet As Boolean
     Dim aktivitetStartCol As Long
@@ -1875,11 +1901,11 @@ Private Sub SeparerMergedeAktiviteterIRad(ByVal rad As Long, ByVal førsteDatoKo
                 If (erSammeFarge And harBoldTekst) Or (Not erSammeFarge) Then
                     ' Dette er en NY aktivitet - avslutt forrige og start ny
                     If DEBUG_MODE Then
-                        Debug.Print "  Aktivitet sluttet i kol " & aktivitetSluttCol & ", setter thick border"
+                        Debug.Print "  Aktivitet sluttet i kol " & aktivitetSluttCol
                     End If
 
-                    ' Sett thick border på forrige aktivitet
-                    Call SettThickBorderPåAktivitet(rad, aktivitetStartCol, aktivitetSluttCol, aktivitetFarge)
+                    ' Restaurer custom kommentar og sett thick border på forrige aktivitet
+                    Call RestaurerOgSettBorder(rad, aktivitetStartCol, aktivitetSluttCol, aktivitetFarge, originalAktiviteter)
 
                     ' Start ny aktivitet
                     aktivitetStartCol = col
@@ -1897,21 +1923,65 @@ Private Sub SeparerMergedeAktiviteterIRad(ByVal rad As Long, ByVal førsteDatoKo
         Else
             ' Hvit celle eller slutt på rad
             If inAktivitet Then
-                ' Avslutt aktivitet og sett thick border
+                ' Avslutt aktivitet, restaurer custom kommentar og sett thick border
                 If DEBUG_MODE Then
-                    Debug.Print "  Aktivitet sluttet i kol " & aktivitetSluttCol & ", setter thick border"
+                    Debug.Print "  Aktivitet sluttet i kol " & aktivitetSluttCol
                 End If
 
-                Call SettThickBorderPåAktivitet(rad, aktivitetStartCol, aktivitetSluttCol, aktivitetFarge)
+                Call RestaurerOgSettBorder(rad, aktivitetStartCol, aktivitetSluttCol, aktivitetFarge, originalAktiviteter)
                 inAktivitet = False
             End If
         End If
     Next col
+End Sub
 
-    If DEBUG_MODE Then
-        Debug.Print "ANTI-MERGE: Ferdig med rad " & rad
-        Debug.Print String(80, "=")
+' ============================================================================
+' HJELPER: Restaurer custom kommentar fra cache og sett thick border
+' ============================================================================
+Private Sub RestaurerOgSettBorder(ByVal rad As Long, ByVal startCol As Long, ByVal sluttCol As Long, _
+                                   ByVal farge As Long, ByVal originalAktiviteter As Object)
+    ' STEG 1: Sjekk om det finnes original tekst i cache for denne fargen
+    Dim skalRestaurere As Boolean
+    Dim originalTekst As String
+
+    skalRestaurere = False
+
+    If Not originalAktiviteter Is Nothing Then
+        If originalAktiviteter.Exists(farge) Then
+            originalTekst = originalAktiviteter(farge)
+            skalRestaurere = True
+
+            If DEBUG_MODE Then
+                Debug.Print "    Fant original tekst i cache: '" & originalTekst & "'"
+            End If
+        End If
     End If
+
+    ' STEG 2: Restaurer tekst hvis funnet i cache
+    If skalRestaurere Then
+        Dim førsteCelle As Range
+        Set førsteCelle = Me.Cells(rad, startCol)
+
+        ' Kun restaurer hvis første celle ikke allerede har riktig tekst
+        If Trim$(førsteCelle.Value) <> originalTekst Then
+            førsteCelle.Value = originalTekst
+            førsteCelle.Font.Bold = True
+
+            ' Sett riktig tekstfarge basert på bakgrunn
+            If ErLysFarge(farge) Then
+                førsteCelle.Font.Color = RGB(0, 0, 0)
+            Else
+                førsteCelle.Font.Color = RGB(255, 255, 255)
+            End If
+
+            If DEBUG_MODE Then
+                Debug.Print "    Restaurerte custom tekst: '" & originalTekst & "'"
+            End If
+        End If
+    End If
+
+    ' STEG 3: Sett thick border på aktiviteten
+    Call SettThickBorderPåAktivitet(rad, startCol, sluttCol, farge)
 End Sub
 
 ' ============================================================================

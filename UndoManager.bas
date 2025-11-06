@@ -450,6 +450,41 @@ Public Function HentOriginalVerdi(ByVal celleAdresse As String) As Variant
     Next i
 End Function
 
+' Hent original tekst og farge for aktiviteter fra snapshot
+' Returnerer Dictionary: Key = farge (Long), Value = tekst (String)
+' Kun aktiviteter med bold tekst inkluderes
+Public Function HentOriginalAktiviteter() As Object
+    Dim result As Object
+    Set result = CreateObject("Scripting.Dictionary")
+
+    If undoStackSize = 0 Then
+        Set HentOriginalAktiviteter = result
+        Exit Function
+    End If
+
+    Dim i As Long
+    For i = 1 To undoStackSize
+        ' Sjekk om dette er en celle med bold tekst (start av aktivitet)
+        If undoStack(i).FontBold Then
+            Dim tekst As String
+            tekst = Trim$(undoStack(i).Value)
+
+            If Len(tekst) > 0 Then
+                Dim farge As Long
+                farge = undoStack(i).InteriorColor
+
+                ' Lagre denne aktiviteten (hvis ikke allerede lagret)
+                ' Ved duplikater, behold første forekomst
+                If Not result.Exists(farge) Then
+                    result.Add farge, tekst
+                End If
+            End If
+        End If
+    Next i
+
+    Set HentOriginalAktiviteter = result
+End Function
+
 ' =====================================================
 ' CTRL+Z INTEGRATION
 ' =====================================================
