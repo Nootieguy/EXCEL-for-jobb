@@ -164,7 +164,18 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                         For scanCol = c.Column + 1 To lastCol
                             Dim scanCel As Range
                             Set scanCel = Me.Cells(c.Row, scanCol)
-                            If HarAktivitetsfarge(scanCel) And FargeAvstand(scanCel.Interior.Color, aktivFarge) <= 10 Then
+
+                            ' Stopp hvis vi treffer en hvit celle (gap)
+                            If Not HarAktivitetsfarge(scanCel) Then
+                                Exit For
+                            End If
+
+                            ' Stopp hvis vi treffer en celle med bold tekst (ny aktivitet)
+                            If scanCel.Font.Bold And Len(Trim$(scanCel.Value)) > 0 Then
+                                Exit For
+                            End If
+
+                            If FargeAvstand(scanCel.Interior.Color, aktivFarge) <= 10 Then
                                 ' Dette er del av aktiviteten - sjekk om den er i relevantEndring
                                 Dim celleISel As Range
                                 Set celleISel = Nothing
@@ -205,11 +216,23 @@ Private Sub Worksheet_Change(ByVal Target As Range)
 
                             ' Skann til høyre for å finne neste celle med samme farge
                             For scanCol = c.Column + 1 To lastCol
-                                If HarAktivitetsfarge(Me.Cells(c.Row, scanCol)) Then
-                                    If FargeAvstand(Me.Cells(c.Row, scanCol).Interior.Color, aktivFarge) <= 10 Then
-                                        Set nesteCelleIAktivitet = Me.Cells(c.Row, scanCol)
+                                Dim nextScanCell As Range
+                                Set nextScanCell = Me.Cells(c.Row, scanCol)
+
+                                If HarAktivitetsfarge(nextScanCell) Then
+                                    ' Stopp hvis vi treffer en celle med bold tekst (ny aktivitet)
+                                    If nextScanCell.Font.Bold And Len(Trim$(nextScanCell.Value)) > 0 Then
                                         Exit For
                                     End If
+
+                                    ' Fortsett hvis samme farge
+                                    If FargeAvstand(nextScanCell.Interior.Color, aktivFarge) <= 10 Then
+                                        Set nesteCelleIAktivitet = nextScanCell
+                                        Exit For
+                                    End If
+                                Else
+                                    ' Hvit celle = gap mellom aktiviteter, fortsett å lete
+                                    ' (men ikke behandle den hvite cellen som del av aktiviteten)
                                 End If
                             Next scanCol
 
@@ -296,7 +319,21 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                 ' Skann til høyre for å finne celler med samme farge
                 Dim col As Long
                 For col = c.Column + 1 To lastCol
-                    If FargeAvstand(Me.Cells(c.Row, col).Interior.Color, c.Interior.Color) <= 10 Then
+                    Dim scanCell As Range
+                    Set scanCell = Me.Cells(c.Row, col)
+
+                    ' Stopp hvis vi treffer en hvit/tom celle (gap mellom aktiviteter)
+                    If Not HarAktivitetsfarge(scanCell) Then
+                        Exit For
+                    End If
+
+                    ' Stopp hvis vi treffer en celle med bold tekst (ny aktivitet starter)
+                    If scanCell.Font.Bold And Len(Trim$(scanCell.Value)) > 0 Then
+                        Exit For
+                    End If
+
+                    ' Fortsett hvis samme farge
+                    If FargeAvstand(scanCell.Interior.Color, c.Interior.Color) <= 10 Then
                         sluttCol = col
                     Else
                         Exit For
@@ -408,19 +445,33 @@ Private Sub Worksheet_Change(ByVal Target As Range)
 
                                 ' Finn slutten av denne aktiviteten og let etter eksisterende tekst/kommentar
                                 For col = aktStartCol + 1 To lastCol
-                                    If FargeAvstand(Me.Cells(c.Row, col).Interior.Color, aktFarge) <= 10 Then
+                                    Dim aktScanCell As Range
+                                    Set aktScanCell = Me.Cells(c.Row, col)
+
+                                    ' Stopp hvis vi treffer en hvit/tom celle (gap mellom aktiviteter)
+                                    If Not HarAktivitetsfarge(aktScanCell) Then
+                                        Exit For
+                                    End If
+
+                                    ' Stopp hvis vi treffer en celle med bold tekst (ny aktivitet starter)
+                                    If aktScanCell.Font.Bold And Len(Trim$(aktScanCell.Value)) > 0 Then
+                                        Exit For
+                                    End If
+
+                                    ' Fortsett hvis samme farge
+                                    If FargeAvstand(aktScanCell.Interior.Color, aktFarge) <= 10 Then
                                         aktSluttCol = col
 
                                         If Len(eksisterendeTekst) = 0 Then
                                             Dim kandidatTekst As String
-                                            kandidatTekst = Trim$(Me.Cells(c.Row, col).Value)
+                                            kandidatTekst = Trim$(aktScanCell.Value)
                                             If Len(kandidatTekst) > 0 Then
                                                 eksisterendeTekst = kandidatTekst
                                             End If
                                         End If
 
                                         If Not harKommentar Then
-                                            harKommentar = HentKommentarFraCelle(Me.Cells(c.Row, col), kommentarTekst, kommentarErThreaded)
+                                            harKommentar = HentKommentarFraCelle(aktScanCell, kommentarTekst, kommentarErThreaded)
                                         End If
                                     Else
                                         Exit For
@@ -704,7 +755,11 @@ Public Sub HåndterAlleAktiviteterMedSplitIRad(ByVal rad As Long, ByVal førsteD
     For c = førsteDatoKol To lastCol
         If HarAktivitetsfarge(Me.Cells(rad, c)) Then
             Dim celleFarge As Long
+            Dim celleBold As Boolean
+            Dim celleHarTekst As Boolean
             celleFarge = Me.Cells(rad, c).Interior.Color
+            celleBold = Me.Cells(rad, c).Font.Bold
+            celleHarTekst = (Len(Trim$(Me.Cells(rad, c).Value)) > 0)
 
             If Not inBlokk Then
                 ' Start ny blokk
@@ -713,6 +768,14 @@ Public Sub HåndterAlleAktiviteterMedSplitIRad(ByVal rad As Long, ByVal førsteD
                 blokkFarge = celleFarge
             ElseIf FargeAvstand(celleFarge, blokkFarge) > 10 Then
                 ' Farge endret - avslutt forrige blokk og start ny
+                blokNr = blokNr + 1
+                aktivitetsBlokker.Add blokNr, Array(blokkStart, c - 1, blokkFarge)
+
+                blokkStart = c
+                blokkFarge = celleFarge
+            ElseIf celleBold And celleHarTekst Then
+                ' Bold tekst funnet - dette er en ny aktivitet med samme farge
+                ' Avslutt forrige blokk og start ny
                 blokNr = blokNr + 1
                 aktivitetsBlokker.Add blokNr, Array(blokkStart, c - 1, blokkFarge)
 
@@ -1226,8 +1289,20 @@ Private Function SjekkOmHeleAktivitetenSlettes(ByVal førsteCelle As Range, _
         Dim cel As Range
         Set cel = Me.Cells(førsteCelle.Row, c)
 
+        ' Stopp hvis vi kommer til en hvit celle (gap)
+        If Not HarAktivitetsfarge(cel) Then
+            Exit For
+        End If
+
+        ' Stopp hvis vi treffer en celle med bold tekst (ny aktivitet) - unntatt første celle
+        If c > førsteCelle.Column Then
+            If cel.Font.Bold And Len(Trim$(cel.Value)) > 0 Then
+                Exit For
+            End If
+        End If
+
         ' Sjekk om cellen er del av aktiviteten
-        If HarAktivitetsfarge(cel) And FargeAvstand(cel.Interior.Color, aktivFarge) <= 10 Then
+        If FargeAvstand(cel.Interior.Color, aktivFarge) <= 10 Then
             ' Dette er del av aktiviteten
             ' Sjekk om cellen er tom (brukeren har slettet innholdet)
             Dim erTom As Boolean
