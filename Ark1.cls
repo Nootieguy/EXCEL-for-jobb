@@ -575,6 +575,15 @@ Private Sub Worksheet_Change(ByVal Target As Range)
 
                                 ' Sett riktig tekst i første celle
                                 overlapScanCel.Value = riktigTekst
+                                overlapScanCel.Font.Bold = True  ' KRITISK: Sett bold for å markere start av aktivitet
+
+                                ' Sett tekstfarge basert på bakgrunnsfarge (lys/mørk)
+                                If ErLysFarge(aktFarge) Then
+                                    overlapScanCel.Font.Color = RGB(0, 0, 0)  ' Sort tekst på lys bakgrunn
+                                Else
+                                    overlapScanCel.Font.Color = RGB(255, 255, 255)  ' Hvit tekst på mørk bakgrunn
+                                End If
+
                                 overlapScanCel.HorizontalAlignment = xlCenterAcrossSelection
                                 FjernKommentarer overlapScanCel
                                 If harKommentar Then Call LeggTilKommentar(overlapScanCel, kommentarTekst, kommentarErThreaded)
