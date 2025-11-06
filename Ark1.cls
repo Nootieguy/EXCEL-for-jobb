@@ -418,7 +418,11 @@ Private Sub Worksheet_Change(ByVal Target As Range)
 
                                 If HarAktivitetsfarge(celTilVenstre) Then
                                     If FargeAvstand(celTilVenstre.Interior.Color, overlapScanCel.Interior.Color) <= 10 Then
-                                        erStartAvBlokk = False
+                                        ' Samme farge som venstre nabo
+                                        ' MEN hvis DENNE cellen har bold tekst, er det en ny aktivitet
+                                        If Not (overlapScanCel.Font.Bold And Len(Trim$(overlapScanCel.Value)) > 0) Then
+                                            erStartAvBlokk = False
+                                        End If
                                     End If
                                 End If
                             End If
