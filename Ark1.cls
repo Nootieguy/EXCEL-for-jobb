@@ -483,10 +483,30 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                                 Dim riktigBeskrivelse As String, riktigKode As String
                                 Dim riktigTekst As String
 
+                                ' Slå opp aktivitetskode fra farge først
+                                riktigKode = SlåOppAktivitetFraFarge(aktFarge, riktigBeskrivelse)
+
                                 If Len(eksisterendeTekst) > 0 Then
-                                    riktigTekst = eksisterendeTekst
+                                    ' Det finnes eksisterende tekst - sjekk om det er gyldig
+                                    If Len(riktigKode) > 0 Then
+                                        ' Sjekk om eksisterende tekst starter med riktig kode
+                                        If StrComp(Left$(eksisterendeTekst, Len(riktigKode)), riktigKode, vbTextCompare) = 0 Then
+                                            ' Teksten starter med riktig kode - behold den (kan være custom beskrivelse)
+                                            riktigTekst = eksisterendeTekst
+                                        Else
+                                            ' Teksten matcher ikke koden - erstatt med standard
+                                            If Len(riktigBeskrivelse) > 0 Then
+                                                riktigTekst = riktigKode & " - " & riktigBeskrivelse
+                                            Else
+                                                riktigTekst = riktigKode
+                                            End If
+                                        End If
+                                    Else
+                                        ' Fant ikke kode for farge - behold eksisterende tekst
+                                        riktigTekst = eksisterendeTekst
+                                    End If
                                 Else
-                                    riktigKode = SlåOppAktivitetFraFarge(aktFarge, riktigBeskrivelse)
+                                    ' Ingen eksisterende tekst - bruk standard
                                     If Len(riktigKode) > 0 Then
                                         If Len(riktigBeskrivelse) > 0 Then
                                             riktigTekst = riktigKode & " - " & riktigBeskrivelse
