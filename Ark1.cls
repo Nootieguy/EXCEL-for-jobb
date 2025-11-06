@@ -378,6 +378,15 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                             If DEBUG_MODE Then
                                 Debug.Print "OVERLAPP: Høyre nabo har bold tekst (samme type aktivitet)"
                             End If
+                        ElseIf FargeAvstand(høyreNabo.Interior.Color, dragFarge) <= 10 Then
+                            ' VIKTIG: Samme farge som høyre nabo
+                            ' Hvis denne cellen (c) har bold, kan høyre nabo være delvis ødelagt aktivitet
+                            If c.Font.Bold And Len(Trim$(c.Value)) > 0 Then
+                                harOverlapp = True
+                                If DEBUG_MODE Then
+                                    Debug.Print "OVERLAPP: Partial overlap høyre (samme farge, denne har bold)"
+                                End If
+                            End If
                         End If
                     End If
                 End If
@@ -398,6 +407,16 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                             harOverlapp = True
                             If DEBUG_MODE Then
                                 Debug.Print "OVERLAPP: Venstre nabo har bold tekst (samme type aktivitet)"
+                            End If
+                        ElseIf FargeAvstand(venstreNabo.Interior.Color, dragFarge) <= 10 Then
+                            ' VIKTIG: Samme farge som venstre nabo
+                            ' Hvis DENNE cellen (c) har bold tekst, er det sannsynligvis partial overlap
+                            ' (venstre aktivitet mistet bold under Excel's replace)
+                            If c.Font.Bold And Len(Trim$(c.Value)) > 0 Then
+                                harOverlapp = True
+                                If DEBUG_MODE Then
+                                    Debug.Print "OVERLAPP: Partial overlap detektert (samme farge, denne har bold)"
+                                End If
                             End If
                         End If
                     End If
