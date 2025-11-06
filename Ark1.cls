@@ -295,12 +295,26 @@ Private Sub Worksheet_Change(ByVal Target As Range)
 
                 ' Skann til høyre for å finne celler med samme farge
                 Dim col As Long
+                Dim scanCel As Range
+                Dim tmpKommentar As String
+                Dim tmpErThreaded As Boolean
+
                 For col = c.Column + 1 To lastCol
-                    If FargeAvstand(Me.Cells(c.Row, col).Interior.Color, c.Interior.Color) <= 10 Then
-                        sluttCol = col
-                    Else
-                        Exit For
-                    End If
+                    Set scanCel = Me.Cells(c.Row, col)
+
+                    ' Stopp dersom vi treffer celler uten aktivitetsfarge
+                    If Not HarAktivitetsfarge(scanCel) Then Exit For
+
+                    ' Stopp hvis fargen avviker fra aktiviteten
+                    If FargeAvstand(scanCel.Interior.Color, c.Interior.Color) > 10 Then Exit For
+
+                    ' Hvis cellen inneholder tekst (ny blokk) ? stopp
+                    If Len(Trim$(CStr(scanCel.Value))) > 0 Then Exit For
+
+                    ' Hvis cellen har kommentar (ny blokk) ? stopp
+                    If HentKommentarFraCelle(scanCel, tmpKommentar, tmpErThreaded) Then Exit For
+
+                    sluttCol = col
                 Next col
 
                 ' OVERLAPP-SJEKK: Sjekk naboer for å detektere overlapp
