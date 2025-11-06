@@ -126,53 +126,79 @@ Private Sub Worksheet_Change(ByVal Target As Range)
         i = i + 1
     Next tempCell
 
-    ' Disable events for å unngå rekursjon
-    Application.EnableEvents = False
+    ' Sjekk først om det er nødvendig med undo-redo (bare for MOVE operations eller overlapp)
+    ' Teller fargede celler i snapshotRange som IKKE er i tempRange
+    Dim antallFargedeCellerUtenforTarget As Long
+    antallFargedeCellerUtenforTarget = 0
 
-    ' KRITISK FIX: Undo for å få ORIGINAL tilstand
-    Application.Undo
-
-    ' Ta snapshot av ORIGINAL data for HELE raden (fanger både source og destination!)
-    LagUndoSnapshot snapshotRange
-
-    ' Bygg Dictionary av destination-adresser for rask lookup
     Dim destAdresser As Object
     Set destAdresser = CreateObject("Scripting.Dictionary")
     For i = 1 To UBound(tempValues, 1)
         destAdresser.Add tempValues(i, 1), True
     Next i
 
-    ' STEG 1: Først tøm ALLE celler i snapshotRange som IKKE er destination
-    ' Dette tømmer source-cellene (som Excel skulle ha tømt i en MOVE operation)
     For Each tempCell In snapshotRange.Cells
         If Not destAdresser.Exists(tempCell.Address) Then
-            ' Dette er en source-celle som skal tømmes
             If tempCell.Interior.Color <> RGB(255, 255, 255) And _
-               tempCell.Interior.Color <> xlNone Then
-                ' Hadde farge, må tømmes
-                tempCell.Value = ""
-                tempCell.Interior.Color = RGB(255, 255, 255)
-                tempCell.Font.Bold = False
-                tempCell.Font.Color = RGB(0, 0, 0)
+               tempCell.Interior.Color <> xlNone And _
+               tempCell.Interior.Color <> 16777215 Then
+                antallFargedeCellerUtenforTarget = antallFargedeCellerUtenforTarget + 1
             End If
         End If
     Next tempCell
 
-    ' STEG 2: Så appliser destination-cellene
-    Debug.Print "=== RE-APPLISERER DESTINATION ==="
-    For i = 1 To UBound(tempValues, 1)
-        Dim targetCell As Range
-        Set targetCell = Me.Range(tempValues(i, 1))
-        targetCell.Value = tempValues(i, 2)
-        targetCell.Interior.Color = tempValues(i, 3)
-        targetCell.Font.Bold = tempValues(i, 4)
-        targetCell.Font.Color = tempValues(i, 5)
-        Debug.Print "  [" & i & "] Satt " & targetCell.Address & " = '" & tempValues(i, 2) & "' (farge " & tempValues(i, 3) & ")"
-    Next i
+    Debug.Print "Antall fargede celler utenfor target: " & antallFargedeCellerUtenforTarget
+
+    ' Bare gjør undo-redo hvis det er fargede celler utenfor target (MOVE eller overlapp scenario)
+    If antallFargedeCellerUtenforTarget > 0 Then
+        Debug.Print "MOVE/OVERLAPP detektert - gjør undo-redo snapshot"
+
+        ' Disable events for å unngå rekursjon
+        Application.EnableEvents = False
+
+        ' KRITISK FIX: Undo for å få ORIGINAL tilstand
+        Application.Undo
+
+        ' Ta snapshot av ORIGINAL data for HELE raden (fanger både source og destination!)
+        LagUndoSnapshot snapshotRange
+
+        ' STEG 1: Først tøm ALLE celler i snapshotRange som IKKE er destination
+        ' Dette tømmer source-cellene (som Excel skulle ha tømt i en MOVE operation)
+        For Each tempCell In snapshotRange.Cells
+            If Not destAdresser.Exists(tempCell.Address) Then
+                ' Dette er en source-celle som skal tømmes
+                If tempCell.Interior.Color <> RGB(255, 255, 255) And _
+                   tempCell.Interior.Color <> xlNone Then
+                    ' Hadde farge, må tømmes
+                    Debug.Print "Tømmer source-celle: " & tempCell.Address & " (farge " & tempCell.Interior.Color & ")"
+                    tempCell.Value = ""
+                    tempCell.Interior.Color = RGB(255, 255, 255)
+                    tempCell.Font.Bold = False
+                    tempCell.Font.Color = RGB(0, 0, 0)
+                End If
+            End If
+        Next tempCell
+
+        ' STEG 2: Så appliser destination-cellene
+        Debug.Print "=== RE-APPLISERER DESTINATION ==="
+        For i = 1 To UBound(tempValues, 1)
+            Dim targetCell As Range
+            Set targetCell = Me.Range(tempValues(i, 1))
+            targetCell.Value = tempValues(i, 2)
+            targetCell.Interior.Color = tempValues(i, 3)
+            targetCell.Font.Bold = tempValues(i, 4)
+            targetCell.Font.Color = tempValues(i, 5)
+            Debug.Print "  [" & i & "] Satt " & targetCell.Address & " = '" & tempValues(i, 2) & "' (farge " & tempValues(i, 3) & ")"
+        Next i
+
+        Application.EnableEvents = True
+    Else
+        Debug.Print "NY aktivitet (ingen fargede celler utenfor target) - hopper over undo-redo"
+    End If
 
     On Error GoTo Slutt
 
-    ' STEG 6: Sett beskyttelsesflagg (events allerede disabled over)
+    ' STEG 6: Sett beskyttelsesflagg
     behandlerEndring = True
 
     ' STEG 6: Behandle hver endret celle
