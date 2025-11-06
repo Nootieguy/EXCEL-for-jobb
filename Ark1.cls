@@ -36,7 +36,7 @@
 Option Explicit
 
 ' Debug-modus (sett til True for logging til Immediate Window)
-Private Const DEBUG_MODE As Boolean = True
+Private Const DEBUG_MODE As Boolean = False
 
 ' Rekursjons-beskyttelse
 Private behandlerEndring As Boolean
@@ -431,6 +431,16 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                     Dim debugMsg As String
                     debugMsg = "Overlapp detektert! Skanner rad " & c.Row & vbCrLf & vbCrLf
 
+                    ' STEG 0: Hent original aktiviteter fra undo cache
+                    ' Dette gjøres FØR vi begynner å fikse navn, slik at vi kan bruke
+                    ' custom kommentarer fra cache istedenfor standard navn
+                    Dim originalAktiviteterCache As Object
+                    Set originalAktiviteterCache = HentOriginalAktiviteter()
+
+                    If DEBUG_MODE Then
+                        Debug.Print "Cache inneholder " & originalAktiviteterCache.Count & " aktiviteter"
+                    End If
+
                     ' Skann hele raden fra førsteDatoKol til lastCol
                     ' For hver aktivitet: sjekk om fargen matcher navnet, hvis ikke - fiks det
                     Dim overlapScanCol As Long
@@ -544,8 +554,16 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                                 Else
                                     ' Ingen eksisterende tekst funnet
                                     ' Dette kan skje når Excel tømmer celler under drag & drop
-                                    ' RESTAURER standard navn fra farge isteden for å hoppe over
-                                    If Len(riktigKode) > 0 Then
+                                    ' FØRST: Sjekk om vi kan restaurere fra cache
+                                    Dim cacheTekst As String
+                                    cacheTekst = SøkICacheForAktivitet(overlapScanCel.Row, aktStartCol, aktFarge, originalAktiviteterCache)
+
+                                    If Len(cacheTekst) > 0 Then
+                                        ' Fant custom tekst i cache!
+                                        riktigTekst = cacheTekst
+                                        debugMsg = debugMsg & "  Ingen tekst funnet - restaurerer fra CACHE: '" & riktigTekst & "'" & vbCrLf
+                                    ElseIf Len(riktigKode) > 0 Then
+                                        ' Fallback til standard navn fra farge
                                         If Len(riktigBeskrivelse) > 0 Then
                                             riktigTekst = riktigKode & " - " & riktigBeskrivelse
                                         Else
@@ -553,8 +571,8 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                                         End If
                                         debugMsg = debugMsg & "  Ingen tekst funnet - restaurerer standard: '" & riktigTekst & "'" & vbCrLf
                                     Else
-                                        ' Fant ikke kode for farge - hopp over denne aktiviteten
-                                        debugMsg = debugMsg & "  Hopper over (ingen tekst + ukjent farge)" & vbCrLf
+                                        ' Fant ikke kode for farge og ikke i cache - hopp over denne aktiviteten
+                                        debugMsg = debugMsg & "  Hopper over (ingen tekst + ukjent farge + ikke i cache)" & vbCrLf
                                         debugMsg = debugMsg & vbCrLf
 
                                         ' Hopp til slutten av denne aktiviteten
@@ -2024,6 +2042,64 @@ Private Sub RestaurerOgSettBorder(ByVal rad As Long, ByVal startCol As Long, ByV
     ' STEG 3: Sett thick border på aktiviteten
     Call SettThickBorderPåAktivitet(rad, startCol, sluttCol, farge)
 End Sub
+
+' ============================================================================
+' HJELPER: Søk i cache etter aktivitet med matchende farge og posisjon
+' ============================================================================
+Private Function SøkICacheForAktivitet(ByVal rad As Long, ByVal startCol As Long, _
+                                        ByVal farge As Long, ByVal cache As Object) As String
+    SøkICacheForAktivitet = ""
+
+    If cache Is Nothing Then Exit Function
+    If cache.Count = 0 Then Exit Function
+
+    Dim besteMatch As String
+    Dim besteMatchAvstand As Long
+    besteMatch = ""
+    besteMatchAvstand = 9999
+
+    Dim adresse As Variant
+    For Each adresse In cache.Keys
+        Dim cacheData As Variant
+        cacheData = cache(adresse)
+
+        Dim cacheTekst As String
+        Dim cacheFarge As Long
+        cacheTekst = cacheData(0)
+        cacheFarge = cacheData(1)
+
+        ' Sjekk om denne cachen matcher fargen vi leter etter
+        If FargeAvstand(cacheFarge, farge) <= 10 Then
+            ' Ekstrahér rad og kolonne fra adresse
+            Dim cacheRad As Long, cacheKol As Long
+            Call ParseCelleAdresse(CStr(adresse), cacheRad, cacheKol)
+
+            ' Sjekk om det er samme rad
+            If cacheRad = rad Then
+                ' Beregn avstand mellom cache-posisjon og vår start-kolonne
+                Dim avstand As Long
+                avstand = Abs(cacheKol - startCol)
+
+                ' Velg den nærmeste matchen
+                If avstand < besteMatchAvstand Then
+                    besteMatch = cacheTekst
+                    besteMatchAvstand = avstand
+
+                    If DEBUG_MODE Then
+                        Debug.Print "  CACHE MATCH: " & adresse & " = '" & cacheTekst & "' (avstand=" & avstand & ")"
+                    End If
+                End If
+            End If
+        End If
+    Next adresse
+
+    If Len(besteMatch) > 0 Then
+        SøkICacheForAktivitet = besteMatch
+        If DEBUG_MODE Then
+            Debug.Print "  CACHE BESTE: '" & besteMatch & "' (avstand=" & besteMatchAvstand & ")"
+        End If
+    End If
+End Function
 
 ' ============================================================================
 ' HJELPER: Parse celle-adresse til rad og kolonne
