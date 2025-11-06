@@ -108,6 +108,10 @@ Private Sub Worksheet_Change(ByVal Target As Range)
     Dim tempRange As Range
     Set tempRange = relevantEndring
 
+    Debug.Print "=== LAGRER TEMP VALUES ==="
+    Debug.Print "tempRange: " & tempRange.Address
+    Debug.Print "Antall celler: " & tempRange.Cells.Count
+
     ReDim tempValues(1 To tempRange.Cells.Count, 1 To 5) As Variant
     Dim i As Long
     i = 1
@@ -118,6 +122,7 @@ Private Sub Worksheet_Change(ByVal Target As Range)
         tempValues(i, 3) = tempCell.Interior.Color
         tempValues(i, 4) = tempCell.Font.Bold
         tempValues(i, 5) = tempCell.Font.Color
+        Debug.Print "  [" & i & "] " & tempCell.Address & " = '" & tempCell.Value & "' (farge " & tempCell.Interior.Color & ")"
         i = i + 1
     Next tempCell
 
@@ -154,6 +159,7 @@ Private Sub Worksheet_Change(ByVal Target As Range)
     Next tempCell
 
     ' STEG 2: Så appliser destination-cellene
+    Debug.Print "=== RE-APPLISERER DESTINATION ==="
     For i = 1 To UBound(tempValues, 1)
         Dim targetCell As Range
         Set targetCell = Me.Range(tempValues(i, 1))
@@ -161,6 +167,7 @@ Private Sub Worksheet_Change(ByVal Target As Range)
         targetCell.Interior.Color = tempValues(i, 3)
         targetCell.Font.Bold = tempValues(i, 4)
         targetCell.Font.Color = tempValues(i, 5)
+        Debug.Print "  [" & i & "] Satt " & targetCell.Address & " = '" & tempValues(i, 2) & "' (farge " & tempValues(i, 3) & ")"
     Next i
 
     On Error GoTo Slutt
