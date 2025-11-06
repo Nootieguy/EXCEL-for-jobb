@@ -148,6 +148,9 @@ Private Sub Worksheet_Change(ByVal Target As Range)
 
     Debug.Print "Target-celler var tomme FØR endring: " & targetVarTomme
 
+    ' Deklarer targetCell før bruk i begge If-blokker
+    Dim targetCell As Range
+
     If Not targetVarTomme Then
         ' MOVE/OVERLAPP scenario - ta snapshot og gjør avansert håndtering
         Debug.Print "MOVE/OVERLAPP detektert - tar snapshot og tømmer source"
@@ -181,7 +184,6 @@ Private Sub Worksheet_Change(ByVal Target As Range)
         ' STEG 2: Appliser destination-cellene
         Debug.Print "=== RE-APPLISERER DESTINATION ==="
         For i = 1 To UBound(tempValues, 1)
-            Dim targetCell As Range
             Set targetCell = Me.Range(tempValues(i, 1))
             targetCell.Value = tempValues(i, 2)
             targetCell.Interior.Color = tempValues(i, 3)
