@@ -365,20 +365,7 @@ Private Sub Worksheet_Change(ByVal Target As Range)
 
                     If HarAktivitetsfarge(høyreNabo) Then
                         ' Høyre nabo har aktivitetsfarge - sjekk om det er en ANNEN aktivitet
-                        Dim erAnnenAktivitet As Boolean
-                        erAnnenAktivitet = False
-
-                        ' Sjekk 1: Forskjellig farge = annen aktivitet
                         If FargeAvstand(høyreNabo.Interior.Color, dragFarge) > 10 Then
-                            erAnnenAktivitet = True
-                        End If
-
-                        ' Sjekk 2: Samme farge MEN høyre nabo har bold tekst = ny aktivitet av samme type
-                        If Not erAnnenAktivitet And høyreNabo.Font.Bold And Len(Trim$(høyreNabo.Value)) > 0 Then
-                            erAnnenAktivitet = True
-                        End If
-
-                        If erAnnenAktivitet Then
                             harOverlapp = True
 
                             If DEBUG_MODE Then
@@ -393,20 +380,7 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                     Set venstreNabo = Me.Cells(c.Row, c.Column - 1)
 
                     If HarAktivitetsfarge(venstreNabo) Then
-                        Dim erAnnenVenstre As Boolean
-                        erAnnenVenstre = False
-
-                        ' Sjekk 1: Forskjellig farge = annen aktivitet
                         If FargeAvstand(venstreNabo.Interior.Color, dragFarge) > 10 Then
-                            erAnnenVenstre = True
-                        End If
-
-                        ' Sjekk 2: Samme farge MEN venstre nabo har bold tekst = ny aktivitet av samme type
-                        If Not erAnnenVenstre And venstreNabo.Font.Bold And Len(Trim$(venstreNabo.Value)) > 0 Then
-                            erAnnenVenstre = True
-                        End If
-
-                        If erAnnenVenstre Then
                             harOverlapp = True
 
                             If DEBUG_MODE Then
