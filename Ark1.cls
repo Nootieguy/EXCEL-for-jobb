@@ -365,11 +365,18 @@ Private Sub Worksheet_Change(ByVal Target As Range)
 
                     If HarAktivitetsfarge(høyreNabo) Then
                         ' Høyre nabo har aktivitetsfarge - sjekk om det er en ANNEN aktivitet
+                        ' VIKTIG: Også sjekk for bold tekst (ny aktivitet av samme type)
                         If FargeAvstand(høyreNabo.Interior.Color, dragFarge) > 10 Then
+                            ' Forskjellig farge = annen aktivitet
                             harOverlapp = True
-
                             If DEBUG_MODE Then
                                 Debug.Print "OVERLAPP: Høyre nabo har annen farge " & høyreNabo.Interior.Color & " vs drag-farge " & dragFarge
+                            End If
+                        ElseIf høyreNabo.Font.Bold And Len(Trim$(høyreNabo.Value)) > 0 Then
+                            ' Samme farge men høyre nabo har bold tekst = ny aktivitet av samme type
+                            harOverlapp = True
+                            If DEBUG_MODE Then
+                                Debug.Print "OVERLAPP: Høyre nabo har bold tekst (samme type aktivitet)"
                             End If
                         End If
                     End If
@@ -381,10 +388,16 @@ Private Sub Worksheet_Change(ByVal Target As Range)
 
                     If HarAktivitetsfarge(venstreNabo) Then
                         If FargeAvstand(venstreNabo.Interior.Color, dragFarge) > 10 Then
+                            ' Forskjellig farge = annen aktivitet
                             harOverlapp = True
-
                             If DEBUG_MODE Then
                                 Debug.Print "OVERLAPP: Venstre nabo har annen farge " & venstreNabo.Interior.Color & " vs drag-farge " & dragFarge
+                            End If
+                        ElseIf venstreNabo.Font.Bold And Len(Trim$(venstreNabo.Value)) > 0 Then
+                            ' Samme farge men venstre nabo har bold tekst = ny aktivitet av samme type
+                            harOverlapp = True
+                            If DEBUG_MODE Then
+                                Debug.Print "OVERLAPP: Venstre nabo har bold tekst (samme type aktivitet)"
                             End If
                         End If
                     End If
@@ -510,13 +523,12 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                                         riktigTekst = eksisterendeTekst
                                     End If
                                 Else
-                                    ' Ingen eksisterende tekst - bruk standard
+                                    ' Ingen eksisterende tekst funnet
+                                    ' Dette kan skje når Excel tømmer celler under drag & drop
+                                    ' IKKE bruk standard beskrivelse - sett kun aktivitetskoden
+                                    ' (beholder custom beskrivelse hvis den var der før)
                                     If Len(riktigKode) > 0 Then
-                                        If Len(riktigBeskrivelse) > 0 Then
-                                            riktigTekst = riktigKode & " - " & riktigBeskrivelse
-                                        Else
-                                            riktigTekst = riktigKode
-                                        End If
+                                        riktigTekst = riktigKode
                                     Else
                                         riktigTekst = ""
                                     End If
