@@ -83,14 +83,50 @@ Private Sub Worksheet_Change(ByVal Target As Range)
 
     If relevantEndring Is Nothing Then Exit Sub
 
-    ' STEG 5: Lagre undo-snapshot før endringer
+    ' STEG 5: Lagre undo-snapshot av ORIGINAL tilstand (før Excel endret cellene)
+    ' Vi må bruke Application.Undo midlertidig for å få tilbake original data
     On Error Resume Next
+
+    ' Først: Lagre ENDREDE verdier (etter drag & drop)
+    Dim tempRange As Range
+    Set tempRange = relevantEndring
+
+    ReDim tempValues(1 To tempRange.Cells.Count, 1 To 5) As Variant
+    Dim i As Long
+    i = 1
+    Dim tempCell As Range
+    For Each tempCell In tempRange.Cells
+        tempValues(i, 1) = tempCell.Address
+        tempValues(i, 2) = tempCell.Value
+        tempValues(i, 3) = tempCell.Interior.Color
+        tempValues(i, 4) = tempCell.Font.Bold
+        tempValues(i, 5) = tempCell.Font.Color
+        i = i + 1
+    Next tempCell
+
+    ' Disable events for å unngå rekursjon
+    Application.EnableEvents = False
+
+    ' KRITISK FIX: Undo for å få ORIGINAL tilstand
+    Application.Undo
+
+    ' Ta snapshot av ORIGINAL data (nå har cellene sine original custom kommentarer!)
     LagUndoSnapshot relevantEndring
+
+    ' Redo ved å re-applisere de ENDREDE verdiene manuelt
+    For i = 1 To UBound(tempValues, 1)
+        Dim targetCell As Range
+        Set targetCell = Me.Range(tempValues(i, 1))
+        targetCell.Value = tempValues(i, 2)
+        targetCell.Interior.Color = tempValues(i, 3)
+        targetCell.Font.Bold = tempValues(i, 4)
+        targetCell.Font.Color = tempValues(i, 5)
+    Next i
+
     On Error GoTo Slutt
 
-    ' STEG 6: Sett beskyttelsesflagg og disable events
+    ' STEG 6: Sett beskyttelsesflagg (events allerede disabled over)
     behandlerEndring = True
-    Application.EnableEvents = False
 
     ' STEG 6: Behandle hver endret celle
     Dim c As Range
