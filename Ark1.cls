@@ -730,7 +730,6 @@ SkipActivity:
                                                 End If
 
                                                 debugMsg = debugMsg & "  GAP lagt inn mellom aktiviteter!" & vbCrLf & vbCrLf
-                                            End If
                                         End If
                                     End If
                                 End If
