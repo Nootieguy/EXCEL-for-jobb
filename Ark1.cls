@@ -112,7 +112,7 @@ Private Sub Worksheet_Change(ByVal Target As Range)
     Debug.Print "tempRange: " & tempRange.Address
     Debug.Print "Antall celler: " & tempRange.Cells.Count
 
-    ReDim tempValues(1 To tempRange.Cells.Count, 1 To 5) As Variant
+    ReDim tempValues(1 To tempRange.Cells.Count, 1 To 8) As Variant
     Dim i As Long
     i = 1
 
@@ -122,6 +122,9 @@ Private Sub Worksheet_Change(ByVal Target As Range)
         tempValues(i, 3) = tempCell.Interior.Color
         tempValues(i, 4) = tempCell.Font.Bold
         tempValues(i, 5) = tempCell.Font.Color
+        tempValues(i, 6) = tempCell.HorizontalAlignment
+        tempValues(i, 7) = tempCell.VerticalAlignment
+        tempValues(i, 8) = tempCell.WrapText
         Debug.Print "  [" & i & "] " & tempCell.Address & " = '" & tempCell.Value & "' (farge " & tempCell.Interior.Color & ")"
         i = i + 1
     Next tempCell
@@ -189,6 +192,9 @@ Private Sub Worksheet_Change(ByVal Target As Range)
             targetCell.Interior.Color = tempValues(i, 3)
             targetCell.Font.Bold = tempValues(i, 4)
             targetCell.Font.Color = tempValues(i, 5)
+            targetCell.HorizontalAlignment = tempValues(i, 6)
+            targetCell.VerticalAlignment = tempValues(i, 7)
+            targetCell.WrapText = tempValues(i, 8)
             Debug.Print "  [" & i & "] Satt " & targetCell.Address & " = '" & tempValues(i, 2) & "' (farge " & tempValues(i, 3) & ")"
         Next i
     Else
@@ -206,8 +212,10 @@ Private Sub Worksheet_Change(ByVal Target As Range)
             Else
                 targetCell.Font.Color = RGB(255, 255, 255)  ' Hvit tekst på mørk bakgrunn
             End If
-            ' KRITISK: Sett HorizontalAlignment for å vise tekst over flere celler
+            ' KRITISK: Sett formatering for å vise tekst korrekt
             targetCell.HorizontalAlignment = xlCenterAcrossSelection
+            targetCell.VerticalAlignment = xlCenter
+            targetCell.WrapText = True
             Debug.Print "  [" & i & "] Satt " & targetCell.Address & " = '" & tempValues(i, 2) & "' (farge " & tempValues(i, 3) & ")"
         Next i
     End If
