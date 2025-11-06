@@ -525,13 +525,13 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                                 Else
                                     ' Ingen eksisterende tekst funnet
                                     ' Dette kan skje når Excel tømmer celler under drag & drop
-                                    ' IKKE bruk standard beskrivelse - sett kun aktivitetskoden
-                                    ' (beholder custom beskrivelse hvis den var der før)
-                                    If Len(riktigKode) > 0 Then
-                                        riktigTekst = riktigKode
-                                    Else
-                                        riktigTekst = ""
-                                    End If
+                                    ' HOPP OVER denne aktiviteten - ikke endre den
+                                    debugMsg = debugMsg & "  Hopper over (ingen tekst funnet)" & vbCrLf
+                                    debugMsg = debugMsg & vbCrLf
+
+                                    ' Hopp til slutten av denne aktiviteten
+                                    overlapScanCol = aktSluttCol + 1
+                                    GoTo SkipActivity
                                 End If
 
                                 If Len(riktigTekst) > 0 Then
@@ -542,7 +542,7 @@ Private Sub Worksheet_Change(ByVal Target As Range)
 
                                 ' ALLTID fiks formateringen for å isolere denne aktiviteten
                                 ' Selv om teksten er riktig, må vi sikre at xlCenterAcrossSelection
-                                ' ikke spreder seg utenfor denne aktivitetens område
+                                ' ikke spreder seg utenfor denne aktivitetets område
 
                                 ' Sett riktig tekst i første celle
                                 overlapScanCel.Value = riktigTekst
@@ -568,6 +568,7 @@ Private Sub Worksheet_Change(ByVal Target As Range)
 
                                 debugMsg = debugMsg & vbCrLf
 
+SkipActivity:
                                 ' Hopp til slutten av denne aktiviteten
                                 overlapScanCol = aktSluttCol + 1
                             Else
