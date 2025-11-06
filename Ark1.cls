@@ -435,7 +435,14 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                     ' Dette gjøres FØR vi begynner å fikse navn, slik at vi kan bruke
                     ' custom kommentarer fra cache istedenfor standard navn
                     Dim originalAktiviteterCache As Object
+
+                    On Error Resume Next
                     Set originalAktiviteterCache = HentOriginalAktiviteter()
+                    On Error GoTo Slutt
+
+                    If originalAktiviteterCache Is Nothing Then
+                        Set originalAktiviteterCache = CreateObject("Scripting.Dictionary")
+                    End If
 
                     If DEBUG_MODE Then
                         Debug.Print "Cache inneholder " & originalAktiviteterCache.Count & " aktiviteter"
@@ -556,7 +563,10 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                                     ' Dette kan skje når Excel tømmer celler under drag & drop
                                     ' FØRST: Sjekk om vi kan restaurere fra cache
                                     Dim cacheTekst As String
+
+                                    On Error Resume Next
                                     cacheTekst = SøkICacheForAktivitet(overlapScanCel.Row, aktStartCol, aktFarge, originalAktiviteterCache)
+                                    On Error GoTo Slutt
 
                                     If Len(cacheTekst) > 0 Then
                                         ' Fant custom tekst i cache!
@@ -1960,6 +1970,8 @@ End Sub
 ' ============================================================================
 Private Sub RestaurerOgSettBorder(ByVal rad As Long, ByVal startCol As Long, ByVal sluttCol As Long, _
                                    ByVal farge As Long, ByVal originalAktiviteter As Object)
+    On Error GoTo ErrorHandler
+
     ' STEG 1: Søk gjennom cache etter aktiviteter med matchende farge i samme rad
     ' Vi må sjekke flere entries fordi det kan være flere aktiviteter med samme farge
     Dim skalRestaurere As Boolean
@@ -1977,10 +1989,18 @@ Private Sub RestaurerOgSettBorder(ByVal rad As Long, ByVal startCol As Long, ByV
             Dim cacheData As Variant
             cacheData = originalAktiviteter(adresse)
 
+            ' Sikkerhetssjekk: Er cacheData et array?
+            If Not IsArray(cacheData) Then GoTo NextCacheItem
+            If UBound(cacheData) < 1 Then GoTo NextCacheItem
+
             Dim cacheTekst As String
             Dim cacheFarge As Long
-            cacheTekst = cacheData(0)
-            cacheFarge = cacheData(1)
+
+            ' Sikkerhetssjekk: Konverter til String/Long
+            On Error Resume Next
+            cacheTekst = CStr(cacheData(0))
+            cacheFarge = CLng(cacheData(1))
+            On Error GoTo ErrorHandler
 
             ' Sjekk om denne cachen matcher fargen vi leter etter
             If FargeAvstand(cacheFarge, farge) <= 10 Then
@@ -2006,6 +2026,8 @@ Private Sub RestaurerOgSettBorder(ByVal rad As Long, ByVal startCol As Long, ByV
                     End If
                 End If
             End If
+
+NextCacheItem:
         Next adresse
 
         If skalRestaurere Then
@@ -2041,6 +2063,14 @@ Private Sub RestaurerOgSettBorder(ByVal rad As Long, ByVal startCol As Long, ByV
 
     ' STEG 3: Sett thick border på aktiviteten
     Call SettThickBorderPåAktivitet(rad, startCol, sluttCol, farge)
+
+    Exit Sub
+
+ErrorHandler:
+    Debug.Print "ERROR i RestaurerOgSettBorder: " & Err.Description
+    ' Fortsett med thick border selv ved feil
+    On Error Resume Next
+    Call SettThickBorderPåAktivitet(rad, startCol, sluttCol, farge)
 End Sub
 
 ' ============================================================================
@@ -2048,6 +2078,8 @@ End Sub
 ' ============================================================================
 Private Function SøkICacheForAktivitet(ByVal rad As Long, ByVal startCol As Long, _
                                         ByVal farge As Long, ByVal cache As Object) As String
+    On Error GoTo ErrorHandler
+
     SøkICacheForAktivitet = ""
 
     If cache Is Nothing Then Exit Function
@@ -2063,10 +2095,20 @@ Private Function SøkICacheForAktivitet(ByVal rad As Long, ByVal startCol As Lon
         Dim cacheData As Variant
         cacheData = cache(adresse)
 
+        ' Sikkerhetssjekk: Er cacheData et array?
+        If Not IsArray(cacheData) Then GoTo NextItem
+        If UBound(cacheData) < 1 Then GoTo NextItem
+
         Dim cacheTekst As String
         Dim cacheFarge As Long
-        cacheTekst = cacheData(0)
-        cacheFarge = cacheData(1)
+
+        ' Sikkerhetssjekk: Konverter til String/Long
+        On Error Resume Next
+        cacheTekst = CStr(cacheData(0))
+        cacheFarge = CLng(cacheData(1))
+        On Error GoTo ErrorHandler
+
+        If Len(cacheTekst) = 0 Then GoTo NextItem
 
         ' Sjekk om denne cachen matcher fargen vi leter etter
         If FargeAvstand(cacheFarge, farge) <= 10 Then
@@ -2091,6 +2133,8 @@ Private Function SøkICacheForAktivitet(ByVal rad As Long, ByVal startCol As Lon
                 End If
             End If
         End If
+
+NextItem:
     Next adresse
 
     If Len(besteMatch) > 0 Then
@@ -2099,6 +2143,12 @@ Private Function SøkICacheForAktivitet(ByVal rad As Long, ByVal startCol As Lon
             Debug.Print "  CACHE BESTE: '" & besteMatch & "' (avstand=" & besteMatchAvstand & ")"
         End If
     End If
+
+    Exit Function
+
+ErrorHandler:
+    Debug.Print "ERROR i SøkICacheForAktivitet: " & Err.Description
+    SøkICacheForAktivitet = ""
 End Function
 
 ' ============================================================================
