@@ -75,6 +75,30 @@ Private Sub Worksheet_Change(ByVal Target As Range)
 
     If relevantEndring Is Nothing Then Exit Sub
 
+    ' STEG 4.5: Detekter DELETE FØR vi gjør undo/redo
+    ' Delete = tom celle med aktivitetsfarge (skal håndteres av FjernMarkert)
+    Dim erDelete As Boolean
+    erDelete = False
+
+    For Each tempCell In relevantEndring.Cells
+        If Len(Trim$(tempCell.Value)) = 0 Then
+            If HarAktivitetsfarge(tempCell) Then
+                erDelete = True
+                Exit For
+            End If
+        End If
+    Next tempCell
+
+    If erDelete Then
+        ' DELETE detektert - deleger til FjernMarkert og exit
+        If DEBUG_MODE Then
+            Debug.Print "Delete detektert tidlig - delegerer til FjernMarkert"
+        End If
+        relevantEndring.Select
+        Call FjernAktivitetPåMarkering
+        Exit Sub
+    End If
+
     ' STEG 5: Lagre undo-snapshot av ORIGINAL tilstand (før Excel endret cellene)
     ' Vi må bruke Application.Undo midlertidig for å få tilbake original data
     ' VIKTIG: For MOVE operations må vi fange HELE raden (både source og destination)
@@ -232,25 +256,8 @@ Private Sub Worksheet_Change(ByVal Target As Range)
             GoTo NesteCelle
         End If
 
-        ' Sjekk om cellen er tom
-        If Len(Trim$(c.Value)) = 0 Then
-            If HarAktivitetsfarge(c) Then
-                ' TILFELLE 1: Tom celle med aktivitetsfarge (Delete ble brukt)
-                ' La FjernMarkert håndtere all delete-logikk
-                If DEBUG_MODE Then
-                    Debug.Print "Delete detektert - bruker FjernMarkert: " & c.Address
-                End If
-
-                ' Nullstill beskyttelsesflagg før vi forlater
-                behandlerEndring = False
-
-                ' Velg relevant område og kall FjernMarkert
-                relevantEndring.Select
-                Call FjernAktivitetPåMarkering
-                Exit Sub
-            End If
-        Else
-            ' TILFELLE 3: Celle har fått innhold (paste/drag/typing)
+        ' Håndter celle med innhold (paste/drag/typing)
+        If Len(Trim$(c.Value)) > 0 Then
             ' Sjekk om dette er en aktivitet som trenger multi-celle formatering
             If HarAktivitetsfarge(c) And c.Font.Bold And Len(Trim$(c.Value)) > 0 Then
                 ' Dette kan være en paste/drag operasjon av en aktivitet
