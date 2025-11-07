@@ -659,50 +659,6 @@ Slutt:
     End If
 End Sub
 
-' ============================================================================
-' HOVEDLOGIKK: Behandle en slettet celle
-' ============================================================================
-Private Sub BehandleSlettetCelle(ByVal cel As Range, ByVal førsteDatoKol As Long, _
-                                  ByVal datoRad As Long)
-    ' KRITERIE 1: Cellen må være tom (etter sletting)
-    If Len(Trim$(cel.Value)) > 0 Then Exit Sub
-
-    ' KRITERIE 2: Cellen må ha aktivitetsfarge (ikke hvit/grå)
-    If Not HarAktivitetsfarge(cel) Then Exit Sub
-
-    ' KRITERIE 3: Cellen må være FØRSTE celle i blokken
-    If Not ErFørsteCelleIBlokk(cel, førsteDatoKol) Then
-        If DEBUG_MODE Then Debug.Print "  ? Ikke første celle - tillater split/gap"
-        Exit Sub
-    End If
-
-    If DEBUG_MODE Then
-        Debug.Print String(80, "=")
-        Debug.Print "AUTO-RESTAURERING TRIGGET [" & Now & "]"
-        Debug.Print "Celle: " & cel.Address & " (rad " & cel.Row & ", kol " & cel.Column & ")"
-    End If
-
-    ' STEG 1: Slå opp aktivitetskode fra farge
-    Dim aktivKode As String, aktivBeskr As String
-    aktivKode = SlåOppAktivitetFraFarge(cel.Interior.Color, aktivBeskr)
-
-    If Len(aktivKode) = 0 Then
-        If DEBUG_MODE Then Debug.Print "  ? Fant ikke aktivitetskode for farge " & cel.Interior.Color
-        Exit Sub
-    End If
-
-    If DEBUG_MODE Then
-        Debug.Print "  ? Funnet aktivitet: " & aktivKode & " - " & aktivBeskr
-    End If
-
-    ' STEG 2: Restaurer navnet i cellen
-    Call RestaurerAktivitetsNavn(cel, aktivKode, aktivBeskr)
-
-    If DEBUG_MODE Then
-        Debug.Print "  ? Navn restaurert!"
-        Debug.Print String(80, "=")
-    End If
-End Sub
 
 ' ============================================================================
 ' SPLIT-HÅNDTERING: Finn og håndter ALLE aktivitetsblokker med splits i raden
@@ -1284,71 +1240,6 @@ Private Function ErFørsteCelleIBlokk(ByVal cel As Range, ByVal førsteDatoKol A
     End If
 End Function
 
-' ============================================================================
-' SJEKK: Blir hele aktiviteten slettet (alle celler i blokken)?
-' ============================================================================
-Private Function SjekkOmHeleAktivitetenSlettes(ByVal førsteCelle As Range, _
-                                                ByVal førsteDatoKol As Long, _
-                                                ByVal cellerÅFjerne As Object) As Boolean
-    Dim aktivFarge As Long
-    Dim radKey As String
-    Dim c As Long
-
-    aktivFarge = førsteCelle.Interior.Color
-    radKey = CStr(førsteCelle.Row)
-    SjekkOmHeleAktivitetenSlettes = True  ' Anta at hele aktiviteten slettes
-
-    ' Skann fra førsteCelle og utover til høyre
-    For c = førsteCelle.Column To Me.Columns.Count
-        Dim cel As Range
-        Set cel = Me.Cells(førsteCelle.Row, c)
-
-        ' Stopp hvis vi kommer til en hvit celle (gap)
-        If Not HarAktivitetsfarge(cel) Then
-            Exit For
-        End If
-
-        ' Stopp hvis vi treffer en celle med bold tekst (ny aktivitet) - unntatt første celle
-        If c > førsteCelle.Column Then
-            If cel.Font.Bold And Len(Trim$(cel.Value)) > 0 Then
-                Exit For
-            End If
-        End If
-
-        ' Sjekk om cellen er del av aktiviteten
-        If FargeAvstand(cel.Interior.Color, aktivFarge) <= 10 Then
-            ' Dette er del av aktiviteten
-            ' Sjekk om cellen er tom (brukeren har slettet innholdet)
-            Dim erTom As Boolean
-            erTom = False
-
-            ' Sjekk om cellen er markert for sletting i dictionary
-            If cellerÅFjerne.Exists(radKey) Then
-                If cellerÅFjerne(radKey).Exists(c) Then
-                    erTom = True
-                End If
-            End If
-
-            ' Sjekk om cellen er tom (uavhengig av bold-formatering)
-            ' Dette fanger opp når brukeren trykker Delete på alle celler
-            If Len(Trim$(cel.Value)) = 0 Then
-                erTom = True
-            End If
-
-            ' Hvis denne cellen IKKE er tom, hele aktiviteten slettes IKKE
-            If Not erTom Then
-                SjekkOmHeleAktivitetenSlettes = False
-                Exit Function
-            End If
-        ElseIf Not HarAktivitetsfarge(cel) Then
-            ' Hvit celle - aktiviteten er slutt
-            Exit For
-        Else
-            ' Annen farge - aktiviteten er slutt
-            Exit For
-        End If
-    Next c
-End Function
 
 
 ' ============================================================================
