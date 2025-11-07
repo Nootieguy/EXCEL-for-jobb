@@ -237,11 +237,6 @@ Private Sub Worksheet_Change(ByVal Target As Range)
     Dim splittRader As Object
     Set splittRader = CreateObject("Scripting.Dictionary")
 
-    ' Dictionary for å lagre celler som skal ha farge fjernet
-    ' Key = rad, Value = Collection av kolonnenummer
-    Dim cellerÅFjerne As Object
-    Set cellerÅFjerne = CreateObject("Scripting.Dictionary")
-
     ' Dictionary for å tracke celler som allerede er behandlet (paste multi-celle fix)
     Dim behandledeCeller As Object
     Set behandledeCeller = CreateObject("Scripting.Dictionary")
@@ -655,112 +650,8 @@ NesteCelle:
     ' Behandle hver rad kun ÉN gang
     Dim radNr As Variant
     For Each radNr In splittRader.Keys
-        Call HåndterAlleAktiviteterMedSplitIRad(CLng(radNr), førsteDatoKol, datoRad, cellerÅFjerne)
+        Call HåndterAlleAktiviteterMedSplitIRad(CLng(radNr), førsteDatoKol, datoRad, Nothing)
     Next radNr
-
-    ' STEG 6C: Rydd opp celler som er markert for sletting men ikke ble håndtert av split-logikk
-    ' (f.eks. standalone celler som ikke genererer splits)
-    Dim radKeyCleanup As Variant
-    For Each radKeyCleanup In cellerÅFjerne.Keys
-        Dim colDictCleanup As Object
-        Set colDictCleanup = cellerÅFjerne(radKeyCleanup)
-
-        Dim colCleanup As Variant
-        For Each colCleanup In colDictCleanup.Keys
-            Dim celCleanup As Range
-            Set celCleanup = Me.Cells(CLng(radKeyCleanup), CLng(colCleanup))
-
-            ' Sjekk om cellen fortsatt har farge (ikke håndtert av split-logikk)
-            ' Sjekk både ColorIndex OG Color property
-            Dim celFargeCleanup As Long
-            celFargeCleanup = celCleanup.Interior.Color
-
-            If celCleanup.Interior.ColorIndex <> xlColorIndexNone Or _
-               (celFargeCleanup <> RGB(255, 255, 255) And celFargeCleanup <> 16777215) Then
-                If DEBUG_MODE Then
-                    Debug.Print "Rydder opp celle som ikke ble håndtert: " & celCleanup.Address
-                End If
-
-                ' Rydd helt som FjernMarkert gjør
-                celCleanup.ClearComments
-                celCleanup.ClearContents
-                celCleanup.Font.Bold = False
-                celCleanup.Font.ColorIndex = xlColorIndexAutomatic
-                celCleanup.HorizontalAlignment = xlGeneral
-                celCleanup.VerticalAlignment = xlCenter
-                celCleanup.WrapText = False
-
-                ' Sett bakgrunn til ren hvit
-                With celCleanup.Interior
-                    .Pattern = xlSolid
-                    .TintAndShade = 0
-                    .Color = RGB(255, 255, 255)
-                    .PatternTintAndShade = 0
-                End With
-
-                ' Slå av diagonale kanter
-                celCleanup.Borders(xlDiagonalDown).LineStyle = xlLineStyleNone
-                celCleanup.Borders(xlDiagonalUp).LineStyle = xlLineStyleNone
-
-                ' Nullstill alle kanter først
-                celCleanup.Borders(xlEdgeLeft).LineStyle = xlLineStyleNone
-                celCleanup.Borders(xlEdgeRight).LineStyle = xlLineStyleNone
-                celCleanup.Borders(xlEdgeTop).LineStyle = xlLineStyleNone
-                celCleanup.Borders(xlEdgeBottom).LineStyle = xlLineStyleNone
-                celCleanup.Borders(xlInsideVertical).LineStyle = xlLineStyleNone
-                celCleanup.Borders(xlInsideHorizontal).LineStyle = xlLineStyleNone
-
-                ' Sett standard rutenett (tynne kanter)
-                With celCleanup.Borders(xlEdgeLeft)
-                    .LineStyle = xlContinuous
-                    .Weight = xlThin
-                    .Color = RGB(0, 0, 0)
-                End With
-
-                With celCleanup.Borders(xlEdgeRight)
-                    .LineStyle = xlContinuous
-                    .Weight = xlThin
-                    .Color = RGB(0, 0, 0)
-                End With
-
-                With celCleanup.Borders(xlEdgeTop)
-                    .LineStyle = xlContinuous
-                    .Weight = xlThin
-                    .Color = RGB(0, 0, 0)
-                End With
-
-                With celCleanup.Borders(xlEdgeBottom)
-                    .LineStyle = xlContinuous
-                    .Weight = xlThin
-                    .Color = RGB(0, 0, 0)
-                End With
-            End If
-        Next colCleanup
-    Next radKeyCleanup
-
-    ' STEG 6D: Fjern tomme under-rader (som FjernMarkert gjør)
-    ' Gå gjennom hver rad som ble endret og slett hvis den er helt tom
-    Dim personHeaderRad As Long
-    personHeaderRad = Me.Range("PersonHeader").Row
-
-    For Each radKeyCleanup In cellerÅFjerne.Keys
-        Dim radNum As Long
-        radNum = CLng(radKeyCleanup)
-
-        ' Bare slett under-rader (ikke header-raden)
-        If radNum > personHeaderRad Then
-            ' Sjekk om raden er helt tom
-            If RadErTomIAlleDatoKolonner(radNum, førsteDatoKol, lastCol) Then
-                ' Sjekk også at kolonne A er tom
-                If Len(Trim$(Me.Cells(radNum, 1).Value)) = 0 Then
-                    If DEBUG_MODE Then
-                        Debug.Print "Sletter tom under-rad: " & radNum
-                    End If
-                    Me.Rows(radNum).Delete
-                End If
-            End If
-        End If
-    Next radKeyCleanup
 
 Slutt:
     ' STEG 7: Re-enable events og fjern beskyttelsesflagg
