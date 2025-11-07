@@ -450,6 +450,47 @@ Public Function HentOriginalVerdi(ByVal celleAdresse As String) As Variant
     Next i
 End Function
 
+' Hent komplett informasjon fra undo snapshot for en gitt celle
+Public Function HentOriginalCelleDetaljer(ByVal celleAdresse As String, _
+                                          ByRef verdi As Variant, _
+                                          ByRef harFarge As Boolean, _
+                                          ByRef farge As Long, _
+                                          ByRef fargeIndex As Long, _
+                                          ByRef mønster As Long, _
+                                          ByRef fontBold As Boolean, _
+                                          ByRef horAlign As Long, _
+                                          ByRef vertAlign As Long, _
+                                          ByRef wrapText As Boolean, _
+                                          ByRef fontColor As Long, _
+                                          ByRef fontColorIndex As Long, _
+                                          ByRef harKommentar As Boolean, _
+                                          ByRef kommentarTekst As String) As Boolean
+
+    Dim i As Long
+
+    If undoStackSize = 0 Then Exit Function
+
+    For i = 1 To undoStackSize
+        If undoStack(i).Address = celleAdresse Then
+            verdi = undoStack(i).Value
+            harFarge = (undoStack(i).InteriorColorIndex <> xlColorIndexNone)
+            farge = undoStack(i).InteriorColor
+            fargeIndex = undoStack(i).InteriorColorIndex
+            mønster = undoStack(i).InteriorPattern
+            fontBold = undoStack(i).FontBold
+            horAlign = undoStack(i).HorizontalAlignment
+            vertAlign = undoStack(i).VerticalAlignment
+            wrapText = undoStack(i).WrapText
+            fontColor = undoStack(i).FontColor
+            fontColorIndex = undoStack(i).FontColorIndex
+            harKommentar = undoStack(i).HasComment
+            kommentarTekst = undoStack(i).CommentText
+            HentOriginalCelleDetaljer = True
+            Exit Function
+        End If
+    Next i
+End Function
+
 ' =====================================================
 ' CTRL+Z INTEGRATION
 ' =====================================================

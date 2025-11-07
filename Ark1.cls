@@ -97,6 +97,9 @@ Private Sub Worksheet_Change(ByVal Target As Range)
     Dim splittRader As Object
     Set splittRader = CreateObject("Scripting.Dictionary")
 
+    Dim overlappRader As Object
+    Set overlappRader = CreateObject("Scripting.Dictionary")
+
     ' Dictionary for å lagre celler som skal ha farge fjernet
     ' Key = rad, Value = Collection av kolonnenummer
     Dim cellerÅFjerne As Object
@@ -403,8 +406,49 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                     End If
                 End If
 
+                ' Fallback: marker rad hvis teksten ble endret under drag uten fargekonflikt
+                If Not overlappRader.Exists(c.Row) Then
+                    Dim snapVerdi As Variant
+                    Dim snapHarFarge As Boolean
+                    Dim snapFarge As Long
+                    Dim snapFargeIndex As Long
+                    Dim snapMønster As Long
+                    Dim snapBold As Boolean
+                    Dim snapHorAlign As Long
+                    Dim snapVertAlign As Long
+                    Dim snapWrap As Boolean
+                    Dim snapFontColor As Long
+                    Dim snapFontColorIndex As Long
+                    Dim snapHarKommentar As Boolean
+                    Dim snapKommentar As String
+
+                    If UndoManager.HentOriginalCelleDetaljer(c.Address, snapVerdi, snapHarFarge, snapFarge, _
+                                                             snapFargeIndex, snapMønster, snapBold, _
+                                                             snapHorAlign, snapVertAlign, snapWrap, _
+                                                             snapFontColor, snapFontColorIndex, _
+                                                             snapHarKommentar, snapKommentar) Then
+
+                        If ErAktivitetsfargeFraData(snapHarFarge, snapFarge, snapFargeIndex) Then
+                            Dim snapOriginalTekst As String
+                            Dim snapNyTekst As String
+                            snapOriginalTekst = SafeTrimmetTekst(snapVerdi)
+                            snapNyTekst = SafeTrimmetTekst(c.Value)
+
+                            If FargeAvstand(c.Interior.Color, snapFarge) > 10 Then
+                                overlappRader.Add c.Row, True
+                            ElseIf Len(snapOriginalTekst) > 0 Then
+                                If StrComp(snapOriginalTekst, snapNyTekst, vbTextCompare) <> 0 Then
+                                    overlappRader.Add c.Row, True
+                                End If
+                            End If
+                        End If
+                    End If
+                End If
+
                 ' Hvis det er overlapp, fiks navn på ALLE aktiviteter på raden
                 If harOverlapp Then
+                    If Not overlappRader.Exists(c.Row) Then overlappRader.Add c.Row, True
+
                     If DEBUG_MODE Then
                         Debug.Print "OVERLAPP DETEKTERT: Fikser navn på alle aktiviteter på raden"
                     End If
@@ -596,14 +640,20 @@ Private Sub Worksheet_Change(ByVal Target As Range)
 NesteCelle:
     Next c
 
-    ' STEG 6B: Håndter splits (når hvite celler lages midt i aktivitet)
+    ' STEG 6B: Restaurer overlappende aktiviteter (behold kommentarer og grenser)
+    Dim overlappRad As Variant
+    For Each overlappRad In overlappRader.Keys
+        Call RestaurerOverlappIRad(CLng(overlappRad), førsteDatoKol, lastCol, splittRader)
+    Next overlappRad
+
+    ' STEG 6C: Håndter splits (når hvite celler lages midt i aktivitet)
     ' Behandle hver rad kun ÉN gang
     Dim radNr As Variant
     For Each radNr In splittRader.Keys
         Call HåndterAlleAktiviteterMedSplitIRad(CLng(radNr), førsteDatoKol, datoRad, cellerÅFjerne)
     Next radNr
 
-    ' STEG 6C: Rydd opp celler som er markert for sletting men ikke ble håndtert av split-logikk
+    ' STEG 6D: Rydd opp celler som er markert for sletting men ikke ble håndtert av split-logikk
     ' (f.eks. standalone celler som ikke genererer splits)
     Dim radKeyCleanup As Variant
     For Each radKeyCleanup In cellerÅFjerne.Keys
@@ -678,7 +728,7 @@ NesteCelle:
         Next colCleanup
     Next radKeyCleanup
 
-    ' STEG 6D: Fjern tomme under-rader (som FjernMarkert gjør)
+    ' STEG 6E: Fjern tomme under-rader (som FjernMarkert gjør)
     ' Gå gjennom hver rad som ble endret og slett hvis den er helt tom
     Dim personHeaderRad As Long
     personHeaderRad = Me.Range("PersonHeader").Row
@@ -713,6 +763,150 @@ Slutt:
         Err.Clear
     End If
 End Sub
+
+' ============================================================================
+' OVERLAPP-HÅNDTERING: Gjenopprett celler som ble overskrevet under drag
+' ============================================================================
+Private Sub RestaurerOverlappIRad(ByVal rad As Long, ByVal førsteDatoKol As Long, _
+                                   ByVal lastCol As Long, ByVal splittRader As Object)
+
+    Dim c As Long
+    Dim cel As Range
+    Dim origVerdi As Variant
+    Dim harFarge As Boolean
+    Dim origFarge As Long
+    Dim origFargeIndex As Long
+    Dim origMønster As Long
+    Dim origBold As Boolean
+    Dim origHorAlign As Long
+    Dim origVertAlign As Long
+    Dim origWrap As Boolean
+    Dim origFontColor As Long
+    Dim origFontColorIndex As Long
+    Dim origHarKommentar As Boolean
+    Dim origKommentar As String
+    Dim fant As Boolean
+    Dim skalRestaurereFarge As Boolean
+    Dim skalRestaurereTekst As Boolean
+    Dim restored As Boolean
+    Dim trimmedOrig As String
+    Dim trimmedNå As String
+
+    For c = førsteDatoKol To lastCol
+        Set cel = Me.Cells(rad, c)
+
+        fant = UndoManager.HentOriginalCelleDetaljer(cel.Address, origVerdi, harFarge, origFarge, _
+                                                     origFargeIndex, origMønster, origBold, _
+                                                     origHorAlign, origVertAlign, origWrap, _
+                                                     origFontColor, origFontColorIndex, _
+                                                     origHarKommentar, origKommentar)
+
+        If fant Then
+            Dim origErAktivitet As Boolean
+            origErAktivitet = ErAktivitetsfargeFraData(harFarge, origFarge, origFargeIndex)
+
+            Dim nåErAktivitet As Boolean
+            nåErAktivitet = HarAktivitetsfarge(cel)
+
+            skalRestaurereFarge = False
+            skalRestaurereTekst = False
+
+            If origErAktivitet Then
+                If nåErAktivitet Then
+                    If FargeAvstand(cel.Interior.Color, origFarge) > 10 Then
+                        skalRestaurereFarge = True
+                        skalRestaurereTekst = True
+                    Else
+                        trimmedOrig = SafeTrimmetTekst(origVerdi)
+                        trimmedNå = SafeTrimmetTekst(cel.Value)
+
+                        If Len(trimmedOrig) > 0 Then
+                            If StrComp(trimmedOrig, trimmedNå, vbTextCompare) <> 0 Then
+                                skalRestaurereTekst = True
+                            End If
+                        End If
+                    End If
+                End If
+            End If
+
+            If skalRestaurereFarge Or skalRestaurereTekst Then
+                restored = True
+
+                If skalRestaurereFarge Then
+                    If harFarge And origFargeIndex <> xlColorIndexNone Then
+                        cel.Interior.Pattern = origMønster
+                        cel.Interior.Color = origFarge
+                    Else
+                        cel.Interior.ColorIndex = xlColorIndexNone
+                    End If
+                End If
+
+                If skalRestaurereTekst Then
+                    cel.Value = origVerdi
+                    cel.Font.Bold = origBold
+
+                    If origFontColorIndex = xlColorIndexAutomatic Then
+                        cel.Font.ColorIndex = xlColorIndexAutomatic
+                    Else
+                        cel.Font.Color = origFontColor
+                    End If
+
+                    cel.HorizontalAlignment = origHorAlign
+                    cel.VerticalAlignment = origVertAlign
+                    cel.WrapText = origWrap
+
+                    On Error Resume Next
+                    cel.ClearComments
+                    cel.DeleteThreadedComment
+                    On Error GoTo 0
+
+                    If origHarKommentar Then
+                        On Error Resume Next
+                        cel.AddComment origKommentar
+                        If Err.Number <> 0 Then
+                            Err.Clear
+                            cel.AddCommentThreaded origKommentar
+                        End If
+                        On Error GoTo 0
+                    End If
+                End If
+            End If
+        End If
+    Next c
+
+    If restored Then
+        If Not splittRader.Exists(rad) Then
+            splittRader.Add rad, rad
+        End If
+    End If
+End Sub
+
+' ============================================================================
+' HJELPER: Vurder om lagret farge representerer en aktivitet
+' ============================================================================
+Private Function ErAktivitetsfargeFraData(ByVal harFarge As Boolean, ByVal farge As Long, _
+                                          ByVal fargeIndex As Long) As Boolean
+
+    If Not harFarge Then Exit Function
+    If fargeIndex = xlColorIndexNone Then Exit Function
+
+    If farge = RGB(255, 255, 255) Then Exit Function
+    If farge = RGB(242, 242, 242) Then Exit Function
+    If farge = RGB(250, 250, 250) Then Exit Function
+
+    ErAktivitetsfargeFraData = True
+End Function
+
+' ============================================================================
+' HJELPER: Sikker trimming av variant-verdier
+' ============================================================================
+Private Function SafeTrimmetTekst(ByVal verdi As Variant) As String
+    If IsError(verdi) Then Exit Function
+    If IsNull(verdi) Then Exit Function
+    If VarType(verdi) = vbEmpty Then Exit Function
+
+    SafeTrimmetTekst = Trim$(CStr(verdi))
+End Function
 
 ' ============================================================================
 ' HOVEDLOGIKK: Behandle en slettet celle
