@@ -434,6 +434,11 @@ Public Sub ApplyBlockFormatting(ws As Worksheet, målRad As Long, _
                                farge As Long, visTekst As String, _
                                ByVal farger As Object)
     Dim rng As Range, startCell As Range, rngUnder As Range, c As Range, cb As Range
+    Dim eventsWasEnabled As Boolean
+
+    ' KRITISK: Deaktiver events for å unngå at Worksheet_Change interfererer
+    eventsWasEnabled = Application.EnableEvents
+    Application.EnableEvents = False
     Application.ScreenUpdating = False
 
     Set rng = ws.Range(ws.Cells(målRad, startCol), ws.Cells(målRad, sluttCol))
@@ -486,6 +491,8 @@ Public Sub ApplyBlockFormatting(ws As Worksheet, målRad As Long, _
     rng.Font.Bold = True
     rng.Font.Color = IIf(ErLysFarge(farge), RGB(0, 0, 0), RGB(255, 255, 255))
 
+    ' Re-aktiver events hvis de var aktivert før
+    Application.EnableEvents = eventsWasEnabled
     Application.ScreenUpdating = True
 End Sub
 
