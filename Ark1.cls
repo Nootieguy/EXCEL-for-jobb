@@ -1136,13 +1136,12 @@ Private Sub HåndterEnkeltAktivitetSplit(ByVal rad As Long, ByVal blokkStart As 
                 celFjern.VerticalAlignment = xlCenter
                 celFjern.WrapText = False
 
-                ' Sett hvit bakgrunn (IKKE bruk ColorIndex først - det kan låse Interior)
+                ' Sett hvit bakgrunn
                 With celFjern.Interior
                     .Pattern = xlSolid
-                    .Color = RGB(255, 255, 255)  ' Sett farge FØRST
+                    .Color = RGB(255, 255, 255)
                     .TintAndShade = 0
                     .PatternTintAndShade = 0
-                    .ColorIndex = xlColorIndexNone  ' Reset ColorIndex ETTER
                 End With
 
                 ' Nullstill alle borders først
