@@ -471,13 +471,20 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                                 End If
                             End If
 
-                            ' Legg til alle celler med samme farge
+                            ' Sjekk om denne cellen er i selection
                             If FargeAvstand(scanCel.Interior.Color, aktivFarge) <= 10 Then
-                                If Not cellerÅFjerne(radKey).Exists(scanCol) Then
-                                    cellerÅFjerne(radKey).Add scanCol, scanCol
+                                Set celleISel = Nothing
+                                On Error Resume Next
+                                Set celleISel = Intersect(scanCel, relevantEndring)
+                                On Error GoTo 0
+                                If Not celleISel Is Nothing Then
+                                    ' Legg til denne cellen for fjerning
+                                    If Not cellerÅFjerne(radKey).Exists(scanCol) Then
+                                        cellerÅFjerne(radKey).Add scanCol, scanCol
+                                    End If
+                                    ' Marker denne cellen som behandlet
+                                    behandledeCeller.Add scanCel.Address, True
                                 End If
-                                ' Marker denne cellen som behandlet
-                                behandledeCeller.Add scanCel.Address, True
                             Else
                                 Exit For
                             End If
