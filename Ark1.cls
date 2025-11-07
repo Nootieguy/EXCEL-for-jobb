@@ -4,33 +4,27 @@
 ' ============================================================================
 ' FORMÅL:
 '   - Markerer dagens dato når arket aktiveres
-'   - Beskytter aktivitetsnavn mot utilsiktet sletting
-'   - Gjør Delete-tasten til "Clear All" (fjerner både tekst og farge)
-'   - Håndterer splits når du sletter midt i aktivitet
+'   - Håndterer drag/drop og paste av aktiviteter
+'   - Håndterer splits når aktiviteter klipper (cut)
+'   - Delete-tasten delegeres til FjernMarkert
 '
 ' FUNKSJONALITET:
-'   Auto-restaurering av aktivitetsnavn:
-'   - Hvis bruker sletter FØRSTE celle i aktivitet ? auto-restaurer navnet
-'   - Hvis bruker sletter MIDT i aktivitet ? fjerner farge (lager split)
-'   - Fungerer med Delete, "Fjern markert område", Cut, og markerte områder
+'   Drag & Drop / Paste:
+'   - Detekterer når aktiviteter flyttes eller kopieres
+'   - Rydder opp source-celler (ved move)
+'   - Reparerer overlappende aktiviteter
+'   - Bevarer all formatering og kommentarer
 '
-'   Delete-oppførsel (forbedret):
-'   - Delete fjerner automatisk BÅDE tekst OG farge
-'   - Oppfører seg som "Fjern markert område" (Clear All)
-'   - Lager automatisk splits når du sletter midt i aktivitet
+'   Delete-håndtering:
+'   - Delete på fargede celler delegeres til FjernAktivitetPåMarkering
+'   - All delete-logikk er i FjernMarkert.bas for konsistens
 '
-'   Split-håndtering (forbedret):
+'   Split-håndtering (når aktiviteter kuttes):
 '   - Splittede aktiviteter viser aktivitetsnavn i ALLE segmenter
 '   - BEHOLDER kommentarer: Hvis aktivitet har custom beskrivelse (kommentar),
 '     vises denne i alle segmenter i stedet for standard beskrivelse
 '   - Hvert segment får riktig formatering (alignment, font, farge)
 '   - Tekst "blør" ikke over hvite celler
-'   - Fungerer med både Delete og "Fjern markert område"
-'
-' DETEKSJON AV FØRSTE CELLE:
-'   En celle er første celle hvis:
-'   - Cellen har aktivitetsfarge (ikke hvit/grå)
-'   - Cellen til venstre har ANNEN farge (eller det ikke finnes celle til venstre)
 ' ============================================================================
 
 Option Explicit
@@ -1356,105 +1350,6 @@ Private Function SjekkOmHeleAktivitetenSlettes(ByVal førsteCelle As Range, _
     Next c
 End Function
 
-' ============================================================================
-' SJEKK: Er cellen en standalone celle (ingen naboer med samme farge)?
-' Tar hensyn til at naboer også kan være markert for sletting
-' ============================================================================
-Private Function ErStandaloneCelle(ByVal cel As Range, ByVal førsteDatoKol As Long, _
-                                    ByVal cellerÅFjerne As Object) As Boolean
-    Dim celFarge As Long
-    Dim venstreCelle As Range, høyreCelle As Range
-    Dim radKey As String
-
-    celFarge = cel.Interior.Color
-    radKey = CStr(cel.Row)
-    ErStandaloneCelle = False  ' Default: ikke standalone
-
-    ' Sjekk om vi er i første kolonne
-    If cel.Column <= førsteDatoKol Then
-        ' Sjekk bare høyre
-        If cel.Column < Me.Columns.Count Then
-            Set høyreCelle = cel.Offset(0, 1)
-
-            ' Sjekk om høyre nabo er markert for sletting
-            Dim høyreMarkert As Boolean
-            høyreMarkert = False
-            If Not cellerÅFjerne Is Nothing Then
-                If cellerÅFjerne.Exists(radKey) Then
-                    If cellerÅFjerne(radKey).Exists(høyreCelle.Column) Then
-                        høyreMarkert = True
-                    End If
-                End If
-            End If
-
-            ' Kun tell som nabo hvis IKKE markert for sletting
-            If Not høyreMarkert Then
-                If HarAktivitetsfarge(høyreCelle) And FargeAvstand(høyreCelle.Interior.Color, celFarge) <= 10 Then
-                    ' Har nabo til høyre med samme farge ? ikke standalone
-                    Exit Function
-                End If
-            End If
-        End If
-        ' Ingen nabo til høyre ? standalone
-        ErStandaloneCelle = True
-        Exit Function
-    End If
-
-    ' Sjekk venstre nabo
-    Set venstreCelle = cel.Offset(0, -1)
-    Dim harVenstreNabo As Boolean
-    harVenstreNabo = False
-
-    ' Sjekk om venstre nabo er markert for sletting
-    Dim venstreMarkert As Boolean
-    venstreMarkert = False
-    If Not cellerÅFjerne Is Nothing Then
-        If cellerÅFjerne.Exists(radKey) Then
-            If cellerÅFjerne(radKey).Exists(venstreCelle.Column) Then
-                venstreMarkert = True
-            End If
-        End If
-    End If
-
-    ' Kun tell som nabo hvis IKKE markert for sletting
-    If Not venstreMarkert Then
-        If HarAktivitetsfarge(venstreCelle) Then
-            If FargeAvstand(venstreCelle.Interior.Color, celFarge) <= 10 Then
-                harVenstreNabo = True
-            End If
-        End If
-    End If
-
-    ' Sjekk høyre nabo
-    Dim harHøyreNabo As Boolean
-    harHøyreNabo = False
-
-    If cel.Column < Me.Columns.Count Then
-        Set høyreCelle = cel.Offset(0, 1)
-
-        ' Sjekk om høyre nabo er markert for sletting
-        høyreMarkert = False
-        If Not cellerÅFjerne Is Nothing Then
-            If cellerÅFjerne.Exists(radKey) Then
-                If cellerÅFjerne(radKey).Exists(høyreCelle.Column) Then
-                    høyreMarkert = True
-                End If
-            End If
-        End If
-
-        ' Kun tell som nabo hvis IKKE markert for sletting
-        If Not høyreMarkert Then
-            If HarAktivitetsfarge(høyreCelle) Then
-                If FargeAvstand(høyreCelle.Interior.Color, celFarge) <= 10 Then
-                    harHøyreNabo = True
-                End If
-            End If
-        End If
-    End If
-
-    ' Standalone = ingen naboer med samme farge (som ikke også blir slettet)
-    ErStandaloneCelle = (Not harVenstreNabo And Not harHøyreNabo)
-End Function
 
 ' ============================================================================
 ' OPPSLAG: Finn aktivitetskode fra farge i AKTIVITETSTYPER - OVERSIKT
