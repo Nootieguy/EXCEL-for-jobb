@@ -1,3 +1,4 @@
+
 Option Explicit
 
 ' =================== KONFIG ===================
@@ -428,7 +429,7 @@ Private Function SjekkOmRadVilHaSplit(ws As Worksheet, ByVal r As Long, _
         End If
 
         If harAktivFarge Then
-            ' Hvis vi har sett hvit/fjernet før → dette er en split!
+            ' Hvis vi har sett hvit/fjernet før ? dette er en split!
             If harSettHvit Then
                 SjekkOmRadVilHaSplit = True
                 Exit Function
@@ -444,4 +445,8 @@ Private Function SjekkOmRadVilHaSplit(ws As Worksheet, ByVal r As Long, _
 
     SjekkOmRadVilHaSplit = False
 End Function
+
+
+
+
 
