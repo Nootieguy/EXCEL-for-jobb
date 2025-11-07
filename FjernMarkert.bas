@@ -150,6 +150,47 @@ Public Sub FjernAktivitetPåMarkering()
     ' Sikre at alle person-skillelinjer er på plass
     GjenopprettPersonSkiller ws
 
+    ' KRITISK FIX: Sikre at alle ryddede celler har korrekt rutenett
+    ' Gå gjennom alle celler som ble ryddet og sett borderne på nytt
+    For Each radKey In cellerÅFjerne.Keys
+        radNum = CLng(radKey)
+        Set colDictFinal = cellerÅFjerne(radKey)
+
+        For Each colFinal In colDictFinal.Keys
+            cFinal = CLng(colFinal)
+            Dim celleSjekk As Range
+            Set celleSjekk = ws.Cells(radNum, cFinal)
+
+            ' Hvis cellen er hvit (ble ryddet), sikre at den har standard rutenett
+            If celleSjekk.Interior.Color = RGB(255, 255, 255) Or _
+               celleSjekk.Interior.ColorIndex = xlColorIndexNone Or _
+               celleSjekk.Interior.ColorIndex = 2 Then
+
+                ' Sett standard rutenett
+                With celleSjekk.Borders(xlEdgeLeft)
+                    .LineStyle = xlContinuous
+                    .Weight = xlThin
+                    .Color = RGB(0, 0, 0)
+                End With
+                With celleSjekk.Borders(xlEdgeRight)
+                    .LineStyle = xlContinuous
+                    .Weight = xlThin
+                    .Color = RGB(0, 0, 0)
+                End With
+                With celleSjekk.Borders(xlEdgeTop)
+                    .LineStyle = xlContinuous
+                    .Weight = xlThin
+                    .Color = RGB(0, 0, 0)
+                End With
+                With celleSjekk.Borders(xlEdgeBottom)
+                    .LineStyle = xlContinuous
+                    .Weight = xlThin
+                    .Color = RGB(0, 0, 0)
+                End With
+            End If
+        Next colFinal
+    Next radKey
+
     Application.EnableEvents = True  ' Re-enable events
     Application.ScreenUpdating = True
 End Sub
