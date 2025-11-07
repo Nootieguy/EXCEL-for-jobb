@@ -460,6 +460,10 @@ Public Sub Uvalgte_RefreshPreview()
     Application.EnableEvents = True
     Application.Calculation = xlCalculationAutomatic
     Application.ScreenUpdating = True
+
+    On Error Resume Next
+    wsP.OppdaterPlanSnapshotEtterMakro
+    On Error GoTo 0
 End Sub
 
 ' =================== HJELPERE ===================

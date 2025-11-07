@@ -907,7 +907,11 @@ Cleanup:
     Application.EnableEvents = True
     Application.Calculation = xlCalculationAutomatic
     Application.ScreenUpdating = True
-    
+
+    On Error Resume Next
+    wsP.OppdaterPlanSnapshotEtterMakro
+    On Error GoTo 0
+
     If antallOppdatert > 0 Then
         MsgBox "Oppdatert " & antallOppdatert & " aktivitet(er) i Planlegger." & vbCrLf & _
                IIf(antallOverlapp > 0, "Fant " & antallOverlapp & " overlapp - markert med skravering.", ""), _
@@ -921,6 +925,10 @@ ErrorHandler:
     Application.EnableEvents = True
     Application.Calculation = xlCalculationAutomatic
     Application.ScreenUpdating = True
+
+    On Error Resume Next
+    wsP.OppdaterPlanSnapshotEtterMakro
+    On Error GoTo 0
     MsgBox "Feil i AktivitetsOversikt_Apply:" & vbCrLf & vbCrLf & _
            "Feilnummer: " & Err.Number & vbCrLf & _
            "Beskrivelse: " & Err.Description & vbCrLf & vbCrLf & _
@@ -1763,7 +1771,11 @@ Public Sub AktivitetsOversikt_Undo()
     Application.EnableEvents = True
     Application.Calculation = xlCalculationAutomatic
     Application.ScreenUpdating = True
-    
+
+    On Error Resume Next
+    wsP.OppdaterPlanSnapshotEtterMakro
+    On Error GoTo 0
+
     MsgBox "Endringen er angret.", vbInformation
 End Sub
 

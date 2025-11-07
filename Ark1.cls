@@ -41,11 +41,51 @@ Private Const DEBUG_MODE As Boolean = False
 ' Rekursjons-beskyttelse
 Private behandlerEndring As Boolean
 
+' Snapshot av planleggingsområdet (brukes for å gjenopprette overlapp)
+Private planSnapshot As Object
+
+Private Enum PlanSnapshotKeys
+    snapValue = 1
+    snapFormula
+    snapHasFill
+    snapInteriorColor
+    snapInteriorColorIndex
+    snapInteriorPattern
+    snapFontBold
+    snapFontColor
+    snapFontColorIndex
+    snapHorizontalAlignment
+    snapVerticalAlignment
+    snapWrapText
+    snapHasComment
+    snapCommentText
+    snapCommentIsThreaded
+    snapBorderLeftStyle
+    snapBorderLeftWeight
+    snapBorderLeftColor
+    snapBorderLeftColorIndex
+    snapBorderRightStyle
+    snapBorderRightWeight
+    snapBorderRightColor
+    snapBorderRightColorIndex
+    snapBorderTopStyle
+    snapBorderTopWeight
+    snapBorderTopColor
+    snapBorderTopColorIndex
+    snapBorderBottomStyle
+    snapBorderBottomWeight
+    snapBorderBottomColor
+    snapBorderBottomColorIndex
+    snapBorderDiagDownStyle
+    snapBorderDiagUpStyle
+End Enum
+
 ' ============================================================================
 ' EVENT: Når arket aktiveres
 ' ============================================================================
 Private Sub Worksheet_Activate()
     modDagensOutline.MarkerDagensDato_Bla
+    OppdaterHelePlanSnapshot
 End Sub
 
 ' ============================================================================
@@ -83,19 +123,20 @@ Private Sub Worksheet_Change(ByVal Target As Range)
 
     If relevantEndring Is Nothing Then Exit Sub
 
-    ' STEG 5: Lagre undo-snapshot før endringer
-    On Error Resume Next
-    LagUndoSnapshot relevantEndring
-    On Error GoTo Slutt
-
     ' STEG 6: Sett beskyttelsesflagg og disable events
     behandlerEndring = True
     Application.EnableEvents = False
+
+    Dim måOppdatereSnapshot As Boolean
+    måOppdatereSnapshot = True
 
     ' STEG 6: Behandle hver endret celle
     Dim c As Range
     Dim splittRader As Object
     Set splittRader = CreateObject("Scripting.Dictionary")
+
+    Dim overlappRader As Object
+    Set overlappRader = CreateObject("Scripting.Dictionary")
 
     ' Dictionary for å lagre celler som skal ha farge fjernet
     ' Key = rad, Value = Collection av kolonnenummer
@@ -403,8 +444,49 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                     End If
                 End If
 
+                ' Fallback: marker rad hvis teksten ble endret under drag uten fargekonflikt
+                If Not overlappRader.Exists(c.Row) Then
+                    Dim snapVerdi As Variant
+                    Dim snapHarFarge As Boolean
+                    Dim snapFarge As Long
+                    Dim snapFargeIndex As Long
+                    Dim snapMønster As Long
+                    Dim snapBold As Boolean
+                    Dim snapHorAlign As Long
+                    Dim snapVertAlign As Long
+                    Dim snapWrap As Boolean
+                    Dim snapFontColor As Long
+                    Dim snapFontColorIndex As Long
+                    Dim snapHarKommentar As Boolean
+                    Dim snapKommentar As String
+
+                    If HentSnapshotCelleDetaljer(c.Address, snapVerdi, snapHarFarge, snapFarge, _
+                                                 snapFargeIndex, snapMønster, snapBold, _
+                                                 snapHorAlign, snapVertAlign, snapWrap, _
+                                                 snapFontColor, snapFontColorIndex, _
+                                                 snapHarKommentar, snapKommentar) Then
+
+                        If ErAktivitetsfargeFraData(snapHarFarge, snapFarge, snapFargeIndex) Then
+                            Dim snapOriginalTekst As String
+                            Dim snapNyTekst As String
+                            snapOriginalTekst = SafeTrimmetTekst(snapVerdi)
+                            snapNyTekst = SafeTrimmetTekst(c.Value)
+
+                            If FargeAvstand(c.Interior.Color, snapFarge) > 10 Then
+                                overlappRader.Add c.Row, True
+                            ElseIf Len(snapOriginalTekst) > 0 Then
+                                If StrComp(snapOriginalTekst, snapNyTekst, vbTextCompare) <> 0 Then
+                                    overlappRader.Add c.Row, True
+                                End If
+                            End If
+                        End If
+                    End If
+                End If
+
                 ' Hvis det er overlapp, fiks navn på ALLE aktiviteter på raden
                 If harOverlapp Then
+                    If Not overlappRader.Exists(c.Row) Then overlappRader.Add c.Row, True
+
                     If DEBUG_MODE Then
                         Debug.Print "OVERLAPP DETEKTERT: Fikser navn på alle aktiviteter på raden"
                     End If
@@ -596,14 +678,20 @@ Private Sub Worksheet_Change(ByVal Target As Range)
 NesteCelle:
     Next c
 
-    ' STEG 6B: Håndter splits (når hvite celler lages midt i aktivitet)
+    ' STEG 6B: Restaurer overlappende aktiviteter (behold kommentarer og grenser)
+    Dim overlappRad As Variant
+    For Each overlappRad In overlappRader.Keys
+        Call RestaurerOverlappIRad(CLng(overlappRad), førsteDatoKol, lastCol, splittRader)
+    Next overlappRad
+
+    ' STEG 6C: Håndter splits (når hvite celler lages midt i aktivitet)
     ' Behandle hver rad kun ÉN gang
     Dim radNr As Variant
     For Each radNr In splittRader.Keys
         Call HåndterAlleAktiviteterMedSplitIRad(CLng(radNr), førsteDatoKol, datoRad, cellerÅFjerne)
     Next radNr
 
-    ' STEG 6C: Rydd opp celler som er markert for sletting men ikke ble håndtert av split-logikk
+    ' STEG 6D: Rydd opp celler som er markert for sletting men ikke ble håndtert av split-logikk
     ' (f.eks. standalone celler som ikke genererer splits)
     Dim radKeyCleanup As Variant
     For Each radKeyCleanup In cellerÅFjerne.Keys
@@ -678,7 +766,7 @@ NesteCelle:
         Next colCleanup
     Next radKeyCleanup
 
-    ' STEG 6D: Fjern tomme under-rader (som FjernMarkert gjør)
+    ' STEG 6E: Fjern tomme under-rader (som FjernMarkert gjør)
     ' Gå gjennom hver rad som ble endret og slett hvis den er helt tom
     Dim personHeaderRad As Long
     personHeaderRad = Me.Range("PersonHeader").Row
@@ -703,6 +791,10 @@ NesteCelle:
     Next radKeyCleanup
 
 Slutt:
+    If måOppdatereSnapshot Then
+        OppdaterHelePlanSnapshot
+    End If
+
     ' STEG 7: Re-enable events og fjern beskyttelsesflagg
     Application.EnableEvents = True
     behandlerEndring = False
@@ -713,6 +805,399 @@ Slutt:
         Err.Clear
     End If
 End Sub
+
+' ============================================================================
+' SNAPSHOT-HÅNDTERING: Lagrer og henter plan-data for å bevare aktiviteter
+' ============================================================================
+Private Sub OppdaterHelePlanSnapshot()
+    On Error GoTo Avslutt
+
+    Dim førsteDatoKol As Long
+    Dim datoRad As Long
+    Dim førstePersonRad As Long
+    Dim lastCol As Long
+    Dim lastRad As Long
+    Dim dataOmråde As Range
+
+    On Error Resume Next
+    førsteDatoKol = Me.Range("FirstDate").Column
+    datoRad = Me.Range("FirstDate").Row
+    førstePersonRad = Me.Range("PersonHeader").Row + 1
+    On Error GoTo Avslutt
+
+    If førsteDatoKol = 0 Or datoRad = 0 Or førstePersonRad = 0 Then
+        TømPlanSnapshot
+        Exit Sub
+    End If
+
+    lastCol = Me.Cells(datoRad, Me.Columns.Count).End(xlToLeft).Column
+    If lastCol < førsteDatoKol Then lastCol = førsteDatoKol
+
+    lastRad = Me.Cells(Me.Rows.Count, 1).End(xlUp).Row
+    If lastRad < førstePersonRad Then lastRad = førstePersonRad
+
+    Set dataOmråde = Me.Range(Me.Cells(førstePersonRad, førsteDatoKol), _
+                              Me.Cells(lastRad, lastCol))
+
+    LagrePlanSnapshotFraOmråde dataOmråde
+    Exit Sub
+
+Avslutt:
+    ' Hvis noe feiler, nullstill snapshot slik at vi ikke bruker foreldet data
+    TømPlanSnapshot
+End Sub
+
+Private Sub LagrePlanSnapshotFraOmråde(ByVal rng As Range)
+    Dim cel As Range
+    Dim data() As Variant
+    Dim harKommentar As Boolean
+    Dim kommentarTekst As String
+    Dim kommentarErThreaded As Boolean
+
+    If rng Is Nothing Then
+        TømPlanSnapshot
+        Exit Sub
+    End If
+
+    InitPlanSnapshot
+    planSnapshot.RemoveAll
+
+    For Each cel In rng.Cells
+        ReDim data(1 To PlanSnapshotKeys.snapBorderDiagUpStyle) As Variant
+        data(PlanSnapshotKeys.snapValue) = cel.Value
+        data(PlanSnapshotKeys.snapFormula) = cel.Formula
+        data(PlanSnapshotKeys.snapHasFill) = (cel.Interior.ColorIndex <> xlColorIndexNone)
+        data(PlanSnapshotKeys.snapInteriorColor) = cel.Interior.Color
+        data(PlanSnapshotKeys.snapInteriorColorIndex) = cel.Interior.ColorIndex
+        data(PlanSnapshotKeys.snapInteriorPattern) = cel.Interior.Pattern
+        data(PlanSnapshotKeys.snapFontBold) = cel.Font.Bold
+        data(PlanSnapshotKeys.snapFontColor) = cel.Font.Color
+        data(PlanSnapshotKeys.snapFontColorIndex) = cel.Font.ColorIndex
+        data(PlanSnapshotKeys.snapHorizontalAlignment) = cel.HorizontalAlignment
+        data(PlanSnapshotKeys.snapVerticalAlignment) = cel.VerticalAlignment
+        data(PlanSnapshotKeys.snapWrapText) = cel.WrapText
+
+        harKommentar = HentKommentarFraCelle(cel, kommentarTekst, kommentarErThreaded)
+        data(PlanSnapshotKeys.snapHasComment) = harKommentar
+        If harKommentar Then
+            data(PlanSnapshotKeys.snapCommentText) = kommentarTekst
+            data(PlanSnapshotKeys.snapCommentIsThreaded) = kommentarErThreaded
+        Else
+            data(PlanSnapshotKeys.snapCommentText) = ""
+            data(PlanSnapshotKeys.snapCommentIsThreaded) = False
+        End If
+
+        data(PlanSnapshotKeys.snapBorderLeftStyle) = cel.Borders(xlEdgeLeft).LineStyle
+        data(PlanSnapshotKeys.snapBorderLeftWeight) = cel.Borders(xlEdgeLeft).Weight
+        data(PlanSnapshotKeys.snapBorderLeftColor) = cel.Borders(xlEdgeLeft).Color
+        data(PlanSnapshotKeys.snapBorderLeftColorIndex) = cel.Borders(xlEdgeLeft).ColorIndex
+
+        data(PlanSnapshotKeys.snapBorderRightStyle) = cel.Borders(xlEdgeRight).LineStyle
+        data(PlanSnapshotKeys.snapBorderRightWeight) = cel.Borders(xlEdgeRight).Weight
+        data(PlanSnapshotKeys.snapBorderRightColor) = cel.Borders(xlEdgeRight).Color
+        data(PlanSnapshotKeys.snapBorderRightColorIndex) = cel.Borders(xlEdgeRight).ColorIndex
+
+        data(PlanSnapshotKeys.snapBorderTopStyle) = cel.Borders(xlEdgeTop).LineStyle
+        data(PlanSnapshotKeys.snapBorderTopWeight) = cel.Borders(xlEdgeTop).Weight
+        data(PlanSnapshotKeys.snapBorderTopColor) = cel.Borders(xlEdgeTop).Color
+        data(PlanSnapshotKeys.snapBorderTopColorIndex) = cel.Borders(xlEdgeTop).ColorIndex
+
+        data(PlanSnapshotKeys.snapBorderBottomStyle) = cel.Borders(xlEdgeBottom).LineStyle
+        data(PlanSnapshotKeys.snapBorderBottomWeight) = cel.Borders(xlEdgeBottom).Weight
+        data(PlanSnapshotKeys.snapBorderBottomColor) = cel.Borders(xlEdgeBottom).Color
+        data(PlanSnapshotKeys.snapBorderBottomColorIndex) = cel.Borders(xlEdgeBottom).ColorIndex
+
+        data(PlanSnapshotKeys.snapBorderDiagDownStyle) = cel.Borders(xlDiagonalDown).LineStyle
+        data(PlanSnapshotKeys.snapBorderDiagUpStyle) = cel.Borders(xlDiagonalUp).LineStyle
+
+        planSnapshot(cel.Address) = data
+    Next cel
+End Sub
+
+Private Sub TømPlanSnapshot()
+    If planSnapshot Is Nothing Then Exit Sub
+    planSnapshot.RemoveAll
+End Sub
+
+Private Sub InitPlanSnapshot()
+    If planSnapshot Is Nothing Then
+        Set planSnapshot = CreateObject("Scripting.Dictionary")
+    End If
+End Sub
+
+Private Sub SikrePlanSnapshot()
+    Static erIProsess As Boolean
+
+    If erIProsess Then Exit Sub
+
+    If planSnapshot Is Nothing Then
+        If behandlerEndring Then Exit Sub
+        erIProsess = True
+        OppdaterHelePlanSnapshot
+        erIProsess = False
+        Exit Sub
+    End If
+
+    If planSnapshot.Count = 0 Then
+        If behandlerEndring Then Exit Sub
+        erIProsess = True
+        OppdaterHelePlanSnapshot
+        erIProsess = False
+    End If
+End Sub
+
+Public Sub OppdaterPlanSnapshotEtterMakro()
+    OppdaterHelePlanSnapshot
+End Sub
+
+Private Function HentSnapshotCelleDetaljer(ByVal celleAdresse As String, _
+                                           ByRef verdi As Variant, _
+                                           ByRef harFarge As Boolean, _
+                                           ByRef farge As Long, _
+                                           ByRef fargeIndex As Long, _
+                                           ByRef mønster As Long, _
+                                           ByRef fontBold As Boolean, _
+                                           ByRef horAlign As Long, _
+                                           ByRef vertAlign As Long, _
+                                           ByRef wrapText As Boolean, _
+                                           ByRef fontColor As Long, _
+                                           ByRef fontColorIndex As Long, _
+                                           ByRef harKommentar As Boolean, _
+                                           ByRef kommentarTekst As String, _
+                                           Optional ByRef råData As Variant, _
+                                           Optional ByRef kommentarErThreaded As Boolean) As Boolean
+
+    Dim data() As Variant
+
+    SikrePlanSnapshot
+
+    If planSnapshot Is Nothing Then Exit Function
+    If Not planSnapshot.Exists(celleAdresse) Then
+        If Not behandlerEndring Then
+            OppdaterHelePlanSnapshot
+        End If
+        If planSnapshot Is Nothing Then Exit Function
+        If Not planSnapshot.Exists(celleAdresse) Then Exit Function
+    End If
+
+    data = planSnapshot(celleAdresse)
+    If Not IsMissing(råData) Then
+        råData = data
+    End If
+    verdi = data(PlanSnapshotKeys.snapValue)
+    harFarge = data(PlanSnapshotKeys.snapHasFill)
+    farge = data(PlanSnapshotKeys.snapInteriorColor)
+    fargeIndex = data(PlanSnapshotKeys.snapInteriorColorIndex)
+    mønster = data(PlanSnapshotKeys.snapInteriorPattern)
+    fontBold = data(PlanSnapshotKeys.snapFontBold)
+    horAlign = data(PlanSnapshotKeys.snapHorizontalAlignment)
+    vertAlign = data(PlanSnapshotKeys.snapVerticalAlignment)
+    wrapText = data(PlanSnapshotKeys.snapWrapText)
+    fontColor = data(PlanSnapshotKeys.snapFontColor)
+    fontColorIndex = data(PlanSnapshotKeys.snapFontColorIndex)
+    harKommentar = data(PlanSnapshotKeys.snapHasComment)
+    kommentarTekst = data(PlanSnapshotKeys.snapCommentText)
+    If Not IsMissing(kommentarErThreaded) Then
+        kommentarErThreaded = data(PlanSnapshotKeys.snapCommentIsThreaded)
+    End If
+
+    HentSnapshotCelleDetaljer = True
+End Function
+
+Private Sub GjenopprettGrenserFraSnapshot(ByVal cel As Range, ByVal data() As Variant)
+    With cel.Borders(xlEdgeLeft)
+        .LineStyle = data(PlanSnapshotKeys.snapBorderLeftStyle)
+        If .LineStyle <> xlLineStyleNone Then
+            .Weight = data(PlanSnapshotKeys.snapBorderLeftWeight)
+            If data(PlanSnapshotKeys.snapBorderLeftColorIndex) = xlColorIndexAutomatic Then
+                .ColorIndex = xlColorIndexAutomatic
+            Else
+                .Color = data(PlanSnapshotKeys.snapBorderLeftColor)
+            End If
+        End If
+    End With
+
+    With cel.Borders(xlEdgeRight)
+        .LineStyle = data(PlanSnapshotKeys.snapBorderRightStyle)
+        If .LineStyle <> xlLineStyleNone Then
+            .Weight = data(PlanSnapshotKeys.snapBorderRightWeight)
+            If data(PlanSnapshotKeys.snapBorderRightColorIndex) = xlColorIndexAutomatic Then
+                .ColorIndex = xlColorIndexAutomatic
+            Else
+                .Color = data(PlanSnapshotKeys.snapBorderRightColor)
+            End If
+        End If
+    End With
+
+    With cel.Borders(xlEdgeTop)
+        .LineStyle = data(PlanSnapshotKeys.snapBorderTopStyle)
+        If .LineStyle <> xlLineStyleNone Then
+            .Weight = data(PlanSnapshotKeys.snapBorderTopWeight)
+            If data(PlanSnapshotKeys.snapBorderTopColorIndex) = xlColorIndexAutomatic Then
+                .ColorIndex = xlColorIndexAutomatic
+            Else
+                .Color = data(PlanSnapshotKeys.snapBorderTopColor)
+            End If
+        End If
+    End With
+
+    With cel.Borders(xlEdgeBottom)
+        .LineStyle = data(PlanSnapshotKeys.snapBorderBottomStyle)
+        If .LineStyle <> xlLineStyleNone Then
+            .Weight = data(PlanSnapshotKeys.snapBorderBottomWeight)
+            If data(PlanSnapshotKeys.snapBorderBottomColorIndex) = xlColorIndexAutomatic Then
+                .ColorIndex = xlColorIndexAutomatic
+            Else
+                .Color = data(PlanSnapshotKeys.snapBorderBottomColor)
+            End If
+        End If
+    End With
+
+    cel.Borders(xlDiagonalDown).LineStyle = data(PlanSnapshotKeys.snapBorderDiagDownStyle)
+    cel.Borders(xlDiagonalUp).LineStyle = data(PlanSnapshotKeys.snapBorderDiagUpStyle)
+End Sub
+
+' ============================================================================
+' OVERLAPP-HÅNDTERING: Gjenopprett celler som ble overskrevet under drag
+' ============================================================================
+Private Sub RestaurerOverlappIRad(ByVal rad As Long, ByVal førsteDatoKol As Long, _
+                                   ByVal lastCol As Long, ByVal splittRader As Object)
+
+    Dim c As Long
+    Dim cel As Range
+    Dim origVerdi As Variant
+    Dim harFarge As Boolean
+    Dim origFarge As Long
+    Dim origFargeIndex As Long
+    Dim origMønster As Long
+    Dim origBold As Boolean
+    Dim origHorAlign As Long
+    Dim origVertAlign As Long
+    Dim origWrap As Boolean
+    Dim origFontColor As Long
+    Dim origFontColorIndex As Long
+    Dim origHarKommentar As Boolean
+    Dim origKommentar As String
+    Dim origKommentarErThreaded As Boolean
+    Dim fant As Boolean
+    Dim skalRestaurereFarge As Boolean
+    Dim skalRestaurereTekst As Boolean
+    Dim restored As Boolean
+    Dim trimmedOrig As String
+    Dim trimmedNå As String
+
+    For c = førsteDatoKol To lastCol
+        Set cel = Me.Cells(rad, c)
+
+        Dim snapData As Variant
+        fant = HentSnapshotCelleDetaljer(cel.Address, origVerdi, harFarge, origFarge, _
+                                         origFargeIndex, origMønster, origBold, _
+                                         origHorAlign, origVertAlign, origWrap, _
+                                         origFontColor, origFontColorIndex, _
+                                         origHarKommentar, origKommentar, snapData, _
+                                         origKommentarErThreaded)
+
+        If fant Then
+            Dim origErAktivitet As Boolean
+            origErAktivitet = ErAktivitetsfargeFraData(harFarge, origFarge, origFargeIndex)
+
+            Dim nåErAktivitet As Boolean
+            nåErAktivitet = HarAktivitetsfarge(cel)
+
+            skalRestaurereFarge = False
+            skalRestaurereTekst = False
+
+            If origErAktivitet Then
+                If nåErAktivitet Then
+                    If FargeAvstand(cel.Interior.Color, origFarge) > 10 Then
+                        skalRestaurereFarge = True
+                        skalRestaurereTekst = True
+                    Else
+                        trimmedOrig = SafeTrimmetTekst(origVerdi)
+                        trimmedNå = SafeTrimmetTekst(cel.Value)
+
+                        If Len(trimmedOrig) > 0 Then
+                            If StrComp(trimmedOrig, trimmedNå, vbTextCompare) <> 0 Then
+                                skalRestaurereTekst = True
+                            End If
+                        End If
+                    End If
+                End If
+            End If
+
+            If skalRestaurereFarge Or skalRestaurereTekst Then
+                restored = True
+
+                If skalRestaurereFarge Then
+                    If harFarge And origFargeIndex <> xlColorIndexNone Then
+                        cel.Interior.Pattern = origMønster
+                        cel.Interior.Color = origFarge
+                    Else
+                        cel.Interior.ColorIndex = xlColorIndexNone
+                    End If
+                End If
+
+                If skalRestaurereTekst Then
+                    cel.Value = origVerdi
+                    cel.Font.Bold = origBold
+
+                    If origFontColorIndex = xlColorIndexAutomatic Then
+                        cel.Font.ColorIndex = xlColorIndexAutomatic
+                    Else
+                        cel.Font.Color = origFontColor
+                    End If
+
+                    cel.HorizontalAlignment = origHorAlign
+                    cel.VerticalAlignment = origVertAlign
+                    cel.WrapText = origWrap
+
+                    FjernKommentarer cel
+
+                    If origHarKommentar Then
+                        LeggTilKommentar cel, origKommentar, origKommentarErThreaded
+                    End If
+                End If
+
+                If fant Then
+                    GjenopprettGrenserFraSnapshot cel, snapData
+                End If
+            End If
+        End If
+    Next c
+
+    If restored Then
+        If Not splittRader.Exists(rad) Then
+            splittRader.Add rad, rad
+        End If
+    End If
+End Sub
+
+' ============================================================================
+' HJELPER: Vurder om lagret farge representerer en aktivitet
+' ============================================================================
+Private Function ErAktivitetsfargeFraData(ByVal harFarge As Boolean, ByVal farge As Long, _
+                                          ByVal fargeIndex As Long) As Boolean
+
+    If Not harFarge Then Exit Function
+    If fargeIndex = xlColorIndexNone Then Exit Function
+
+    If farge = RGB(255, 255, 255) Then Exit Function
+    If farge = RGB(242, 242, 242) Then Exit Function
+    If farge = RGB(250, 250, 250) Then Exit Function
+
+    ErAktivitetsfargeFraData = True
+End Function
+
+' ============================================================================
+' HJELPER: Sikker trimming av variant-verdier
+' ============================================================================
+Private Function SafeTrimmetTekst(ByVal verdi As Variant) As String
+    If IsError(verdi) Then Exit Function
+    If IsNull(verdi) Then Exit Function
+    If VarType(verdi) = vbEmpty Then Exit Function
+
+    SafeTrimmetTekst = Trim$(CStr(verdi))
+End Function
 
 ' ============================================================================
 ' HOVEDLOGIKK: Behandle en slettet celle

@@ -153,6 +153,10 @@ Public Sub FjernAktivitetPåMarkering()
 
     Application.EnableEvents = True  ' Re-enable events
     Application.ScreenUpdating = True
+
+    On Error Resume Next
+    ws.OppdaterPlanSnapshotEtterMakro
+    On Error GoTo 0
 End Sub
 
 ' ----------- KJERNE: Komprimering / flytt opp -----------
