@@ -333,6 +333,7 @@ Private Sub Worksheet_Change(ByVal Target As Range)
 
                         If andreOgsåSlettet Then
                             ' Hele aktiviteten slettes - IKKE flytt tekst
+                            ' KRITISK: Legg til ALLE celler i aktiviteten som er i selection
                             If DEBUG_MODE Then
                                 Debug.Print "Hele aktiviteten slettes (flere celler valgt): " & c.Address
                             End If
@@ -343,7 +344,43 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                                 Set nyCol3c = CreateObject("Scripting.Dictionary")
                                 cellerÅFjerne.Add radKey, nyCol3c
                             End If
-                            cellerÅFjerne(radKey).Add c.Column, c.Column
+
+                            ' Legg til ALLE celler i aktiviteten som er i relevantEndring
+                            For scanCol = c.Column To lastCol
+                                Set scanCel = Me.Cells(c.Row, scanCol)
+
+                                ' Stopp hvis vi treffer en hvit celle
+                                If Not HarAktivitetsfarge(scanCel) Then
+                                    Exit For
+                                End If
+
+                                ' Stopp hvis vi treffer en celle med bold tekst OG forskjellig farge (ny aktivitet)
+                                If scanCol > c.Column Then
+                                    If scanCel.Font.Bold And Len(Trim$(scanCel.Value)) > 0 Then
+                                        If FargeAvstand(scanCel.Interior.Color, aktivFarge) > 10 Then
+                                            Exit For
+                                        End If
+                                    End If
+                                End If
+
+                                ' Sjekk om denne cellen er i selection
+                                If FargeAvstand(scanCel.Interior.Color, aktivFarge) <= 10 Then
+                                    Set celleISel = Nothing
+                                    On Error Resume Next
+                                    Set celleISel = Intersect(scanCel, relevantEndring)
+                                    On Error GoTo 0
+                                    If Not celleISel Is Nothing Then
+                                        ' Legg til denne cellen for fjerning
+                                        If Not cellerÅFjerne(radKey).Exists(scanCol) Then
+                                            cellerÅFjerne(radKey).Add scanCol, scanCol
+                                        End If
+                                        ' Marker denne cellen som behandlet
+                                        behandledeCeller.Add scanCel.Address, True
+                                    End If
+                                Else
+                                    Exit For
+                                End If
+                            Next scanCol
                         Else
                             ' Bare første celle slettes - flytt tekst til neste celle
                             If DEBUG_MODE Then
@@ -379,6 +416,13 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                             ' Hvis det finnes en neste celle, kopier teksten dit
                             If Not nesteCelleIAktivitet Is Nothing Then
                                 nesteCelleIAktivitet.Value = originalTekst
+                                ' KRITISK: Sett riktig formatering på den nye tekst-cellen
+                                nesteCelleIAktivitet.Font.Bold = True
+                                If ErLysFarge(aktivFarge) Then
+                                    nesteCelleIAktivitet.Font.Color = RGB(0, 0, 0)
+                                Else
+                                    nesteCelleIAktivitet.Font.Color = RGB(255, 255, 255)
+                                End If
                             End If
 
                             ' Marker denne cellen for fjerning (cleanup vil fjerne fargen osv)
@@ -389,9 +433,15 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                                 cellerÅFjerne.Add radKey, nyCol3b
                             End If
                             cellerÅFjerne(radKey).Add c.Column, c.Column
+
+                            ' KRITISK: Marker raden for split-håndtering for å få riktig alignment
+                            If Not splittRader.Exists(c.Row) Then
+                                splittRader.Add c.Row, c.Row
+                            End If
                         End If
                     Else
-                        ' Celle hadde IKKE tekst ? hele aktiviteten slettes
+                        ' Celle hadde IKKE tekst - hele aktiviteten slettes
+                        ' KRITISK: Slett ALLE celler i aktiviteten, ikke bare første
                         If DEBUG_MODE Then
                             Debug.Print "Hele aktiviteten slettes (celle 1 var tom): " & c.Address
                         End If
@@ -402,7 +452,36 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                             Set nyCol3 = CreateObject("Scripting.Dictionary")
                             cellerÅFjerne.Add radKey, nyCol3
                         End If
-                        cellerÅFjerne(radKey).Add c.Column, c.Column
+
+                        ' Finn og marker ALLE celler i aktiviteten for sletting
+                        For scanCol = c.Column To lastCol
+                            Set scanCel = Me.Cells(c.Row, scanCol)
+
+                            ' Stopp hvis vi treffer en hvit celle
+                            If Not HarAktivitetsfarge(scanCel) Then
+                                Exit For
+                            End If
+
+                            ' Stopp hvis vi treffer en celle med bold tekst OG forskjellig farge (ny aktivitet)
+                            If scanCol > c.Column Then
+                                If scanCel.Font.Bold And Len(Trim$(scanCel.Value)) > 0 Then
+                                    If FargeAvstand(scanCel.Interior.Color, aktivFarge) > 10 Then
+                                        Exit For
+                                    End If
+                                End If
+                            End If
+
+                            ' Legg til alle celler med samme farge
+                            If FargeAvstand(scanCel.Interior.Color, aktivFarge) <= 10 Then
+                                If Not cellerÅFjerne(radKey).Exists(scanCol) Then
+                                    cellerÅFjerne(radKey).Add scanCol, scanCol
+                                End If
+                                ' Marker denne cellen som behandlet
+                                behandledeCeller.Add scanCel.Address, True
+                            Else
+                                Exit For
+                            End If
+                        Next scanCol
                     End If
                 Else
                     ' IKKE første celle: Marker for fjerning (Delete = Clear All)
