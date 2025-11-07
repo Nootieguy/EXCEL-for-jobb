@@ -67,6 +67,12 @@ Public Sub FjernAktivitetPåMarkering()
 
     Application.ScreenUpdating = False
     Application.EnableEvents = False  ' Disable events for å unngå rekursjon
+
+    ' KRITISK: Fortell Ark1 å ikke interferere med våre endringer
+    Dim arkPlanSheet As Object
+    Set arkPlanSheet = ws
+    arkPlanSheet.SettBehandlerEndring True
+
     lastDatoCol = SisteDatoKolonne(ws, datoRad)
     If lastDatoCol < FØRSTE_DATAKOL Then lastDatoCol = FØRSTE_DATAKOL
 
@@ -130,7 +136,12 @@ Public Sub FjernAktivitetPåMarkering()
             cFinal = CLng(colFinal)
 
             ' Kun rydd hvis cellen fortsatt har farge (split-logikken fjernet ikke den)
-            If ws.Cells(radNum, cFinal).Interior.ColorIndex <> xlColorIndexNone Then
+            ' Sjekk både ColorIndex OG Color property
+            Dim celFarge As Long
+            celFarge = ws.Cells(radNum, cFinal).Interior.Color
+
+            If ws.Cells(radNum, cFinal).Interior.ColorIndex <> xlColorIndexNone Or _
+               (celFarge <> RGB(255, 255, 255) And celFarge <> 16777215) Then
                 RyddCelleTilHvitMedGrid ws, radNum, cFinal
             End If
         Next colFinal
@@ -190,6 +201,9 @@ Public Sub FjernAktivitetPåMarkering()
             End If
         Next colFinal
     Next radKey
+
+    ' KRITISK: Re-aktiver Ark1's Worksheet_Change
+    arkPlanSheet.SettBehandlerEndring False
 
     Application.EnableEvents = True  ' Re-enable events
     Application.ScreenUpdating = True

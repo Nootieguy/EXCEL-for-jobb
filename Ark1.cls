@@ -41,6 +41,11 @@ Private Const DEBUG_MODE As Boolean = False
 ' Rekursjons-beskyttelse
 Private behandlerEndring As Boolean
 
+' Public metode for å la eksterne moduler deaktivere Worksheet_Change
+Public Sub SettBehandlerEndring(ByVal verdi As Boolean)
+    behandlerEndring = verdi
+End Sub
+
 ' ============================================================================
 ' EVENT: Når arket aktiveres
 ' ============================================================================
@@ -1120,19 +1125,19 @@ Private Sub HåndterEnkeltAktivitetSplit(ByVal rad As Long, ByVal blokkStart As 
                 ' Rydd celle fullstendig
                 celFjern.ClearComments
                 celFjern.ClearContents
-                celFjern.Interior.ColorIndex = xlColorIndexNone
                 celFjern.Font.Bold = False
                 celFjern.Font.ColorIndex = xlColorIndexAutomatic
                 celFjern.HorizontalAlignment = xlGeneral
                 celFjern.VerticalAlignment = xlCenter
                 celFjern.WrapText = False
 
-                ' Sett hvit bakgrunn
+                ' Sett hvit bakgrunn (IKKE bruk ColorIndex først - det kan låse Interior)
                 With celFjern.Interior
                     .Pattern = xlSolid
+                    .Color = RGB(255, 255, 255)  ' Sett farge FØRST
                     .TintAndShade = 0
-                    .Color = RGB(255, 255, 255)
                     .PatternTintAndShade = 0
+                    .ColorIndex = xlColorIndexNone  ' Reset ColorIndex ETTER
                 End With
 
                 ' Nullstill alle borders først
