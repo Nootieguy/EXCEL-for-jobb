@@ -1250,12 +1250,29 @@ Private Sub HåndterEnkeltAktivitetSplit(ByVal rad As Long, ByVal blokkStart As 
                              aktivBeskr, segmentNr)
     End If
 
-    ' STEG 5: Nullstill hvite celler i blokken
+    ' STEG 5: Nullstill hvite celler i blokken og sett rutenett
     For c = blokkStart To blokkSlutt
         If Not HarAktivitetsfarge(Me.Cells(rad, c)) Then
             With Me.Cells(rad, c)
                 .Value = ""
                 .Font.Bold = False
+
+                ' KRITISK: Sett standard rutenett på hvite celler
+                .Borders(xlEdgeLeft).LineStyle = xlContinuous
+                .Borders(xlEdgeLeft).Weight = xlThin
+                .Borders(xlEdgeLeft).Color = RGB(0, 0, 0)
+
+                .Borders(xlEdgeRight).LineStyle = xlContinuous
+                .Borders(xlEdgeRight).Weight = xlThin
+                .Borders(xlEdgeRight).Color = RGB(0, 0, 0)
+
+                .Borders(xlEdgeTop).LineStyle = xlContinuous
+                .Borders(xlEdgeTop).Weight = xlThin
+                .Borders(xlEdgeTop).Color = RGB(0, 0, 0)
+
+                .Borders(xlEdgeBottom).LineStyle = xlContinuous
+                .Borders(xlEdgeBottom).Weight = xlThin
+                .Borders(xlEdgeBottom).Color = RGB(0, 0, 0)
             End With
         End If
     Next c
@@ -1384,12 +1401,29 @@ Public Sub HåndterAktivitetSplitForRad(ByVal rad As Long, ByVal førsteDatoKol 
                              aktivBeskr, segmentNr)
     End If
 
-    ' STEG 5: Nullstill hvite celler fullstendig (sikre ingen tekst eller formatering)
+    ' STEG 5: Nullstill hvite celler fullstendig og sett rutenett
     For c = førsteDatoKol To lastCol
         If Not HarAktivitetsfarge(Me.Cells(rad, c)) Then
             With Me.Cells(rad, c)
                 .Value = ""  ' Sikre ingen tekst
                 .Font.Bold = False
+
+                ' KRITISK: Sett standard rutenett på hvite celler
+                .Borders(xlEdgeLeft).LineStyle = xlContinuous
+                .Borders(xlEdgeLeft).Weight = xlThin
+                .Borders(xlEdgeLeft).Color = RGB(0, 0, 0)
+
+                .Borders(xlEdgeRight).LineStyle = xlContinuous
+                .Borders(xlEdgeRight).Weight = xlThin
+                .Borders(xlEdgeRight).Color = RGB(0, 0, 0)
+
+                .Borders(xlEdgeTop).LineStyle = xlContinuous
+                .Borders(xlEdgeTop).Weight = xlThin
+                .Borders(xlEdgeTop).Color = RGB(0, 0, 0)
+
+                .Borders(xlEdgeBottom).LineStyle = xlContinuous
+                .Borders(xlEdgeBottom).Weight = xlThin
+                .Borders(xlEdgeBottom).Color = RGB(0, 0, 0)
             End With
         End If
     Next c
