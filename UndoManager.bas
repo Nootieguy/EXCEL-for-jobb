@@ -6,7 +6,7 @@ Option Explicit
 ' ====================================================
 
 ' Global variabel for å lagre undo-tilstand
-Private Type CellState
+Public Type CellState
     Address As String
     Value As Variant
     Formula As String
@@ -135,6 +135,217 @@ Public Sub LagUndoSnapshot(ByVal rng As Range)
 ErrorHandler:
     Debug.Print "UNDO ERROR i LagUndoSnapshot: " & Err.Description
     undoStackSize = 0
+End Sub
+
+' Hent tilstand for et område uten å påvirke undo-stack
+Public Function CaptureRangeState(ByVal rng As Range, ByRef buffer() As CellState) As Long
+    On Error GoTo ErrorHandler
+
+    CaptureRangeState = 0
+
+    If rng Is Nothing Then Exit Function
+    If rng.Cells.Count = 0 Then Exit Function
+
+    Dim cel As Range
+    Dim i As Long
+
+    ReDim buffer(1 To rng.Cells.Count)
+
+    i = 1
+    For Each cel In rng.Cells
+        buffer(i).Address = cel.Address
+        buffer(i).Value = cel.Value
+        buffer(i).Formula = cel.Formula
+
+        buffer(i).InteriorColor = cel.Interior.Color
+        buffer(i).InteriorColorIndex = cel.Interior.ColorIndex
+        buffer(i).InteriorPattern = cel.Interior.Pattern
+
+        buffer(i).FontBold = cel.Font.Bold
+        buffer(i).FontColor = cel.Font.Color
+        buffer(i).FontColorIndex = cel.Font.ColorIndex
+
+        buffer(i).HorizontalAlignment = cel.HorizontalAlignment
+        buffer(i).VerticalAlignment = cel.VerticalAlignment
+        buffer(i).WrapText = cel.WrapText
+
+        buffer(i).HasComment = False
+        buffer(i).CommentText = ""
+
+        On Error Resume Next
+        buffer(i).HasComment = Not cel.Comment Is Nothing
+        If buffer(i).HasComment Then
+            buffer(i).CommentText = cel.Comment.Text
+        Else
+            Dim threadText As String
+            threadText = cel.CommentThreaded.Text
+            If Len(threadText) > 0 Then
+                buffer(i).HasComment = True
+                buffer(i).CommentText = threadText
+            End If
+        End If
+        If Err.Number <> 0 Then Err.Clear
+        On Error GoTo ErrorHandler
+
+        buffer(i).BorderLeftStyle = cel.Borders(xlEdgeLeft).LineStyle
+        buffer(i).BorderLeftWeight = cel.Borders(xlEdgeLeft).Weight
+        buffer(i).BorderLeftColor = cel.Borders(xlEdgeLeft).Color
+        buffer(i).BorderLeftColorIndex = cel.Borders(xlEdgeLeft).ColorIndex
+
+        buffer(i).BorderRightStyle = cel.Borders(xlEdgeRight).LineStyle
+        buffer(i).BorderRightWeight = cel.Borders(xlEdgeRight).Weight
+        buffer(i).BorderRightColor = cel.Borders(xlEdgeRight).Color
+        buffer(i).BorderRightColorIndex = cel.Borders(xlEdgeRight).ColorIndex
+
+        buffer(i).BorderTopStyle = cel.Borders(xlEdgeTop).LineStyle
+        buffer(i).BorderTopWeight = cel.Borders(xlEdgeTop).Weight
+        buffer(i).BorderTopColor = cel.Borders(xlEdgeTop).Color
+        buffer(i).BorderTopColorIndex = cel.Borders(xlEdgeTop).ColorIndex
+
+        buffer(i).BorderBottomStyle = cel.Borders(xlEdgeBottom).LineStyle
+        buffer(i).BorderBottomWeight = cel.Borders(xlEdgeBottom).Weight
+        buffer(i).BorderBottomColor = cel.Borders(xlEdgeBottom).Color
+        buffer(i).BorderBottomColorIndex = cel.Borders(xlEdgeBottom).ColorIndex
+
+        buffer(i).BorderDiagDownStyle = cel.Borders(xlDiagonalDown).LineStyle
+        buffer(i).BorderDiagUpStyle = cel.Borders(xlDiagonalUp).LineStyle
+
+        i = i + 1
+    Next cel
+
+    CaptureRangeState = rng.Cells.Count
+    Exit Function
+
+ErrorHandler:
+    Debug.Print "UNDO ERROR i CaptureRangeState: " & Err.Description
+    CaptureRangeState = 0
+End Function
+
+' Restaurer celler fra en forhåndslagret buffer
+Public Sub RestoreRangeState(ByVal ws As Worksheet, ByRef buffer() As CellState, ByVal count As Long)
+    If ws Is Nothing Then Exit Sub
+    If count <= 0 Then Exit Sub
+
+    On Error GoTo ErrorHandler
+
+    Dim i As Long
+    Dim cel As Range
+
+    Application.ScreenUpdating = False
+    Application.EnableEvents = False
+
+    For i = 1 To count
+        If buffer(i).Address <> "" Then
+            Set cel = ws.Range(buffer(i).Address)
+
+            If Len(buffer(i).Formula) > 0 And buffer(i).Formula <> "=" Then
+                cel.Formula = buffer(i).Formula
+            Else
+                cel.Value = buffer(i).Value
+            End If
+
+            If buffer(i).InteriorColorIndex = xlColorIndexNone Then
+                cel.Interior.ColorIndex = xlColorIndexNone
+            Else
+                cel.Interior.Pattern = buffer(i).InteriorPattern
+                cel.Interior.Color = buffer(i).InteriorColor
+            End If
+
+            cel.Font.Bold = buffer(i).FontBold
+            If buffer(i).FontColorIndex = xlColorIndexAutomatic Then
+                cel.Font.ColorIndex = xlColorIndexAutomatic
+            Else
+                cel.Font.Color = buffer(i).FontColor
+            End If
+
+            cel.HorizontalAlignment = buffer(i).HorizontalAlignment
+            cel.VerticalAlignment = buffer(i).VerticalAlignment
+            cel.WrapText = buffer(i).WrapText
+
+            On Error Resume Next
+            cel.ClearComments
+            cel.DeleteThreadedComment
+            On Error GoTo ErrorHandler
+
+            If buffer(i).HasComment Then
+                On Error Resume Next
+                cel.AddComment buffer(i).CommentText
+                If Err.Number <> 0 Then
+                    Err.Clear
+                    cel.AddCommentThreaded buffer(i).CommentText
+                End If
+                On Error GoTo ErrorHandler
+            End If
+
+            cel.Borders(xlDiagonalDown).LineStyle = xlLineStyleNone
+            cel.Borders(xlDiagonalUp).LineStyle = xlLineStyleNone
+            cel.Borders(xlEdgeLeft).LineStyle = xlLineStyleNone
+            cel.Borders(xlEdgeRight).LineStyle = xlLineStyleNone
+            cel.Borders(xlEdgeTop).LineStyle = xlLineStyleNone
+            cel.Borders(xlEdgeBottom).LineStyle = xlLineStyleNone
+
+            cel.Borders(xlDiagonalDown).LineStyle = buffer(i).BorderDiagDownStyle
+            cel.Borders(xlDiagonalUp).LineStyle = buffer(i).BorderDiagUpStyle
+
+            If buffer(i).BorderLeftStyle <> xlLineStyleNone Then
+                With cel.Borders(xlEdgeLeft)
+                    .LineStyle = buffer(i).BorderLeftStyle
+                    .Weight = buffer(i).BorderLeftWeight
+                    If buffer(i).BorderLeftColorIndex = xlColorIndexAutomatic Then
+                        .ColorIndex = xlColorIndexAutomatic
+                    Else
+                        .Color = buffer(i).BorderLeftColor
+                    End If
+                End With
+            End If
+
+            If buffer(i).BorderRightStyle <> xlLineStyleNone Then
+                With cel.Borders(xlEdgeRight)
+                    .LineStyle = buffer(i).BorderRightStyle
+                    .Weight = buffer(i).BorderRightWeight
+                    If buffer(i).BorderRightColorIndex = xlColorIndexAutomatic Then
+                        .ColorIndex = xlColorIndexAutomatic
+                    Else
+                        .Color = buffer(i).BorderRightColor
+                    End If
+                End With
+            End If
+
+            If buffer(i).BorderTopStyle <> xlLineStyleNone Then
+                With cel.Borders(xlEdgeTop)
+                    .LineStyle = buffer(i).BorderTopStyle
+                    .Weight = buffer(i).BorderTopWeight
+                    If buffer(i).BorderTopColorIndex = xlColorIndexAutomatic Then
+                        .ColorIndex = xlColorIndexAutomatic
+                    Else
+                        .Color = buffer(i).BorderTopColor
+                    End If
+                End With
+            End If
+
+            If buffer(i).BorderBottomStyle <> xlLineStyleNone Then
+                With cel.Borders(xlEdgeBottom)
+                    .LineStyle = buffer(i).BorderBottomStyle
+                    .Weight = buffer(i).BorderBottomWeight
+                    If buffer(i).BorderBottomColorIndex = xlColorIndexAutomatic Then
+                        .ColorIndex = xlColorIndexAutomatic
+                    Else
+                        .Color = buffer(i).BorderBottomColor
+                    End If
+                End With
+            End If
+        End If
+    Next i
+
+Cleanup:
+    Application.EnableEvents = True
+    Application.ScreenUpdating = True
+    Exit Sub
+
+ErrorHandler:
+    Debug.Print "UNDO ERROR i RestoreRangeState: " & Err.Description
+    Err.Clear
+    GoTo Cleanup
 End Sub
 
 ' Gjenopprett siste lagrede tilstand (UNDO)

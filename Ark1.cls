@@ -83,10 +83,61 @@ Private Sub Worksheet_Change(ByVal Target As Range)
 
     If relevantEndring Is Nothing Then Exit Sub
 
-    ' STEG 5: Lagre undo-snapshot før endringer
+    ' STEG 5: Hent originaltilstand før Excel sitt drag overskriver naboer
+    Dim reapplyBuffer() As CellState
+    Dim reapplyCount As Long
+    Dim undoUtført As Boolean
+    Dim snapshotOk As Boolean
+
+    undoUtført = False
+    snapshotOk = False
+
     On Error Resume Next
-    LagUndoSnapshot relevantEndring
+    reapplyCount = UndoManager.CaptureRangeState(Target, reapplyBuffer)
+    If Err.Number <> 0 Then
+        Err.Clear
+        reapplyCount = 0
+    End If
     On Error GoTo Slutt
+
+    If reapplyCount > 0 Then
+        behandlerEndring = True
+        Application.EnableEvents = False
+
+        On Error Resume Next
+        Application.Undo
+        If Err.Number = 0 Then
+            undoUtført = True
+        Else
+            Err.Clear
+        End If
+        On Error GoTo Slutt
+
+        Application.EnableEvents = True
+        behandlerEndring = False
+
+        If undoUtført Then
+            On Error Resume Next
+            LagUndoSnapshot relevantEndring
+            If Err.Number = 0 Then
+                snapshotOk = True
+            Else
+                Err.Clear
+                snapshotOk = False
+            End If
+            On Error GoTo Slutt
+
+            behandlerEndring = True
+            UndoManager.RestoreRangeState Me, reapplyBuffer, reapplyCount
+            behandlerEndring = False
+        End If
+    End If
+
+    If Not snapshotOk Then
+        On Error Resume Next
+        LagUndoSnapshot relevantEndring
+        On Error GoTo Slutt
+    End If
 
     ' STEG 6: Sett beskyttelsesflagg og disable events
     behandlerEndring = True
