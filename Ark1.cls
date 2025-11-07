@@ -5,8 +5,7 @@
 ' FORMÅL:
 '   - Markerer dagens dato når arket aktiveres
 '   - Håndterer drag/drop og paste av aktiviteter
-'   - Håndterer splits når aktiviteter klipper (cut)
-'   - Delete-tasten delegeres til FjernMarkert
+'   - Delete og Cut delegeres til FjernMarkert
 '
 ' FUNKSJONALITET:
 '   Drag & Drop / Paste:
@@ -15,16 +14,10 @@
 '   - Reparerer overlappende aktiviteter
 '   - Bevarer all formatering og kommentarer
 '
-'   Delete-håndtering:
-'   - Delete på fargede celler delegeres til FjernAktivitetPåMarkering
-'   - All delete-logikk er i FjernMarkert.bas for konsistens
-'
-'   Split-håndtering (når aktiviteter kuttes):
-'   - Splittede aktiviteter viser aktivitetsnavn i ALLE segmenter
-'   - BEHOLDER kommentarer: Hvis aktivitet har custom beskrivelse (kommentar),
-'     vises denne i alle segmenter i stedet for standard beskrivelse
-'   - Hvert segment får riktig formatering (alignment, font, farge)
-'   - Tekst "blør" ikke over hvite celler
+'   Delete/Cut håndtering:
+'   - Delete og Cut på fargede celler delegeres til FjernAktivitetPåMarkering
+'   - All delete/cut/split-logikk er i FjernMarkert.bas for konsistens
+'   - Worksheet_Change fokuserer BARE på paste og drag/drop
 ' ============================================================================
 
 Option Explicit
@@ -48,7 +41,7 @@ Private Sub Worksheet_Activate()
 End Sub
 
 ' ============================================================================
-' EVENT: Når bruker endrer en celle (Delete, Cut, etc.)
+' EVENT: Når bruker endrer en celle (Paste, Drag/Drop)
 ' ============================================================================
 Private Sub Worksheet_Change(ByVal Target As Range)
     On Error GoTo Slutt
@@ -228,8 +221,6 @@ Private Sub Worksheet_Change(ByVal Target As Range)
 
     ' STEG 6: Behandle hver endret celle
     Dim c As Range
-    Dim splittRader As Object
-    Set splittRader = CreateObject("Scripting.Dictionary")
 
     ' Dictionary for å tracke celler som allerede er behandlet (paste multi-celle fix)
     Dim behandledeCeller As Object
@@ -257,27 +248,6 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                 relevantEndring.Select
                 Call FjernAktivitetPåMarkering
                 Exit Sub
-            Else
-                ' TILFELLE 2: Tom hvit celle (Fjern markert område / Cut ble brukt)
-                ' Sjekk om den har aktivitetsfarge til venstre eller høyre (split)
-                Dim harAktivVenstre As Boolean, harAktivHøyre As Boolean
-                harAktivVenstre = False
-                harAktivHøyre = False
-
-                If c.Column > førsteDatoKol Then
-                    If HarAktivitetsfarge(c.Offset(0, -1)) Then harAktivVenstre = True
-                End If
-                If c.Column < Me.Columns.Count Then
-                    If HarAktivitetsfarge(c.Offset(0, 1)) Then harAktivHøyre = True
-                End If
-
-                ' Hvis det er en split, marker raden for håndtering
-                If (harAktivVenstre Or harAktivHøyre) And Not splittRader.Exists(c.Row) Then
-                    splittRader.Add c.Row, c.Row
-                End If
-
-                ' Restaurer rutenett for tom hvit celle (f.eks. etter cut)
-                Call RestaurerRutenettForCelle(c)
             End If
         Else
             ' TILFELLE 3: Celle har fått innhold (paste/drag/typing)
@@ -639,13 +609,6 @@ SkipActivity:
         End If
 NesteCelle:
     Next c
-
-    ' STEG 6B: Håndter splits (når hvite celler lages midt i aktivitet)
-    ' Behandle hver rad kun ÉN gang
-    Dim radNr As Variant
-    For Each radNr In splittRader.Keys
-        Call HåndterAlleAktiviteterMedSplitIRad(CLng(radNr), førsteDatoKol, datoRad, Nothing)
-    Next radNr
 
 Slutt:
     ' STEG 7: Re-enable events og fjern beskyttelsesflagg
