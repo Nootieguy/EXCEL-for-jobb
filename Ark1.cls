@@ -827,7 +827,12 @@ NesteCelle:
             Set celCleanup = Me.Cells(CLng(radKeyCleanup), CLng(colCleanup))
 
             ' Sjekk om cellen fortsatt har farge (ikke håndtert av split-logikk)
-            If celCleanup.Interior.ColorIndex <> xlColorIndexNone Then
+            ' Sjekk både ColorIndex OG Color property
+            Dim celFargeCleanup As Long
+            celFargeCleanup = celCleanup.Interior.Color
+
+            If celCleanup.Interior.ColorIndex <> xlColorIndexNone Or _
+               (celFargeCleanup <> RGB(255, 255, 255) And celFargeCleanup <> 16777215) Then
                 If DEBUG_MODE Then
                     Debug.Print "Rydder opp celle som ikke ble håndtert: " & celCleanup.Address
                 End If
@@ -2007,11 +2012,14 @@ Private Function RadErTomIAlleDatoKolonner(ByVal radNr As Long, ByVal førsteDat
         End If
 
         ' Sjekk om celle har farge (ikke hvit)
-        If cel.Interior.ColorIndex <> xlColorIndexNone Then
-            If cel.Interior.Color <> RGB(255, 255, 255) Then
-                RadErTomIAlleDatoKolonner = False
-                Exit Function
-            End If
+        ' Sjekk både ColorIndex OG Color property
+        Dim celFargeCheck As Long
+        celFargeCheck = cel.Interior.Color
+
+        If cel.Interior.ColorIndex <> xlColorIndexNone Or _
+           (celFargeCheck <> RGB(255, 255, 255) And celFargeCheck <> 16777215) Then
+            RadErTomIAlleDatoKolonner = False
+            Exit Function
         End If
     Next c
 
