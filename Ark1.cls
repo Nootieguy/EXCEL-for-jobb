@@ -378,15 +378,6 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                             If DEBUG_MODE Then
                                 Debug.Print "OVERLAPP: Høyre nabo har bold tekst (samme type aktivitet)"
                             End If
-                        ElseIf FargeAvstand(høyreNabo.Interior.Color, dragFarge) <= 10 Then
-                            ' VIKTIG: Samme farge som høyre nabo
-                            ' Hvis denne cellen (c) har bold, kan høyre nabo være delvis ødelagt aktivitet
-                            If c.Font.Bold And Len(Trim$(c.Value)) > 0 Then
-                                harOverlapp = True
-                                If DEBUG_MODE Then
-                                    Debug.Print "OVERLAPP: Partial overlap høyre (samme farge, denne har bold)"
-                                End If
-                            End If
                         End If
                     End If
                 End If
@@ -407,16 +398,6 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                             harOverlapp = True
                             If DEBUG_MODE Then
                                 Debug.Print "OVERLAPP: Venstre nabo har bold tekst (samme type aktivitet)"
-                            End If
-                        ElseIf FargeAvstand(venstreNabo.Interior.Color, dragFarge) <= 10 Then
-                            ' VIKTIG: Samme farge som venstre nabo
-                            ' Hvis DENNE cellen (c) har bold tekst, er det sannsynligvis partial overlap
-                            ' (venstre aktivitet mistet bold under Excel's replace)
-                            If c.Font.Bold And Len(Trim$(c.Value)) > 0 Then
-                                harOverlapp = True
-                                If DEBUG_MODE Then
-                                    Debug.Print "OVERLAPP: Partial overlap detektert (samme farge, denne har bold)"
-                                End If
                             End If
                         End If
                     End If
@@ -544,13 +525,13 @@ Private Sub Worksheet_Change(ByVal Target As Range)
                                 Else
                                     ' Ingen eksisterende tekst funnet
                                     ' Dette kan skje når Excel tømmer celler under drag & drop
-                                    ' HOPP OVER denne aktiviteten - ikke endre den
-                                    debugMsg = debugMsg & "  Hopper over (ingen tekst funnet)" & vbCrLf
-                                    debugMsg = debugMsg & vbCrLf
-
-                                    ' Hopp til slutten av denne aktiviteten
-                                    overlapScanCol = aktSluttCol + 1
-                                    GoTo SkipActivity
+                                    ' IKKE bruk standard beskrivelse - sett kun aktivitetskoden
+                                    ' (beholder custom beskrivelse hvis den var der før)
+                                    If Len(riktigKode) > 0 Then
+                                        riktigTekst = riktigKode
+                                    Else
+                                        riktigTekst = ""
+                                    End If
                                 End If
 
                                 If Len(riktigTekst) > 0 Then
@@ -561,7 +542,7 @@ Private Sub Worksheet_Change(ByVal Target As Range)
 
                                 ' ALLTID fiks formateringen for å isolere denne aktiviteten
                                 ' Selv om teksten er riktig, må vi sikre at xlCenterAcrossSelection
-                                ' ikke spreder seg utenfor denne aktivitetets område
+                                ' ikke spreder seg utenfor denne aktivitetens område
 
                                 ' Sett riktig tekst i første celle
                                 overlapScanCel.Value = riktigTekst
@@ -587,7 +568,6 @@ Private Sub Worksheet_Change(ByVal Target As Range)
 
                                 debugMsg = debugMsg & vbCrLf
 
-SkipActivity:
                                 ' Hopp til slutten av denne aktiviteten
                                 overlapScanCol = aktSluttCol + 1
                             Else
@@ -1802,6 +1782,9 @@ Public Sub ResetEventHandler()
     Application.EnableEvents = True
     Debug.Print "Event handler reset - Ark1 (Planlegger med aktivitetsbeskyttelse)"
 End Sub
+
+
+
 
 
 
